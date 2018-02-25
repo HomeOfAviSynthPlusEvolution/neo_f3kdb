@@ -7,7 +7,6 @@
 #include "constants.h"
 #include "random.h"
 #include "impl_dispatch.h"
-#include "icc_override.h"
 
 #ifdef _WIN32
 #include <intrin.h>
@@ -238,7 +237,7 @@ f3kdb_core_t::~f3kdb_core_t()
 static __inline int select_impl_index(int sample_mode, bool blur_first)
 {
     assert(sample_mode != 0);
-	return sample_mode * 2 + (blur_first ? 0 : 1) - 1;
+    return sample_mode * 2 + (blur_first ? 0 : 1) - 1;
 }
 
 static process_plane_impl_t get_process_plane_impl(int sample_mode, bool blur_first, int opt, int dither_algo)
@@ -262,8 +261,6 @@ static process_plane_impl_t get_process_plane_impl(int sample_mode, bool blur_fi
 
 void f3kdb_core_t::init(void) 
 {
-    ___intel_cpu_indicator_init();
-
     init_context(&_y_context);
     init_context(&_cb_context);
     init_context(&_cr_context);

@@ -36,7 +36,7 @@ static const VSFrameRef *VS_CC f3kdbGetFrame(int n, int activationReason, void *
             {
                 char msg[1024];
                 memset(msg, 0, sizeof(msg));
-                _snprintf(msg, sizeof(msg) - 1, "f3kdb: Error while processing plane, f3kdb_plane: %d, code: %d", f3kdb_plane, result);
+                snprintf(msg, sizeof(msg) - 1, "f3kdb: Error while processing plane, f3kdb_plane: %d, code: %d", f3kdb_plane, result);
                 vsapi->setFilterError(msg, frameCtx);
                 return 0;
             }
@@ -141,7 +141,7 @@ static void VS_CC f3kdbCreate(const VSMap *in, VSMap *out, void *userData, VSCor
     {
         char vs_err_msg[2048];
         memset(vs_err_msg, 0, sizeof(vs_err_msg));
-        _snprintf(vs_err_msg, sizeof(vs_err_msg) - 1, "f3kdb: Core initialization failed, code = %d. %s", result, error_msg);
+        snprintf(vs_err_msg, sizeof(vs_err_msg) - 1, "f3kdb: Core initialization failed, code = %d. %s", result, error_msg);
         vsapi->setError(out, vs_err_msg);
         vsapi->freeNode(node);
         return;

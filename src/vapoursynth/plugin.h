@@ -50,7 +50,7 @@ inline bool param_from_vsmap(T* target, const char* name, const VSMap* in, VSMap
     auto _set_error = [=](const char* message) {
         char error_msg[1024];
         memset(error_msg, 0, sizeof(error_msg));
-        _snprintf(error_msg, sizeof(error_msg) - 1, message, name, error);
+        snprintf(error_msg, sizeof(error_msg) - 1, message, name, error);
         vsapi->setError(out, error_msg);
     };
 

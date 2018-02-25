@@ -4,7 +4,6 @@
 #include "sse_compat.h"
 #include "sse_utils.h"
 #include "dither_high.h"
-#include "x64_compat.h"
 #include "debug_dump.h"
 
 /****************************************************************************
@@ -641,7 +640,7 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
     if (!use_cached_info && !context->data && cache)
     {
         context->destroy = destroy_cache;
-        if (InterlockedCompareExchangePointer(&context->data, cache, NULL) != NULL)
+        if (_InterlockedCompareExchangePointer(&context->data, cache, NULL) != NULL)
         {
             // other thread has completed first, so we can destroy our copy
             destroy_cache(cache);
@@ -671,7 +670,7 @@ static void process_plane_sse_impl_stub1(const process_plane_params& params, pro
 template<int sample_mode, bool blur_first, int dither_algo>
 static void __cdecl process_plane_sse_impl(const process_plane_params& params, process_plane_context* context)
 {
-    if ( ( (POINTER_INT)params.src_plane_ptr & (PLANE_ALIGNMENT - 1) ) == 0 && (params.src_pitch & (PLANE_ALIGNMENT - 1) ) == 0 )
+    if ( ( (intptr_t)params.src_plane_ptr & (PLANE_ALIGNMENT - 1) ) == 0 && (params.src_pitch & (PLANE_ALIGNMENT - 1) ) == 0 )
     {
         process_plane_sse_impl_stub1<sample_mode, blur_first, dither_algo, true>(params, context);
     } else {
