@@ -73,7 +73,7 @@ static __forceinline void process_plane_info_block(
     {
     case 0:
         // ref1 = (abs(ref1) >> height_subsampling) * (sign(ref1))
-        temp_ref1 = _mm_abs_epi32(ref1);
+        temp_ref1 = _cmm_abs_epi32(ref1);
         temp_ref1 = _mm_sra_epi32(temp_ref1, height_subsample_vector);
         temp_ref1 = _cmm_mullo_limit16_epi32(temp_ref1, _mm_srai_epi32(ref1, 31));
         ref_offset1 = _cmm_mullo_limit16_epi32(src_pitch_vector, temp_ref1); // packed DWORD multiplication

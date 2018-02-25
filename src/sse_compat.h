@@ -41,10 +41,9 @@ static __m128i __forceinline _cmm_mullo_limit16_epi32(__m128i a, __m128i b)
 
 #if !defined(SSE_LIMIT) || SSE_LIMIT >= 31
 
-static __m128i __forceinline _cmm_negate_all_epi32(__m128i a, __m128i minus_one)
-{
-    return _mm_sign_epi32(a, minus_one);
-}
+#define _cmm_negate_all_epi32 _mm_sign_epi32
+
+#define _cmm_abs_epi32 _mm_abs_epi32
 
 #else
 
@@ -53,7 +52,7 @@ static __m128i __forceinline _cmm_negate_all_epi32(__m128i a, __m128i minus_one)
     return _mm_sub_epi32(_mm_setzero_si128(), a);
 }
 
-static __m128i __forceinline _mm_abs_epi32 (__m128i a)
+static __m128i __forceinline _cmm_abs_epi32 (__m128i a)
 {
     __m128i mask = _mm_srai_epi32(a, 31);
     __m128i fix = _mm_srli_epi32(a, 31);
