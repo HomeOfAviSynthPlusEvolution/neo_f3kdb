@@ -111,13 +111,12 @@ namespace dither_high
             return _mm_adds_epu16(pixels, threshold);
             }
         case DA_HIGH_FLOYD_STEINBERG_DITHERING:
+            // fixme, remove shitty compat
             // due to an ICC bug, accessing pixels using union will give us incorrect results
             // so we have to use a buffer here
             // tested on ICC 12.0.1024.2010
-            alignas(16)
-            unsigned short buffer[8];
+            alignas(16) unsigned short buffer[8];
             _mm_store_si128((__m128i*)buffer, pixels);
-            __PRAGMA_NOUNROLL__
             for (int i = 0; i < 8; i++)
             {
                 buffer[i] = (unsigned short)pixel_proc_high_f_s_dithering::dither(context, buffer[i], row, column + i);
@@ -133,6 +132,7 @@ namespace dither_high
         }
     }
 
+    // fixme, remove yuy2?
     template <int dither_algo>
     static __forceinline __m128i dither_yuy2(char contexts[3][CONTEXT_BUFFER_SIZE], __m128i pixels, int row, int column)
     {
@@ -146,6 +146,7 @@ namespace dither_high
             assert((column & 7) == 0);
             return _mm_adds_epu16(pixels, _ordered_dithering_threshold_map_yuy2[row & 15][(column >> 3) & 7]);
         case DA_HIGH_FLOYD_STEINBERG_DITHERING:
+            // fixme, remove shitty compat
             // due to an ICC bug, accessing pixels using union will give us incorrect results
             // so we have to use a buffer here
             // tested on ICC 12.0.1024.2010

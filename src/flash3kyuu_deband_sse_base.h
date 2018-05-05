@@ -4,7 +4,6 @@
 #include "sse_compat.h"
 #include "sse_utils.h"
 #include "dither_high.h"
-#include "debug_dump.h"
 
 /****************************************************************************
  * NOTE: DON'T remove static from any function in this file, it is required *
@@ -25,22 +24,6 @@ static void destroy_cache(void* data)
     _aligned_free(cache->data_stream);
     free(data);
 }
-
-#ifdef ENABLE_DEBUG_DUMP
-
-static void __forceinline _dump_value_group(const TCHAR* name, __m128i part1, bool is_signed=false)
-{
-    DUMP_VALUE_S(name, part1, 2, is_signed);
-}
-
-#define DUMP_VALUE_GROUP(name, ...) _dump_value_group(TEXT(name), __VA_ARGS__)
-
-#else
-
-#define DUMP_VALUE_GROUP(name, ...) ((void)0)
-
-#endif
-
 
 template <int sample_mode, int ref_part_index>
 static __forceinline void process_plane_info_block(
@@ -63,8 +46,6 @@ static __forceinline void process_plane_info_block(
     ref1 = _mm_slli_epi32(ref1, 24); // << 24
     ref1 = _mm_srai_epi32(ref1, 24); // >> 24
 
-    DUMP_VALUE("ref1", ref1, 4, true);
-
     __m128i ref_offset1;
     __m128i ref_offset2;
 
@@ -77,13 +58,11 @@ static __forceinline void process_plane_info_block(
         temp_ref1 = _mm_sra_epi32(temp_ref1, height_subsample_vector);
         temp_ref1 = _cmm_mullo_limit16_epi32(temp_ref1, _mm_srai_epi32(ref1, 31));
         ref_offset1 = _cmm_mullo_limit16_epi32(src_pitch_vector, temp_ref1); // packed DWORD multiplication
-        DUMP_VALUE("ref_pos", ref_offset1, 4, true);
         break;
     case 1:
         // ref1 is guarenteed to be postive
         temp_ref1 = _mm_sra_epi32(ref1, height_subsample_vector);
         ref_offset1 = _cmm_mullo_limit16_epi32(src_pitch_vector, temp_ref1); // packed DWORD multiplication
-        DUMP_VALUE("ref_pos", ref_offset1, 4, true);
 
         ref_offset2 = _cmm_negate_all_epi32(ref_offset1, minus_one); // negates all offsets
         break;
@@ -101,14 +80,12 @@ static __forceinline void process_plane_info_block(
         ref2_fix = _mm_sra_epi32(ref2, height_subsample_vector);
         ref_offset1 = _cmm_mullo_limit16_epi32(src_pitch_vector, ref2_fix); // packed DWORD multiplication
         ref_offset1 = _mm_add_epi32(ref_offset1, _mm_sll_epi32(ref1_fix, pixel_step_shift_bits));
-        DUMP_VALUE("ref_pos", ref_offset1, 4, true);
 
         // ref_px_2 = info.ref2 - src_pitch * info.ref1;
         ref1_fix = _mm_sra_epi32(ref1, height_subsample_vector);
         ref2_fix = _mm_sra_epi32(ref2, width_subsample_vector);
         ref_offset2 = _cmm_mullo_limit16_epi32(src_pitch_vector, ref1_fix); // packed DWORD multiplication
         ref_offset2 = _mm_sub_epi32(_mm_sll_epi32(ref2_fix, pixel_step_shift_bits), ref_offset2);
-        DUMP_VALUE("ref_pos_2", ref_offset2, 4, true);
         break;
     default:
         abort();
@@ -187,8 +164,6 @@ static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels,
     {
         use_orig_pixel_blend_mask = generate_blend_mask_high(src_pixels, avg, threshold_vector);
     }
-    
-    DUMP_VALUE("avg", avg, 2, false);
 
     // if mask is 0xff (NOT over threshold), select second operand, otherwise select first
     // note this is different from low bitdepth code
@@ -234,9 +209,6 @@ static __m128i __forceinline process_pixels(
          ref_pixels_2_0, 
          ref_pixels_3_0, 
          ref_pixels_4_0);
-    
-    DUMP_VALUE_GROUP("new_pixel_before_downsample", ret);
-
     
     switch (dither_algo)
     {
@@ -444,8 +416,6 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
 {
     assert(sample_mode > 0);
 
-    DUMP_INIT("sse", params.plane, params.plane_width_in_pixels);
-
     pixel_dither_info* info_ptr = params.info_ptr_base;
 
     __m128i src_pitch_vector = _mm_set1_epi32(params.src_pitch);
@@ -600,14 +570,6 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
             }
 
             change_1 = _mm_load_si128((__m128i*)grain_buffer_ptr);
-            
-            DUMP_VALUE_GROUP("change", change_1, true);
-            DUMP_VALUE_GROUP("ref_1_up", ref_pixels_1_0);
-            DUMP_VALUE_GROUP("ref_2_up", ref_pixels_2_0);
-            DUMP_VALUE_GROUP("ref_3_up", ref_pixels_3_0);
-            DUMP_VALUE_GROUP("ref_4_up", ref_pixels_4_0);
-
-            DUMP_VALUE_GROUP("src_px_up", src_pixels);
 
             __m128i dst_pixels = process_pixels<sample_mode, blur_first, dither_algo>(
                                      src_pixels, 
@@ -630,7 +592,6 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
             src_px += params.input_mode != HIGH_BIT_DEPTH_INTERLEAVED ? 8 : 16;
             grain_buffer_ptr += 8;
         }
-        DUMP_NEXT_LINE();
         dither_high::next_row<dither_algo>(context_buffer);
     }
     
@@ -646,8 +607,6 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
             destroy_cache(cache);
         }
     }
-
-    DUMP_FINISH();
 }
 
 

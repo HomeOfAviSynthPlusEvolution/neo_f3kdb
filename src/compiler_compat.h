@@ -10,18 +10,9 @@
 #define EXPECT(x, val)  (x)
 #endif
 
-#ifdef __INTEL_COMPILER
-#define __PRAGMA_NOUNROLL__ __pragma(nounroll)
-#else
-#define __PRAGMA_NOUNROLL__
-#endif
-
-#if defined(__GNUC__) || defined(__clang__)
+#ifndef _MSC_VER
 #include <cstring>
 #include <stdio.h>
-
-#define stricmp strcasecmp
-#define strnicmp strncasecmp
 #define _stricmp strcasecmp
 #define _strnicmp strncasecmp
 #endif
