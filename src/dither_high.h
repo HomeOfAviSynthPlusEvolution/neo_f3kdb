@@ -18,7 +18,7 @@ namespace dither_high
 
     static __inline void init_ordered_dithering()
     {
-        if (UNLIKELY(!_threshold_map_initialized)) {
+        if (!_threshold_map_initialized) {
             __m128i threhold_row;
             __m128i zero = _mm_setzero_si128();
             for (int i = 0; i < 16; i++) 

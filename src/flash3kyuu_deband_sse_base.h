@@ -524,7 +524,7 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
 
             char * data_stream_block_start;
 
-            if (LIKELY(use_cached_info)) {
+            if (use_cached_info) {
                 data_stream_block_start = info_data_stream;
                 info_data_stream += info_cache_block_size;
             } else {
@@ -556,7 +556,7 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
             __m128i src_pixels;
             // abuse the guard bytes on the end of frame, as long as they are present there won't be segfault
             // garbage data is not a problem
-            if (LIKELY(input_mode == LOW_BIT_DEPTH))
+            if (input_mode == LOW_BIT_DEPTH)
             {
                 READ_REFS(data_stream_block_start, LOW_BIT_DEPTH);
                 src_pixels = read_pixels<LOW_BIT_DEPTH, aligned>(params, src_px, upsample_to_16_shift_bits);
