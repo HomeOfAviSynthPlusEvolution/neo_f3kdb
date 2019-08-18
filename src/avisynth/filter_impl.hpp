@@ -1,5 +1,3 @@
-#include "stdafx.h"
-
 #include <intrin.h>
 #include <process.h>
 #include <windows.h>

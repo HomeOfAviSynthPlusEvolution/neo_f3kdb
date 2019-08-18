@@ -1,5 +1,3 @@
-#include "stdafx.h"
-
 #include <tmmintrin.h>
 
 #define SSE_LIMIT 31

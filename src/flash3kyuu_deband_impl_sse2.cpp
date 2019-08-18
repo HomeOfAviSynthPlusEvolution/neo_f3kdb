@@ -1,5 +1,3 @@
-#include "stdafx.h"
-
 #include <emmintrin.h>
 
 #define SSE_LIMIT 20

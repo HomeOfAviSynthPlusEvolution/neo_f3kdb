@@ -1,5 +1,3 @@
-#include "stdafx.h"
-
 #include "process_plane_context.h"
 
 #include <cstring>

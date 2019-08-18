@@ -1,5 +1,3 @@
-#include "stdafx.h"
-
 #include <stdio.h>
 
 #ifdef ENABLE_DEBUG_DUMP

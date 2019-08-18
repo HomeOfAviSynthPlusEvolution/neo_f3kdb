@@ -1,5 +1,3 @@
-#include "stdafx.h"
-
 // we intend the C version to be usable on most CPUs
 #define NO_SSE
 
