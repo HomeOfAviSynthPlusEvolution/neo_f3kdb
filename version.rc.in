@@ -1,0 +1,31 @@
+#include <winver.h>
+#include <ntdef.h>
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION             1,0,0,0
+PRODUCTVERSION          1,0,0,0
+FILEFLAGSMASK           VS_FFI_FILEFLAGSMASK
+FILEFLAGS               0
+FILEOS                  VOS__WINDOWS32
+FILETYPE                VFT_DLL
+FILESUBTYPE             VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+        VALUE "Comments",         "neo-f3kdb"
+        VALUE "CompanyName",      ""
+        VALUE "FileDescription",  "neo-f3kdb"
+        VALUE "FileVersion",      "@VERSION@"
+        VALUE "InternalName",     "neo-f3kdb"
+        VALUE "OriginalFilename", "neo-f3kdb.dll"
+        VALUE "ProductName",      "neo-f3kdb"
+        VALUE "ProductVersion",   "@VERSION@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409,1200
+    END
+END
