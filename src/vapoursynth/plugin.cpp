@@ -161,7 +161,7 @@ static void VS_CC f3kdbCreate(const VSMap *in, VSMap *out, void *userData, VSCor
     context->vi = vi;
     context->vi.format = new_format;
 
-    vsapi->createFilter(in, out, "f3kdb", f3kdbInit, f3kdbGetFrame, f3kdbFree, fmParallel, 0, context, core);
+    vsapi->createFilter(in, out, "neo_f3kdb", f3kdbInit, f3kdbGetFrame, f3kdbFree, fmParallel, 0, context, core);
     return;
 }
 
@@ -169,6 +169,6 @@ static void VS_CC f3kdbCreate(const VSMap *in, VSMap *out, void *userData, VSCor
 // Init
 
 VS_EXTERNAL_API(void) VapourSynthPluginInit(VSConfigPlugin configFunc, VSRegisterFunction registerFunc, VSPlugin *plugin) {
-    configFunc("net.sapikachu.f3kdb", "f3kdb", "flash3kyuu_deband", VAPOURSYNTH_API_VERSION, 1, plugin);
+    configFunc("in.7086.neo_f3kdb", "neo_f3kdb", "Neo f3kdb", VAPOURSYNTH_API_VERSION, 1, plugin);
     registerFunc("Deband", F3KDB_VAPOURSYNTH_PARAMS, f3kdbCreate, 0, plugin);
 }
