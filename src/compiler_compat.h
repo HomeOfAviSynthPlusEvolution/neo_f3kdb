@@ -27,6 +27,13 @@ static inline void* _aligned_malloc(size_t size, size_t alignment)
 #define _aligned_free free
 #else
 #include <intrin.h>
+    // ICL complains about unresolved external symbol
+    #if __INTEL_COMPILER && !_WIN64
+    __forceinline void* _InterlockedCompareExchangePointer(
+        void* volatile *Destination, void* Exchange, void* Comperand) {
+    return (void*) _InterlockedCompareExchange((long volatile *) Destination, (long) Exchange, (long) Comperand);
+    }
+    #endif
 #endif
 
 
