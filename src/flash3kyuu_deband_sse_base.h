@@ -9,6 +9,8 @@
  *       for generating code in multiple SSE versions.                      *
  ****************************************************************************/
 
+#define process_34 (sample_mode == 2 || sample_mode == 4)
+
 typedef struct _info_cache
 {
     int pitch;
@@ -62,8 +64,16 @@ static __forceinline void process_plane_info_block(
         // ref1 is guarenteed to be postive
         temp_ref1 = _mm_sra_epi32(ref1, height_subsample_vector);
         ref_offset1 = _mm_mullo_epi32(src_pitch_vector, temp_ref1); // packed DWORD multiplication
-
-        ref_offset2 = _mm_sign_epi32(ref_offset1, minus_one); // negates all offsets
+        break;
+    case 3:
+        temp_ref1 = _mm_sra_epi32(ref1, width_subsample_vector);
+        ref_offset1 = _mm_sll_epi32(temp_ref1, pixel_step_shift_bits);
+        break;
+    case 4:
+        temp_ref1 = _mm_sra_epi32(ref1, height_subsample_vector);
+        ref_offset1 = _mm_mullo_epi32(src_pitch_vector, temp_ref1);
+        temp_ref1 = _mm_sra_epi32(ref1, width_subsample_vector);
+        ref_offset2 = _mm_sll_epi32(temp_ref1, pixel_step_shift_bits);
         break;
     case 2:
         // ref2: bit 8-15
@@ -94,7 +104,7 @@ static __forceinline void process_plane_info_block(
         _mm_store_si128((__m128i*)info_data_stream, ref_offset1);
         info_data_stream += 16;
 
-        if (sample_mode == 2) {
+        if (sample_mode == 2 || sample_mode == 4) {
             _mm_store_si128((__m128i*)info_data_stream, ref_offset2);
             info_data_stream += 16;
         }
@@ -125,51 +135,65 @@ static __forceinline __m128i generate_blend_mask_high(__m128i a, __m128i b, __m1
 template<int sample_mode, bool blur_first>
 static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels, __m128i threshold_vector, __m128i change, const __m128i& ref_pixels_1, const __m128i& ref_pixels_2, const __m128i& ref_pixels_3, const __m128i& ref_pixels_4)
 {
-    __m128i use_orig_pixel_blend_mask;
-    __m128i avg;
+    __m128i use_orig_pixel_blend_mask_12, use_orig_pixel_blend_mask_34;
+    __m128i avg_12, avg_34;
+    __m128i dst_pixels;
 
-    if (!blur_first)
-    {
-        use_orig_pixel_blend_mask = generate_blend_mask_high(src_pixels, ref_pixels_1, threshold_vector);
-
-        // note: use AND instead of OR, because two operands are reversed
-        // (different from low bit-depth mode!)
-        use_orig_pixel_blend_mask = _mm_and_si128(
-            use_orig_pixel_blend_mask, 
-            generate_blend_mask_high(src_pixels, ref_pixels_2, threshold_vector) );
-    }
-
-    avg = _mm_avg_epu16(ref_pixels_1, ref_pixels_2);
-
-    if (sample_mode == 2)
+    if (true)
     {
         if (!blur_first)
         {
-            use_orig_pixel_blend_mask = _mm_and_si128(
-                use_orig_pixel_blend_mask, 
-                generate_blend_mask_high(src_pixels, ref_pixels_3, threshold_vector) );
+            // note: use AND instead of OR, because two operands are reversed
+            // (different from low bit-depth mode!)
+            use_orig_pixel_blend_mask_12 = _mm_and_si128(
+                generate_blend_mask_high(src_pixels, ref_pixels_1, threshold_vector),
+                generate_blend_mask_high(src_pixels, ref_pixels_2, threshold_vector) );
+        }
 
-            use_orig_pixel_blend_mask = _mm_and_si128(
-                use_orig_pixel_blend_mask, 
+        avg_12 = _mm_avg_epu16(ref_pixels_1, ref_pixels_2);
+    }
+
+    if (process_34)
+    {
+        if (!blur_first)
+        {
+            use_orig_pixel_blend_mask_34 = _mm_and_si128(
+                generate_blend_mask_high(src_pixels, ref_pixels_3, threshold_vector),
                 generate_blend_mask_high(src_pixels, ref_pixels_4, threshold_vector) );
         }
 
-        avg = _mm_subs_epu16(avg, _mm_set1_epi16(1));
-        avg = _mm_avg_epu16(avg, _mm_avg_epu16(ref_pixels_3, ref_pixels_4));
+        avg_34 = _mm_avg_epu16(ref_pixels_3, ref_pixels_4);
+    }
 
+    if (sample_mode == 2)
+    {
+        // merge 34 into 12 for mode 2
+        if (!blur_first)
+            use_orig_pixel_blend_mask_12 = _mm_and_si128(use_orig_pixel_blend_mask_12, use_orig_pixel_blend_mask_34 );
+        avg_12 = _mm_subs_epu16(avg_12, _mm_set1_epi16(1));
+        avg_12 = _mm_avg_epu16(avg_12, avg_34);
     }
 
     if (blur_first)
+        use_orig_pixel_blend_mask_12 = generate_blend_mask_high(src_pixels, avg_12, threshold_vector);
+
+    if (process_34 && blur_first)
+        use_orig_pixel_blend_mask_34 = generate_blend_mask_high(src_pixels, avg_34, threshold_vector);
+    
+    if (sample_mode == 4)
     {
-        use_orig_pixel_blend_mask = generate_blend_mask_high(src_pixels, avg, threshold_vector);
+        // average dst_12 and dst_34 for mode 4
+        __m128i dst_pixels_12 = _mm_blendv_epi8(src_pixels, avg_12, use_orig_pixel_blend_mask_12);
+        __m128i dst_pixels_34 = _mm_blendv_epi8(src_pixels, avg_34, use_orig_pixel_blend_mask_34);
+        dst_pixels = _mm_avg_epu16(dst_pixels_12, dst_pixels_34);
+    }
+    else
+    {
+        // if mask is 0xff (NOT over threshold), select second operand, otherwise select first
+        // note this is different from low bitdepth code
+        dst_pixels = _mm_blendv_epi8(src_pixels, avg_12, use_orig_pixel_blend_mask_12);
     }
 
-    // if mask is 0xff (NOT over threshold), select second operand, otherwise select first
-    // note this is different from low bitdepth code
-    __m128i dst_pixels;
-
-    dst_pixels = _mm_blendv_epi8(src_pixels, avg, use_orig_pixel_blend_mask);
-    
     __m128i sign_convert_vector = _mm_set1_epi16((short)0x8000);
 
     // convert to signed form, since change is signed
@@ -299,8 +323,6 @@ static __m128i __forceinline read_pixels(
 
 template<PIXEL_MODE input_mode>
 static unsigned short __forceinline read_pixel(
-    int plane_height_in_pixels,
-    int src_pitch,
     const unsigned char* base,
     int offset)
 {
@@ -364,9 +386,6 @@ static void __forceinline read_reference_pixels(
     //  1 1 1 1
     //  2 2 2 2]
 
-    int plane_height_in_pixels = params.plane_height_in_pixels;
-    int src_pitch = params.src_pitch;
-
     int i_fix = 0;
     int i_fix_step = (input_mode != HIGH_BIT_DEPTH_INTERLEAVED ? 1 : 2);
     
@@ -375,17 +394,19 @@ static void __forceinline read_reference_pixels(
         switch (sample_mode)
         {
         case 0:
-            tmp_1[i] = read_pixel<input_mode>(plane_height_in_pixels, src_pitch, src_px_start, i_fix + *(int*)(info_data_start + 4 * i));
+            tmp_1[i] = read_pixel<input_mode>(src_px_start, i_fix + *(int*)(info_data_start + 4 * i));
             break;
         case 1:
-            tmp_1[i] = read_pixel<input_mode>(plane_height_in_pixels, src_pitch, src_px_start, i_fix + *(int*)(info_data_start + 4 * i));
-            tmp_2[i] = read_pixel<input_mode>(plane_height_in_pixels, src_pitch, src_px_start, i_fix + -*(int*)(info_data_start + 4 * i));
+        case 3:
+            tmp_1[i] = read_pixel<input_mode>(src_px_start, i_fix + *(int*)(info_data_start + 4 * i));
+            tmp_2[i] = read_pixel<input_mode>(src_px_start, i_fix + -*(int*)(info_data_start + 4 * i));
             break;
         case 2:
-            tmp_1[i] = read_pixel<input_mode>(plane_height_in_pixels, src_pitch, src_px_start, i_fix + *(int*)(info_data_start + 4 * (i + i / 4 * 4)));
-            tmp_2[i] = read_pixel<input_mode>(plane_height_in_pixels, src_pitch, src_px_start, i_fix + *(int*)(info_data_start + 4 * (i + i / 4 * 4 + 4)));
-            tmp_3[i] = read_pixel<input_mode>(plane_height_in_pixels, src_pitch, src_px_start, i_fix + -*(int*)(info_data_start + 4 * (i + i / 4 * 4)));
-            tmp_4[i] = read_pixel<input_mode>(plane_height_in_pixels, src_pitch, src_px_start, i_fix + -*(int*)(info_data_start + 4 * (i + i / 4 * 4 + 4)));
+        case 4:
+            tmp_1[i] = read_pixel<input_mode>(src_px_start, i_fix + *(int*)(info_data_start + 4 * (i + i / 4 * 4)));
+            tmp_2[i] = read_pixel<input_mode>(src_px_start, i_fix + -*(int*)(info_data_start + 4 * (i + i / 4 * 4)));
+            tmp_3[i] = read_pixel<input_mode>(src_px_start, i_fix + *(int*)(info_data_start + 4 * (i + i / 4 * 4 + 4)));
+            tmp_4[i] = read_pixel<input_mode>(src_px_start, i_fix + -*(int*)(info_data_start + 4 * (i + i / 4 * 4 + 4)));
             break;
         }
         i_fix += i_fix_step;
@@ -397,10 +418,12 @@ static void __forceinline read_reference_pixels(
         ref_pixels_1_0 = load_reference_pixels<dither_algo>(shift, tmp_1);
         break;
     case 1:
+    case 3:
         ref_pixels_1_0 = load_reference_pixels<dither_algo>(shift, tmp_1);
         ref_pixels_2_0 = load_reference_pixels<dither_algo>(shift, tmp_2);
         break;
     case 2:
+    case 4:
         ref_pixels_1_0 = load_reference_pixels<dither_algo>(shift, tmp_1);
         ref_pixels_2_0 = load_reference_pixels<dither_algo>(shift, tmp_2);
         ref_pixels_3_0 = load_reference_pixels<dither_algo>(shift, tmp_3);
@@ -487,7 +510,7 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
         cache->pitch = params.src_pitch;
     }
 
-    const int info_cache_block_size = (sample_mode == 2 ? 64 : 32);
+    const int info_cache_block_size = (process_34 ? 64 : 32);
 
     int input_mode = params.input_mode;
 

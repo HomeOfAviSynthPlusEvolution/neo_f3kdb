@@ -73,14 +73,24 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
             pixel_dither_info info = *info_ptr;
             int src_px_up = read_pixel<mode>(params, context, src_px);
             
-            assert(info.ref1 >= 0);
-            assert((info.ref1 >> params.height_subsampling) <= i && 
-                   (info.ref1 >> params.height_subsampling) + i < params.plane_height_in_pixels);
+            if (sample_mode == 1 || sample_mode == 2 || sample_mode == 4)
+            {
+                assert(info.ref1 >= 0);
+                assert((info.ref1 >> params.height_subsampling) <= i && 
+                    (info.ref1 >> params.height_subsampling) + i < params.plane_height_in_pixels);
+            }
 
+            if (sample_mode == 3 || sample_mode == 2 || sample_mode == 4)
+            {
+                assert(info.ref2 >= 0);
+                assert((info.ref2 >> params.height_subsampling) <= i && 
+                       (info.ref2 >> params.height_subsampling) + i < params.plane_height_in_pixels);
+            }
             int avg;
             bool use_org_px_as_base;
             int ref_pos, ref_pos_2;
-            if (sample_mode == 1)
+            int new_pixel = src_px_up, new_pixel_mode1, new_pixel_mode3;
+            if (sample_mode == 1 || sample_mode == 4)
             {
                 ref_pos = (info.ref1 >> params.height_subsampling) * params.src_pitch;
 
@@ -98,12 +108,36 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                     int diff_n = src_px_up - ref_2_up;
                     use_org_px_as_base = is_above_threshold(threshold, diff, diff_n);
                 }
-            } else {
+                new_pixel = new_pixel_mode1 = use_org_px_as_base ? src_px_up : avg;
+            }
+            if (sample_mode == 3 || sample_mode == 4)
+            {
+                ref_pos = (info.ref1 >> params.width_subsampling) * pixel_step;
+
+                int ref_1_up = read_pixel<mode>(params, context, src_px, ref_pos);
+                int ref_2_up = read_pixel<mode>(params, context, src_px, -ref_pos);
+
+                avg = pixel_proc_avg_2<mode>(context, ref_1_up, ref_2_up);
+
+                if (blur_first)
+                {
+                    int diff = avg - src_px_up;
+                    use_org_px_as_base = is_above_threshold(threshold, diff);
+                } else {
+                    int diff = src_px_up - ref_1_up;
+                    int diff_n = src_px_up - ref_2_up;
+                    use_org_px_as_base = is_above_threshold(threshold, diff, diff_n);
+                }
+                new_pixel = new_pixel_mode3 = use_org_px_as_base ? src_px_up : avg;
+            }
+            if (sample_mode == 4)
+            {
+                new_pixel = pixel_proc_avg_2<mode>(context, new_pixel_mode1, new_pixel_mode3);
+            }
+            if (sample_mode == 2)
+            {
                 int x_multiplier = 1;
                 
-                assert(info.ref2 >= 0);
-                assert((info.ref2 >> params.height_subsampling) <= i && 
-                       (info.ref2 >> params.height_subsampling) + i < params.plane_height_in_pixels);
                 assert(((info.ref1 >> width_subsamp) * x_multiplier) <= j && 
                        ((info.ref1 >> width_subsamp) * x_multiplier) + j < process_width);
                 assert(((info.ref2 >> width_subsamp) * x_multiplier) <= j && 
@@ -133,17 +167,10 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                     int diff4 = ref_4_up - src_px_up;
                     use_org_px_as_base = is_above_threshold(threshold, diff1, diff2, diff3, diff4);
                 }
+                new_pixel = use_org_px_as_base ? src_px_up : avg;
             }
 
-            int new_pixel;
-
-            if (use_org_px_as_base) {
-                new_pixel = src_px_up + *grain_buffer_ptr;
-            } else {
-                new_pixel = avg + *grain_buffer_ptr;
-            }
-
-            new_pixel = pixel_proc_downsample<mode>(context, new_pixel, i, j, pixel_min, pixel_max, params.output_depth);
+            new_pixel = pixel_proc_downsample<mode>(context, new_pixel + *grain_buffer_ptr, i, j, pixel_min, pixel_max, params.output_depth);
 
             switch (output_mode)
             {

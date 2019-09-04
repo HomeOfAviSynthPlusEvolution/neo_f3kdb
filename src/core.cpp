@@ -123,10 +123,26 @@ void f3kdb_core_t::init_frame_luts(void)
             pixel_dither_info info_y = {0, 0, 0};
             info_y.change = random(_params.random_algo_grain, seed, _params.grainY, _params.random_param_grain);
 
-            int cur_range = min_multi(_params.range, y, height_in_pixels - y - 1, -1);
-            if (_params.sample_mode == 2)
+            int x_range = min_multi(_params.range, x, width_in_pixels - x - 1, -1);
+            int y_range = min_multi(_params.range, y, height_in_pixels - y - 1, -1);
+            int cur_range;
+            switch (_params.sample_mode)
             {
-                cur_range = min_multi(cur_range, x, width_in_pixels - x - 1, -1);
+            case 1:
+                cur_range = y_range;
+                break;
+            
+            case 3:
+                cur_range = x_range;
+                break;
+            
+            case 2:
+            case 4:
+                cur_range = min_multi(x_range, y_range, -1);
+                break;
+
+            default:
+                break;
             }
 
             if (cur_range > 0) {
