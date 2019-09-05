@@ -57,19 +57,3 @@
 	DEFINE_SSE_IMPL(sse4_16bit_interleaved, DA_16BIT_INTERLEAVED);
 #endif
 
-
-#if defined(IMPL_DISPATCH_IMPORT_DECLARATION) || defined(DECLARE_IMPL_SSSE3)
-	DEFINE_SSE_IMPL(ssse3_high_no_dithering, DA_HIGH_NO_DITHERING);
-	DEFINE_SSE_IMPL(ssse3_high_ordered_dithering, DA_HIGH_ORDERED_DITHERING);
-	DEFINE_SSE_IMPL(ssse3_high_floyd_steinberg_dithering, DA_HIGH_FLOYD_STEINBERG_DITHERING);
-	DEFINE_SSE_IMPL(ssse3_16bit_interleaved, DA_16BIT_INTERLEAVED);
-#endif
-
-	
-#if defined(IMPL_DISPATCH_IMPORT_DECLARATION) || defined(DECLARE_IMPL_SSE2)
-	DEFINE_SSE_IMPL(sse2_high_no_dithering, DA_HIGH_NO_DITHERING);
-	DEFINE_SSE_IMPL(sse2_high_ordered_dithering, DA_HIGH_ORDERED_DITHERING);
-	DEFINE_SSE_IMPL(sse2_high_floyd_steinberg_dithering, DA_HIGH_FLOYD_STEINBERG_DITHERING);
-	DEFINE_SSE_IMPL(sse2_16bit_interleaved, DA_16BIT_INTERLEAVED);
-#endif
-

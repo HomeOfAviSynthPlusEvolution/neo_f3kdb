@@ -8,21 +8,13 @@
 #include "random.h"
 #include "impl_dispatch.h"
 
+#include "cpuinfo_x86.h"
+
+using namespace cpu_features;
+static const X86Features features = GetX86Info().features;
+
 #ifdef _WIN32
 #include <intrin.h>
-#else
-
-void __cpuid(int CPUInfo[4], int InfoType) {
-    __asm__ __volatile__ (
-        "cpuid":
-        "=a" (CPUInfo[0]),
-        "=b" (CPUInfo[1]),
-        "=c" (CPUInfo[2]),
-        "=d" (CPUInfo[3]) :
-        "a" (InfoType)
-    );
-}
-
 #endif
 
 void f3kdb_core_t::destroy_frame_luts(void)
@@ -243,14 +235,10 @@ static __inline int select_impl_index(int sample_mode, bool blur_first)
 static process_plane_impl_t get_process_plane_impl(int sample_mode, bool blur_first, int opt, int dither_algo)
 {
     if (opt == IMPL_AUTO_DETECT) {
-        int cpu_info[4] = {-1};
-        __cpuid(cpu_info, 1);
-        if (cpu_info[2] & 0x80000) {
+        if (features.avx2) {
             opt = IMPL_SSE4;
-        } else if (cpu_info[2] & 0x200) {
-            opt = IMPL_SSSE3;
-        } else if (cpu_info[3] & 0x04000000) {
-            opt = IMPL_SSE2;
+        } else if (features.sse4_1) {
+            opt = IMPL_SSE4;
         } else {
             opt = IMPL_C;
         }

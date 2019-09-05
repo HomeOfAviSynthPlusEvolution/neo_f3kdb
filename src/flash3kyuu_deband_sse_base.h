@@ -1,7 +1,6 @@
 #include <stdlib.h>
 
 #include "impl_dispatch.h"
-#include "sse_compat.h"
 #include "sse_utils.h"
 #include "dither_high.h"
 
@@ -54,17 +53,17 @@ static __forceinline void process_plane_info_block(
     {
     case 0:
         // ref1 = (abs(ref1) >> height_subsampling) * (sign(ref1))
-        temp_ref1 = _cmm_abs_epi32(ref1);
+        temp_ref1 = _mm_abs_epi32(ref1);
         temp_ref1 = _mm_sra_epi32(temp_ref1, height_subsample_vector);
-        temp_ref1 = _cmm_mullo_limit16_epi32(temp_ref1, _mm_srai_epi32(ref1, 31));
-        ref_offset1 = _cmm_mullo_limit16_epi32(src_pitch_vector, temp_ref1); // packed DWORD multiplication
+        temp_ref1 = _mm_mullo_epi32(temp_ref1, _mm_srai_epi32(ref1, 31));
+        ref_offset1 = _mm_mullo_epi32(src_pitch_vector, temp_ref1); // packed DWORD multiplication
         break;
     case 1:
         // ref1 is guarenteed to be postive
         temp_ref1 = _mm_sra_epi32(ref1, height_subsample_vector);
-        ref_offset1 = _cmm_mullo_limit16_epi32(src_pitch_vector, temp_ref1); // packed DWORD multiplication
+        ref_offset1 = _mm_mullo_epi32(src_pitch_vector, temp_ref1); // packed DWORD multiplication
 
-        ref_offset2 = _cmm_negate_all_epi32(ref_offset1, minus_one); // negates all offsets
+        ref_offset2 = _mm_sign_epi32(ref_offset1, minus_one); // negates all offsets
         break;
     case 2:
         // ref2: bit 8-15
@@ -78,13 +77,13 @@ static __forceinline void process_plane_info_block(
         // ref_px = src_pitch * info.ref2 + info.ref1;
         ref1_fix = _mm_sra_epi32(ref1, width_subsample_vector);
         ref2_fix = _mm_sra_epi32(ref2, height_subsample_vector);
-        ref_offset1 = _cmm_mullo_limit16_epi32(src_pitch_vector, ref2_fix); // packed DWORD multiplication
+        ref_offset1 = _mm_mullo_epi32(src_pitch_vector, ref2_fix); // packed DWORD multiplication
         ref_offset1 = _mm_add_epi32(ref_offset1, _mm_sll_epi32(ref1_fix, pixel_step_shift_bits));
 
         // ref_px_2 = info.ref2 - src_pitch * info.ref1;
         ref1_fix = _mm_sra_epi32(ref1, height_subsample_vector);
         ref2_fix = _mm_sra_epi32(ref2, width_subsample_vector);
-        ref_offset2 = _cmm_mullo_limit16_epi32(src_pitch_vector, ref1_fix); // packed DWORD multiplication
+        ref_offset2 = _mm_mullo_epi32(src_pitch_vector, ref1_fix); // packed DWORD multiplication
         ref_offset2 = _mm_sub_epi32(_mm_sll_epi32(ref2_fix, pixel_step_shift_bits), ref_offset2);
         break;
     default:
@@ -125,7 +124,7 @@ static __forceinline __m128i generate_blend_mask_high(__m128i a, __m128i b, __m1
 
 template<int sample_mode, bool blur_first>
 static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels, __m128i threshold_vector, __m128i change, const __m128i& ref_pixels_1, const __m128i& ref_pixels_2, const __m128i& ref_pixels_3, const __m128i& ref_pixels_4)
-{	
+{
     __m128i use_orig_pixel_blend_mask;
     __m128i avg;
 
@@ -169,7 +168,7 @@ static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels,
     // note this is different from low bitdepth code
     __m128i dst_pixels;
 
-    dst_pixels = _cmm_blendv_by_cmp_mask_epi8(src_pixels, avg, use_orig_pixel_blend_mask);
+    dst_pixels = _mm_blendv_epi8(src_pixels, avg, use_orig_pixel_blend_mask);
     
     __m128i sign_convert_vector = _mm_set1_epi16((short)0x8000);
 
