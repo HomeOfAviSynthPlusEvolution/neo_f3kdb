@@ -21,3 +21,14 @@ cmake -T"Intel C++ Compiler 19.0" -DCMAKE_GENERATOR_PLATFORM=x64 -D_DIR=icc-x64 
 popd
 cmake --build build\icc-x86 --config Release
 cmake --build build\icc-x64 --config Release
+
+mkdir build\clang-x86
+pushd build\clang-x86
+cmake -TClangCL -DCMAKE_GENERATOR_PLATFORM=Win32 -D_DIR=clang-x86 ..\..\
+popd
+mkdir build\clang-x64
+pushd build\clang-x64
+cmake -TClangCL -DCMAKE_GENERATOR_PLATFORM=x64 -D_DIR=clang-x64 ..\..\
+popd
+cmake --build build\clang-x86 --config Release
+cmake --build build\clang-x64 --config Release
