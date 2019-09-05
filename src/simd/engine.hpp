@@ -1,12 +1,15 @@
 #include <stdlib.h>
 
-#include "impl_dispatch.h"
-#include "sse_utils.h"
+#include "../impl_dispatch.h"
+#include "simd_utils.h"
 #include "dither_high.h"
+
+static const int parallel_width = 8;
+static const int plane_alignment = parallel_width * 2;
 
 /****************************************************************************
  * NOTE: DON'T remove static from any function in this file, it is required *
- *       for generating code in multiple SSE versions.                      *
+ *       for generating code in multiple SIMD versions.                      *
  ****************************************************************************/
 
 #define process_34 (sample_mode == 2 || sample_mode == 4)
@@ -102,11 +105,11 @@ static __forceinline void process_plane_info_block(
 
     if (info_data_stream){
         _mm_store_si128((__m128i*)info_data_stream, ref_offset1);
-        info_data_stream += 16;
+        info_data_stream += parallel_width * 2;
 
         if (sample_mode == 2 || sample_mode == 4) {
             _mm_store_si128((__m128i*)info_data_stream, ref_offset2);
-            info_data_stream += 16;
+            info_data_stream += parallel_width * 2;
         }
     }
 
@@ -347,7 +350,7 @@ static unsigned short __forceinline read_pixel(
 template <int dither_algo>
 static __m128i __forceinline load_reference_pixels(
     __m128i shift,
-    const unsigned short src[8])
+    const unsigned short src[parallel_width])
 {
     __m128i ret = _mm_load_si128((const __m128i*)src);
     ret = _mm_sll_epi16(ret, shift);
@@ -366,14 +369,14 @@ static void __forceinline read_reference_pixels(
     __m128i& ref_pixels_3_0,
     __m128i& ref_pixels_4_0)
 {
-    alignas(16)
-    unsigned short tmp_1[8];
-    alignas(16)
-    unsigned short tmp_2[8];
-    alignas(16)
-    unsigned short tmp_3[8];
-    alignas(16)
-    unsigned short tmp_4[8];
+    alignas(parallel_width * 2)
+    unsigned short tmp_1[parallel_width];
+    alignas(parallel_width * 2)
+    unsigned short tmp_2[parallel_width];
+    alignas(parallel_width * 2)
+    unsigned short tmp_3[parallel_width];
+    alignas(parallel_width * 2)
+    unsigned short tmp_4[parallel_width];
 
     // cache layout: 8 offset groups (1 or 2 offsets / group depending on sample mode) in a pack, 
     //               followed by 16 bytes of change values
@@ -389,7 +392,7 @@ static void __forceinline read_reference_pixels(
     int i_fix = 0;
     int i_fix_step = (input_mode != HIGH_BIT_DEPTH_INTERLEAVED ? 1 : 2);
     
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < parallel_width; i++)
     {
         switch (sample_mode)
         {
@@ -434,7 +437,7 @@ static void __forceinline read_reference_pixels(
 
 
 template<int sample_mode, bool blur_first, int dither_algo, bool aligned, PIXEL_MODE output_mode>
-static void __cdecl _process_plane_sse_impl(const process_plane_params& params, process_plane_context* context)
+static void __cdecl _process_plane_simd_impl(const process_plane_params& params, process_plane_context* context)
 {
     assert(sample_mode > 0);
 
@@ -486,8 +489,8 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
     info_cache *cache = NULL;
     char* info_data_stream = NULL;
 
-    alignas(16)
-    char dummy_info_buffer[128];
+    alignas(64)
+    char dummy_info_buffer[parallel_width * 16];
 
     // initialize storage for pre-calculated pixel offsets
     if (context->data) {
@@ -610,9 +613,9 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
                                      context_buffer);
 
             dst_px += store_pixels<output_mode>(dst_pixels, downshift_bits, dst_px, params.dst_pitch, params.plane_height_in_pixels);
-            processed_pixels += 8;
+            processed_pixels += parallel_width;
             src_px += params.input_mode != HIGH_BIT_DEPTH_INTERLEAVED ? 8 : 16;
-            grain_buffer_ptr += 8;
+            grain_buffer_ptr += parallel_width;
         }
         dither_high::next_row<dither_algo>(context_buffer);
     }
@@ -633,15 +636,15 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
 
 
 template<int sample_mode, bool blur_first, int dither_algo, bool aligned>
-static void process_plane_sse_impl_stub1(const process_plane_params& params, process_plane_context* context)
+static void process_plane_simd_impl_stub1(const process_plane_params& params, process_plane_context* context)
 {
     switch (params.output_mode)
     {
     case LOW_BIT_DEPTH:
-        _process_plane_sse_impl<sample_mode, blur_first, dither_algo, aligned, LOW_BIT_DEPTH>(params, context);
+        _process_plane_simd_impl<sample_mode, blur_first, dither_algo, aligned, LOW_BIT_DEPTH>(params, context);
         break;
     case HIGH_BIT_DEPTH_INTERLEAVED:
-        _process_plane_sse_impl<sample_mode, blur_first, dither_algo, aligned, HIGH_BIT_DEPTH_INTERLEAVED>(params, context);
+        _process_plane_simd_impl<sample_mode, blur_first, dither_algo, aligned, HIGH_BIT_DEPTH_INTERLEAVED>(params, context);
         break;
     default:
         abort();
@@ -649,12 +652,12 @@ static void process_plane_sse_impl_stub1(const process_plane_params& params, pro
 }
 
 template<int sample_mode, bool blur_first, int dither_algo>
-static void __cdecl process_plane_sse_impl(const process_plane_params& params, process_plane_context* context)
+static void __cdecl process_plane_simd_impl(const process_plane_params& params, process_plane_context* context)
 {
-    if ( ( (intptr_t)params.src_plane_ptr & (PLANE_ALIGNMENT - 1) ) == 0 && (params.src_pitch & (PLANE_ALIGNMENT - 1) ) == 0 )
+    if ( ( (intptr_t)params.src_plane_ptr & (plane_alignment - 1) ) == 0 && (params.src_pitch & (plane_alignment - 1) ) == 0 )
     {
-        process_plane_sse_impl_stub1<sample_mode, blur_first, dither_algo, true>(params, context);
+        process_plane_simd_impl_stub1<sample_mode, blur_first, dither_algo, true>(params, context);
     } else {
-        process_plane_sse_impl_stub1<sample_mode, blur_first, dither_algo, false>(params, context);
+        process_plane_simd_impl_stub1<sample_mode, blur_first, dither_algo, false>(params, context);
     }
 }

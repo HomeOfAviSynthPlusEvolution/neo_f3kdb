@@ -54,8 +54,8 @@
 				(&impl_func<4, true, __VA_ARGS__>), \
 				(&impl_func<4, false, __VA_ARGS__>) );
 
-#define DEFINE_SSE_IMPL(name, ...) \
-	DEFINE_TEMPLATE_IMPL(name, process_plane_sse_impl, __VA_ARGS__);
+#define DEFINE_SIMD_IMPL(name, ...) \
+	DEFINE_TEMPLATE_IMPL(name, process_plane_simd_impl, __VA_ARGS__);
 
 
 #if defined(IMPL_DISPATCH_IMPORT_DECLARATION) || defined(DECLARE_IMPL_C)
@@ -67,9 +67,9 @@
 
 
 #if defined(IMPL_DISPATCH_IMPORT_DECLARATION) || defined(DECLARE_IMPL_SSE4)
-	DEFINE_SSE_IMPL(sse4_high_no_dithering, DA_HIGH_NO_DITHERING);
-	DEFINE_SSE_IMPL(sse4_high_ordered_dithering, DA_HIGH_ORDERED_DITHERING);
-	DEFINE_SSE_IMPL(sse4_high_floyd_steinberg_dithering, DA_HIGH_FLOYD_STEINBERG_DITHERING);
-	DEFINE_SSE_IMPL(sse4_16bit_interleaved, DA_16BIT_INTERLEAVED);
+	DEFINE_SIMD_IMPL(sse4_high_no_dithering, DA_HIGH_NO_DITHERING);
+	DEFINE_SIMD_IMPL(sse4_high_ordered_dithering, DA_HIGH_ORDERED_DITHERING);
+	DEFINE_SIMD_IMPL(sse4_high_floyd_steinberg_dithering, DA_HIGH_FLOYD_STEINBERG_DITHERING);
+	DEFINE_SIMD_IMPL(sse4_16bit_interleaved, DA_16BIT_INTERLEAVED);
 #endif
 

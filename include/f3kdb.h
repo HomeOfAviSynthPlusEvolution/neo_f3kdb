@@ -4,7 +4,7 @@
 #include "f3kdb_params.h"
 
 // Input plane can be unaligned, but all output planes need to be aligned to 16-byte boundary
-static const int PLANE_ALIGNMENT = 16;
+static const int PLANE_ALIGNMENT = 64;
 
 enum {
     // Supposed to be the same as corresponding values in avisynth
