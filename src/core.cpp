@@ -252,7 +252,7 @@ static process_plane_impl_t get_process_plane_impl(int sample_mode, bool blur_fi
 {
     if (opt == IMPL_AUTO_DETECT) {
         if (features.avx2) {
-            opt = IMPL_SSE4;
+            opt = IMPL_AVX2;
         } else if (features.sse4_1) {
             opt = IMPL_SSE4;
         } else {

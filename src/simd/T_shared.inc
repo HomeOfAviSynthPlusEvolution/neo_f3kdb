@@ -1,0 +1,52 @@
+REG_I(add)
+REG_I(sub)
+REG_L(adds)
+REG_L(subs)
+REG_I16(mullo) REG_I32(mullo)
+REG_I16(mulhi)
+
+REG(cvtepi8_epi16)
+REG(cvtepu8_epi16)
+REG(cvtepi8_epi32)
+REG(cvtepu8_epi32)
+REG(cvtepi8_epi64)
+REG(cvtepu8_epi64)
+REG(cvtepi16_epi32)
+REG(cvtepu16_epi32)
+REG(cvtepi16_epi64)
+REG(cvtepu16_epi64)
+REG(cvtepi32_epi64)
+REG(cvtepu32_epi64)
+
+REG_ANY(and)
+REG_ANY(or)
+REG_ANY(andnot)
+
+REG_I16(packus)
+REG_I32(packus)
+REG_I16(packs)
+REG_I32(packs)
+REG_U08(avg)
+REG_U16(avg)
+
+REG_ANY(setzero)
+REG_I08(set1) REG_I16(set1) REG_I32(set1)
+
+REG_I16(sll) REG_I32(sll)
+REG_I16(slli) REG_I32(slli)
+
+REG_I16(srl) REG_I32(srl)
+REG_I16(srli) REG_I32(srli)
+
+REG_I16(sra) REG_I32(sra)
+REG_I16(srai) REG_I32(srai)
+
+REG_A(min)
+REG_A(max)
+REG_I(abs)
+
+REG_ANY(load)
+REG_ANY(loadu)
+REG_ANY(stream_load)
+REG_ANY(store)
+REG_ANY(storeu)
