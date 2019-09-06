@@ -102,15 +102,15 @@ static __forceinline void process_plane_info_block(
 
     if (info_data_stream){
         SIMD::_store((SIMD::data_type*)info_data_stream, ref_offset1);
-        info_data_stream += SIMD::width_16 * 2;
+        info_data_stream += SIMD::width_8;
 
         if (sample_mode == 2 || sample_mode == 4) {
             SIMD::_store((SIMD::data_type*)info_data_stream, ref_offset2);
-            info_data_stream += SIMD::width_16 * 2;
+            info_data_stream += SIMD::width_8;
         }
     }
 
-    info_ptr += 4;
+    info_ptr += SIMD::width_32;
 }
 
 static __forceinline SIMD::mask_type generate_blend_mask_high(SIMD::data_type a, SIMD::data_type b, SIMD::data_type threshold)
@@ -270,18 +270,14 @@ static int __forceinline store_pixels(
     switch (output_mode)
     {
     case LOW_BIT_DEPTH:
-        {
-            pixels = SIMD::_srli_epi16(pixels, 8);
-            pixels = SIMD::_packus_epi16(pixels, pixels);
-            SIMD::_storel((SIMD::half_data_type*)dst, pixels);
-            return 8;
-            break;
-        }
+        pixels = SIMD::_srli_epi16(pixels, 8);
+        pixels = SIMD::_packus_epi16(pixels, pixels);
+        SIMD::_storel((SIMD::half_data_type*)dst, pixels);
+        return SIMD::width_16;
     case HIGH_BIT_DEPTH_INTERLEAVED:
         pixels = SIMD::_srl_epi16(pixels, downshift_bits);
         SIMD::_store((SIMD::data_type*)dst, pixels);
-        return 16;
-        break;
+        return SIMD::width_16 * 2;
     default:
         abort();
     }
@@ -313,7 +309,7 @@ static SIMD::data_type __forceinline read_pixels(
     case LOW_BIT_DEPTH:
         {
             auto zero = SIMD::_setzero();
-            return SIMD::_unpacklo_epi8(zero, SIMD::cast_full(SIMD::_loadl((SIMD::half_data_type*)ptr)));
+            return SIMD::_unpacklo_epi8(zero, SIMD::_loadl((SIMD::half_data_type*)ptr));
         }
         break;
     case HIGH_BIT_DEPTH_INTERLEAVED:
@@ -408,10 +404,10 @@ static void __forceinline read_reference_pixels(
             break;
         case 2:
         case 4:
-            tmp_1[i] = read_pixel<input_mode>(src_px_start, i_fix + *(int*)(info_data_start + 4 * (i + i / 4 * 4)));
-            tmp_2[i] = read_pixel<input_mode>(src_px_start, i_fix + -*(int*)(info_data_start + 4 * (i + i / 4 * 4)));
-            tmp_3[i] = read_pixel<input_mode>(src_px_start, i_fix + *(int*)(info_data_start + 4 * (i + i / 4 * 4 + 4)));
-            tmp_4[i] = read_pixel<input_mode>(src_px_start, i_fix + -*(int*)(info_data_start + 4 * (i + i / 4 * 4 + 4)));
+            tmp_1[i] = read_pixel<input_mode>(src_px_start, i_fix + *(int*)(info_data_start + 4 * (i + i / SIMD::width_32 * SIMD::width_32)));
+            tmp_2[i] = read_pixel<input_mode>(src_px_start, i_fix + -*(int*)(info_data_start + 4 * (i + i / SIMD::width_32 * SIMD::width_32)));
+            tmp_3[i] = read_pixel<input_mode>(src_px_start, i_fix + *(int*)(info_data_start + 4 * (i + i / SIMD::width_32 * SIMD::width_32 + SIMD::width_32)));
+            tmp_4[i] = read_pixel<input_mode>(src_px_start, i_fix + -*(int*)(info_data_start + 4 * (i + i / SIMD::width_32 * SIMD::width_32 + SIMD::width_32)));
             break;
         }
         i_fix += i_fix_step;
@@ -514,7 +510,7 @@ static void __cdecl _process_plane_simd_impl(const process_plane_params& params,
         cache->pitch = params.src_pitch;
     }
 
-    const int info_cache_block_size = (process_34 ? 64 : 32);
+    const int info_cache_block_size = SIMD::width_16 * (process_34 ? 8 : 4);
 
     int input_mode = params.input_mode;
 
@@ -615,7 +611,7 @@ static void __cdecl _process_plane_simd_impl(const process_plane_params& params,
 
             dst_px += store_pixels<output_mode>(dst_pixels, downshift_bits, dst_px, params.dst_pitch, params.plane_height_in_pixels);
             processed_pixels += SIMD::width_16;
-            src_px += params.input_mode != HIGH_BIT_DEPTH_INTERLEAVED ? 8 : 16;
+            src_px += SIMD::width_16 * (params.input_mode == HIGH_BIT_DEPTH_INTERLEAVED ? 2 : 1);
             grain_buffer_ptr += SIMD::width_16;
         }
         dither_high::next_row<dither_algo>(context_buffer);

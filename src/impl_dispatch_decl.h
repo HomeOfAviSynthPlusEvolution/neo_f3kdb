@@ -66,6 +66,14 @@
 #endif
 
 
+#if defined(IMPL_DISPATCH_IMPORT_DECLARATION) || defined(DECLARE_IMPL_AVX2)
+	DEFINE_SIMD_IMPL(avx2_high_no_dithering, DA_HIGH_NO_DITHERING);
+	DEFINE_SIMD_IMPL(avx2_high_ordered_dithering, DA_HIGH_ORDERED_DITHERING);
+	DEFINE_SIMD_IMPL(avx2_high_floyd_steinberg_dithering, DA_HIGH_FLOYD_STEINBERG_DITHERING);
+	DEFINE_SIMD_IMPL(avx2_16bit_interleaved, DA_16BIT_INTERLEAVED);
+#endif
+
+
 #if defined(IMPL_DISPATCH_IMPORT_DECLARATION) || defined(DECLARE_IMPL_SSE4)
 	DEFINE_SIMD_IMPL(sse4_high_no_dithering, DA_HIGH_NO_DITHERING);
 	DEFINE_SIMD_IMPL(sse4_high_ordered_dithering, DA_HIGH_ORDERED_DITHERING);

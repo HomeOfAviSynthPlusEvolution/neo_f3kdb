@@ -1,5 +1,6 @@
 // #include <intrin.h>
 
+#define SIMD_AVX2
 #define SIMD_PREFIX _mm256_
 #define SIMD_ANY_SUFFIX _si256
 
@@ -37,6 +38,10 @@
 #define REG_INTERNAL2(prefix, n) \
   static constexpr auto _##n = prefix##n;
 
+#define SIMD_CALL(n) SIMD_CALL_INTERNAL1(SIMD_PREFIX, n)
+#define SIMD_CALL_INTERNAL1(prefix, n) SIMD_CALL_INTERNAL2(prefix, n)
+#define SIMD_CALL_INTERNAL2(prefix, n) prefix##n
+
 class T_AVX2
 {
   public:
@@ -52,17 +57,13 @@ class T_AVX2
   #include "T_shared.inc"
   #include "T_shared_low.inc"
   static constexpr auto count_zero = _mm_setzero_si128;
-  static data_type cast_full(half_data_type reg)
-  {
-    return _mm256_castsi128_si256(reg);
-  }
   static void _storel(half_data_type *mem_addr, data_type reg)
   {
-    _mm_store_si128(mem_addr, _mm256_castsi256_si128(reg));
+    _mm_store_si128(mem_addr, _mm256_castsi256_si128(_mm256_permute4x64_epi64(reg, 8)));
   }
-  static half_data_type _loadl(half_data_type const *mem_addr)
+  static data_type _loadl(half_data_type const *mem_addr)
   {
-    return _mm_load_si128(mem_addr);
+    return _mm256_permute4x64_epi64(_mm256_castsi128_si256(_mm_load_si128(mem_addr)), 16);
   }
   static count_type count_set(int cnt)
   {

@@ -1,5 +1,6 @@
 // #include <intrin.h>
 
+#define SIMD_SSE4
 #define SIMD_PREFIX _mm_
 #define SIMD_ANY_SUFFIX _si128
 
@@ -37,6 +38,10 @@
 #define REG_INTERNAL2(prefix, n) \
   static constexpr auto _##n = prefix##n;
 
+#define SIMD_CALL(n) SIMD_CALL_INTERNAL1(SIMD_PREFIX, n)
+#define SIMD_CALL_INTERNAL1(prefix, n) SIMD_CALL_INTERNAL2(prefix, n)
+#define SIMD_CALL_INTERNAL2(prefix, n) prefix##n
+
 class T_SSE4
 {
   public:
@@ -54,10 +59,6 @@ class T_SSE4
   static constexpr auto _storel = _mm_storel_epi64;
   static constexpr auto _loadl = _mm_loadl_epi64;
   static constexpr auto count_zero = _mm_setzero_si128;
-  static data_type cast_full(half_data_type reg)
-  {
-    return reg;
-  }
   static count_type count_set(int cnt)
   {
     return _mm_set_epi32(0, 0, 0, cnt);
