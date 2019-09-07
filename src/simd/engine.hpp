@@ -1,8 +1,23 @@
 #include <stdlib.h>
+#include <stdio.h>
+#include <inttypes.h>
 
 #include "../impl_dispatch.h"
 #include "simd_utils.h"
 #include "dither_high.h"
+
+#include <Windows.h>
+inline static void PerformanceCounter(const char* info) noexcept
+{
+    static FILE* fp = fopen("perf.txt", "w");
+    static long long lasttime = 0;
+    LARGE_INTEGER li;
+    ::QueryPerformanceCounter(&li);
+    auto time = li.QuadPart;
+    if(info)
+        fprintf(fp, "%s %" PRId64 "\n", info, time - lasttime);
+    lasttime = time;
+}
 
 /****************************************************************************
  * NOTE: DON'T remove static from any function in this file, it is required *
@@ -239,7 +254,7 @@ static SIMD::data_type __forceinline process_pixels(
          ref_pixels_2_0, 
          ref_pixels_3_0, 
          ref_pixels_4_0);
-    
+
     switch (dither_algo)
     {
     case DA_HIGH_NO_DITHERING:
@@ -355,26 +370,29 @@ static SIMD::data_type __forceinline load_reference_pixels(
     return ret;
 }
 
-
 template<int sample_mode, int dither_algo, PIXEL_MODE input_mode>
 static void __forceinline read_reference_pixels(
     const process_plane_params& params,
     SIMD::count_type shift,
     const unsigned char* src_px_start,
     const char* info_data_start,
-    SIMD::data_type& ref_pixels_1_0,
-    SIMD::data_type& ref_pixels_2_0,
-    SIMD::data_type& ref_pixels_3_0,
-    SIMD::data_type& ref_pixels_4_0)
+    SIMD::data_type& real_ret_1,
+    SIMD::data_type& real_ret_2,
+    SIMD::data_type& real_ret_3,
+    SIMD::data_type& real_ret_4)
 {
-    alignas(SIMD::align)
-    unsigned short tmp_1[SIMD::width_16];
-    alignas(SIMD::align)
-    unsigned short tmp_2[SIMD::width_16];
-    alignas(SIMD::align)
-    unsigned short tmp_3[SIMD::width_16];
-    alignas(SIMD::align)
-    unsigned short tmp_4[SIMD::width_16];
+    #pragma GCC diagnostic ignored "-Wuninitialized"
+    __m128i tmp_1;
+    #pragma GCC diagnostic ignored "-Wuninitialized"
+    __m128i tmp_2;
+    #pragma GCC diagnostic ignored "-Wuninitialized"
+    __m128i tmp_3;
+    #pragma GCC diagnostic ignored "-Wuninitialized"
+    __m128i tmp_4;
+    SIMD::data_type ret_1;
+    SIMD::data_type ret_2;
+    SIMD::data_type ret_3;
+    SIMD::data_type ret_4;
 
     // cache layout: 8 offset groups (1 or 2 offsets / group depending on sample mode) in a pack, 
     //               followed by 16 bytes of change values
@@ -390,47 +408,84 @@ static void __forceinline read_reference_pixels(
     int i_fix = 0;
     int i_fix_step = (input_mode != HIGH_BIT_DEPTH_INTERLEAVED ? 1 : 2);
     
-    for (int i = 0; i < SIMD::width_16; i++)
+    #define UNROLLED_LOOP(i) \
+    do { \
+        int d1 = *(int*)(info_data_start + 4 * i); \
+        int d2 = *(int*)(info_data_start + 4 * (i + i / SIMD::width_32 * SIMD::width_32)); \
+        int d3 = *(int*)(info_data_start + 4 * (i + i / SIMD::width_32 * SIMD::width_32 + SIMD::width_32)); \
+        switch (sample_mode) \
+        { \
+        case 1: \
+        case 3: \
+            tmp_1 = _mm_insert_epi16(tmp_1, read_pixel<input_mode>(src_px_start, i_fix + d1), i); \
+            tmp_2 = _mm_insert_epi16(tmp_2, read_pixel<input_mode>(src_px_start, i_fix + -d1), i); \
+            break; \
+        case 2: \
+        case 4: \
+            tmp_1 = _mm_insert_epi16(tmp_1, read_pixel<input_mode>(src_px_start, i_fix + d2), i); \
+            tmp_2 = _mm_insert_epi16(tmp_2, read_pixel<input_mode>(src_px_start, i_fix + -d2), i); \
+            tmp_3 = _mm_insert_epi16(tmp_3, read_pixel<input_mode>(src_px_start, i_fix + d3), i); \
+            tmp_4 = _mm_insert_epi16(tmp_4, read_pixel<input_mode>(src_px_start, i_fix + -d3), i); \
+            break; \
+        } \
+        i_fix += i_fix_step; \
+    } while (0)
+
+    #if defined SIMD_SSE4
+    UNROLLED_LOOP(0); UNROLLED_LOOP(1); UNROLLED_LOOP(2); UNROLLED_LOOP(3); UNROLLED_LOOP(4); UNROLLED_LOOP(5); UNROLLED_LOOP(6); UNROLLED_LOOP(7);
+    ret_1 = tmp_1;
+    ret_2 = tmp_2;
+    ret_3 = tmp_3;
+    ret_4 = tmp_4;
+
+    #elif defined SIMD_AVX2
+    UNROLLED_LOOP(0); UNROLLED_LOOP(1); UNROLLED_LOOP(2); UNROLLED_LOOP(3); UNROLLED_LOOP(4); UNROLLED_LOOP(5); UNROLLED_LOOP(6); UNROLLED_LOOP(7);
+    ret_1 = _mm256_castsi128_si256(tmp_1);
+    ret_2 = _mm256_castsi128_si256(tmp_2);
+    ret_3 = _mm256_castsi128_si256(tmp_3);
+    ret_4 = _mm256_castsi128_si256(tmp_4);
+    UNROLLED_LOOP(0); UNROLLED_LOOP(1); UNROLLED_LOOP(2); UNROLLED_LOOP(3); UNROLLED_LOOP(4); UNROLLED_LOOP(5); UNROLLED_LOOP(6); UNROLLED_LOOP(7);
+    ret_1 = _mm256_inserti128_si256(ret_1, tmp_1, 1);
+    ret_2 = _mm256_inserti128_si256(ret_2, tmp_2, 1);
+    ret_3 = _mm256_inserti128_si256(ret_3, tmp_3, 1);
+    ret_4 = _mm256_inserti128_si256(ret_4, tmp_4, 1);
+
+    #elif defined SIMD_AVX512
+    UNROLLED_LOOP(0); UNROLLED_LOOP(1); UNROLLED_LOOP(2); UNROLLED_LOOP(3); UNROLLED_LOOP(4); UNROLLED_LOOP(5); UNROLLED_LOOP(6); UNROLLED_LOOP(7);
+    ret_1 = _mm512_castsi128_si512(tmp_1);
+    ret_2 = _mm512_castsi128_si512(tmp_2);
+    ret_3 = _mm512_castsi128_si512(tmp_3);
+    ret_4 = _mm512_castsi128_si512(tmp_4);
+    UNROLLED_LOOP(0); UNROLLED_LOOP(1); UNROLLED_LOOP(2); UNROLLED_LOOP(3); UNROLLED_LOOP(4); UNROLLED_LOOP(5); UNROLLED_LOOP(6); UNROLLED_LOOP(7);
+    ret_1 = _mm512_inserti32x4(ret_1, tmp_1, 1);
+    ret_2 = _mm512_inserti32x4(ret_2, tmp_2, 1);
+    ret_3 = _mm512_inserti32x4(ret_3, tmp_3, 1);
+    ret_4 = _mm512_inserti32x4(ret_4, tmp_4, 1);
+    UNROLLED_LOOP(0); UNROLLED_LOOP(1); UNROLLED_LOOP(2); UNROLLED_LOOP(3); UNROLLED_LOOP(4); UNROLLED_LOOP(5); UNROLLED_LOOP(6); UNROLLED_LOOP(7);
+    ret_1 = _mm512_inserti32x4(ret_1, tmp_1, 2);
+    ret_2 = _mm512_inserti32x4(ret_2, tmp_2, 2);
+    ret_3 = _mm512_inserti32x4(ret_3, tmp_3, 2);
+    ret_4 = _mm512_inserti32x4(ret_4, tmp_4, 2);
+    UNROLLED_LOOP(0); UNROLLED_LOOP(1); UNROLLED_LOOP(2); UNROLLED_LOOP(3); UNROLLED_LOOP(4); UNROLLED_LOOP(5); UNROLLED_LOOP(6); UNROLLED_LOOP(7);
+    ret_1 = _mm512_inserti32x4(ret_1, tmp_1, 3);
+    ret_2 = _mm512_inserti32x4(ret_2, tmp_2, 3);
+    ret_3 = _mm512_inserti32x4(ret_3, tmp_3, 3);
+    ret_4 = _mm512_inserti32x4(ret_4, tmp_4, 3);
+
+    #endif
+
+    #undef UNROLLED_LOOP
+
+    real_ret_1 = ret_1;
+    real_ret_2 = ret_2;
+    if (process_34)
     {
-        switch (sample_mode)
-        {
-        case 0:
-            tmp_1[i] = read_pixel<input_mode>(src_px_start, i_fix + *(int*)(info_data_start + 4 * i));
-            break;
-        case 1:
-        case 3:
-            tmp_1[i] = read_pixel<input_mode>(src_px_start, i_fix + *(int*)(info_data_start + 4 * i));
-            tmp_2[i] = read_pixel<input_mode>(src_px_start, i_fix + -*(int*)(info_data_start + 4 * i));
-            break;
-        case 2:
-        case 4:
-            tmp_1[i] = read_pixel<input_mode>(src_px_start, i_fix + *(int*)(info_data_start + 4 * (i + i / SIMD::width_32 * SIMD::width_32)));
-            tmp_2[i] = read_pixel<input_mode>(src_px_start, i_fix + -*(int*)(info_data_start + 4 * (i + i / SIMD::width_32 * SIMD::width_32)));
-            tmp_3[i] = read_pixel<input_mode>(src_px_start, i_fix + *(int*)(info_data_start + 4 * (i + i / SIMD::width_32 * SIMD::width_32 + SIMD::width_32)));
-            tmp_4[i] = read_pixel<input_mode>(src_px_start, i_fix + -*(int*)(info_data_start + 4 * (i + i / SIMD::width_32 * SIMD::width_32 + SIMD::width_32)));
-            break;
-        }
-        i_fix += i_fix_step;
+        real_ret_3 = ret_3;
+        real_ret_4 = ret_4;
     }
 
-    switch (sample_mode)
-    {
-    case 0:
-        ref_pixels_1_0 = load_reference_pixels<dither_algo>(shift, tmp_1);
-        break;
-    case 1:
-    case 3:
-        ref_pixels_1_0 = load_reference_pixels<dither_algo>(shift, tmp_1);
-        ref_pixels_2_0 = load_reference_pixels<dither_algo>(shift, tmp_2);
-        break;
-    case 2:
-    case 4:
-        ref_pixels_1_0 = load_reference_pixels<dither_algo>(shift, tmp_1);
-        ref_pixels_2_0 = load_reference_pixels<dither_algo>(shift, tmp_2);
-        ref_pixels_3_0 = load_reference_pixels<dither_algo>(shift, tmp_3);
-        ref_pixels_4_0 = load_reference_pixels<dither_algo>(shift, tmp_4);
-        break;
-    }
+    // Search vpmaxsb in asm
+    // real_ret_1 = SIMD::_max_epi8(real_ret_1, real_ret_2);
 }
 
 
@@ -580,7 +635,87 @@ static void __cdecl _process_plane_simd_impl(const process_plane_params& params,
             // garbage data is not a problem
             if (input_mode == LOW_BIT_DEPTH)
             {
-                READ_REFS(data_stream_block_start, LOW_BIT_DEPTH);
+                #if 1
+                read_reference_pixels<sample_mode, dither_algo, LOW_BIT_DEPTH>( \
+                    params, \
+                    upsample_to_16_shift_bits, \
+                    src_px, \
+                    data_stream_block_start, \
+                    ref_pixels_1_0, \
+                    ref_pixels_2_0, \
+                    ref_pixels_3_0, \
+                    ref_pixels_4_0);
+                #else
+                const char* info_data_start = data_stream_block_start;
+                alignas(SIMD::align)
+                unsigned short tmp_1[SIMD::width_16];
+                alignas(SIMD::align)
+                unsigned short tmp_2[SIMD::width_16];
+                alignas(SIMD::align)
+                unsigned short tmp_3[SIMD::width_16];
+                alignas(SIMD::align)
+                unsigned short tmp_4[SIMD::width_16];
+
+                // cache layout: 8 offset groups (1 or 2 offsets / group depending on sample mode) in a pack, 
+                //               followed by 16 bytes of change values
+                // in the case of 2 offsets / group, offsets are stored like this:
+                // [1 1 1 1 
+                //  2 2 2 2
+                //  1 1 1 1
+                //  2 2 2 2
+                //  .. snip
+                //  1 1 1 1
+                //  2 2 2 2]
+
+                int i_fix = 0;
+                int i_fix_step = (input_mode != HIGH_BIT_DEPTH_INTERLEAVED ? 1 : 2);
+                
+                for (int i = 0; i < SIMD::width_16; i++)
+                {
+                    int d1 = *(int*)(info_data_start + 4 * i);
+                    int d2 = *(int*)(info_data_start + 4 * (i + i / SIMD::width_32 * SIMD::width_32));
+                    int d3 = *(int*)(info_data_start + 4 * (i + i / SIMD::width_32 * SIMD::width_32 + SIMD::width_32));
+                    switch (sample_mode)
+                    {
+                    case 0:
+                        tmp_1[i] = read_pixel<LOW_BIT_DEPTH>(src_px, i_fix + d1);
+                        break;
+                    case 1:
+                    case 3:
+                        tmp_1[i] = read_pixel<LOW_BIT_DEPTH>(src_px, i_fix + d1);
+                        tmp_2[i] = read_pixel<LOW_BIT_DEPTH>(src_px, i_fix + -d1);
+                        break;
+                    case 2:
+                    case 4:
+                        tmp_1[i] = read_pixel<LOW_BIT_DEPTH>(src_px, i_fix + d2);
+                        tmp_2[i] = read_pixel<LOW_BIT_DEPTH>(src_px, i_fix + -d2);
+                        tmp_3[i] = read_pixel<LOW_BIT_DEPTH>(src_px, i_fix + d3);
+                        tmp_4[i] = read_pixel<LOW_BIT_DEPTH>(src_px, i_fix + -d3);
+                        break;
+                    }
+                    i_fix += i_fix_step;
+                }
+
+                switch (sample_mode)
+                {
+                case 0:
+                    ref_pixels_1_0 = load_reference_pixels<dither_algo>(upsample_to_16_shift_bits, tmp_1);
+                    break;
+                case 1:
+                case 3:
+                    ref_pixels_1_0 = load_reference_pixels<dither_algo>(upsample_to_16_shift_bits, tmp_1);
+                    ref_pixels_2_0 = load_reference_pixels<dither_algo>(upsample_to_16_shift_bits, tmp_2);
+                    break;
+                case 2:
+                case 4:
+                    ref_pixels_1_0 = load_reference_pixels<dither_algo>(upsample_to_16_shift_bits, tmp_1);
+                    ref_pixels_2_0 = load_reference_pixels<dither_algo>(upsample_to_16_shift_bits, tmp_2);
+                    ref_pixels_3_0 = load_reference_pixels<dither_algo>(upsample_to_16_shift_bits, tmp_3);
+                    ref_pixels_4_0 = load_reference_pixels<dither_algo>(upsample_to_16_shift_bits, tmp_4);
+                    break;
+                }
+                #endif
+
                 src_pixels = read_pixels<LOW_BIT_DEPTH, aligned>(params, src_px, upsample_to_16_shift_bits);
             } else if (input_mode == HIGH_BIT_DEPTH_INTERLEAVED)
             {
@@ -653,8 +788,12 @@ static void __cdecl process_plane_simd_impl(const process_plane_params& params, 
 {
     if ( ( (intptr_t)params.src_plane_ptr & (SIMD::align - 1) ) == 0 && (params.src_pitch & (SIMD::align - 1) ) == 0 )
     {
+        PerformanceCounter(NULL);
         process_plane_simd_impl_stub1<sample_mode, blur_first, dither_algo, true>(params, context);
+        PerformanceCounter("aligned");
     } else {
+        PerformanceCounter(NULL);
         process_plane_simd_impl_stub1<sample_mode, blur_first, dither_algo, false>(params, context);
+        PerformanceCounter("unaligned");
     }
 }
