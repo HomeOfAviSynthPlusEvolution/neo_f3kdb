@@ -648,6 +648,7 @@ static void __cdecl process_plane_avx2_impl(const process_plane_params& params, 
 }
 */
 
+#include "simd/T_SSE4.hpp"
 #include "simd/T_AVX2.hpp"
 using SIMD = T_AVX2;
 #include "simd/engine.hpp"

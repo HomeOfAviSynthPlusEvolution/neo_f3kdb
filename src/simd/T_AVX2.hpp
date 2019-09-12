@@ -1,5 +1,32 @@
 // #include <intrin.h>
 
+#undef SIMD_AVX2
+#undef SIMD_PREFIX
+#undef SIMD_ANY_SUFFIX
+#undef REG_ANY
+#undef REG
+#undef REG_I08
+#undef REG_I16
+#undef REG_I32
+#undef REG_I64
+#undef REG_U08
+#undef REG_U16
+#undef REG_U32
+#undef REG_U64
+#undef REG_I
+#undef REG_U
+#undef REG_L
+#undef REG_A
+#undef REG_ANY_TYPE_INTERNAL1
+#undef REG_TYPE_INTERNAL1
+#undef REG_INTERNAL1
+#undef REG_ANY_TYPE_INTERNAL2
+#undef REG_TYPE_INTERNAL2
+#undef REG_INTERNAL2
+#undef SIMD_CALL
+#undef SIMD_CALL_INTERNAL1
+#undef SIMD_CALL_INTERNAL2
+
 #define SIMD_AVX2
 #define SIMD_PREFIX _mm256_
 #define SIMD_ANY_SUFFIX _si256
