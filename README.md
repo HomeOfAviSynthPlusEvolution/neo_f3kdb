@@ -4,7 +4,7 @@ Neo f3kdb Copyright(C) 2019 msg7086
 
 F3kdb is a deband filter originally written for AviUtl and later ported to AviSynth by [SAPikachu](https://github.com/SAPikachu) many years ago.
 
-Legacy format support is removed and the filter is renamed to avoid confusion.
+Legacy format support is removed and the filter is renamed to avoid confusion. SSE4.1 is now required to run optimized routine. SSE4.1 is supported since Intel Penryn (2007) and AMD bulldozer (2011).
 
 ## Usage
 
@@ -15,6 +15,35 @@ neo_f3kdb(clip, Y=64, Cb=64, Cr=64, grainY=0, grainC=0, mt=true)
 
 [Check original usage documents.](https://f3kdb.readthedocs.io/en/stable/usage.html)
 
+* sample_mode
+
+    * 1: Column references.
+
+            +
+            o
+            +
+
+    * 2: Square references.
+
+            + +
+             o
+            + +
+
+    * 3: Row references. (> r2)
+
+            + o +
+
+    * 4: Average of sample mode 1 and 3. (> r2)
+
+             +
+            (o) => A
+             +
+
+            + (o) + => B
+
+            (A + B) / 2
+
+    Reference points are randomly picked within the `range`.
 
 ## Compilation
 
