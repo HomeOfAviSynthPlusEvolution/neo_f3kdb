@@ -32,11 +32,11 @@ struct F3KDB final : Filter {
     return std::vector<Param> {
       Param {"clip", Clip, false, true, true, false},
       Param {"range", Integer},
-      Param {"Y", Integer},
-      Param {"Cb", Integer},
-      Param {"Cr", Integer},
-      Param {"grainY", Integer},
-      Param {"grainC", Integer},
+      Param {"y", Integer},
+      Param {"cb", Integer},
+      Param {"cr", Integer},
+      Param {"grainy", Integer},
+      Param {"grainc", Integer},
       Param {"sample_mode", Integer},
       Param {"seed", Integer},
       Param {"blur_first", Boolean},
@@ -48,12 +48,7 @@ struct F3KDB final : Filter {
       Param {"random_algo_grain", Integer},
       Param {"random_param_ref", Float},
       Param {"random_param_grain", Float},
-      Param {"preset", String},
-
-      Param {"planes", Integer, true},
-      Param {"y", Integer, false, true, false},
-      Param {"u", Integer, false, true, false},
-      Param {"v", Integer, false, true, false}
+      Param {"preset", String}
     };
   }
   void Initialize(InDelegator* in, DSVideoInfo in_vi, FetchFrameFunctor* fetch_frame) override
@@ -120,6 +115,8 @@ struct F3KDB final : Filter {
     INVALID_PARAM_IF(in_vi.Format.BitsPerSample < 8 || in_vi.Format.BitsPerSample > INTERNAL_BIT_DEPTH);
     INVALID_PARAM_IF(in_vi.Format.IsInteger != true);
 
+    if (ep.output_depth < 0)
+      ep.output_depth = in_vi.Format.BitsPerSample;
     if (ep.output_depth == 16)
         // set to appropriate precision mode
         ep.dither_algo = DA_16BIT_INTERLEAVED;
