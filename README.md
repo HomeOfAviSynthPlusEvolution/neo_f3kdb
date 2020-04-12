@@ -11,9 +11,9 @@ Legacy format support was removed and a few options that are no longer useful we
 ```python
 # AviSynth+
 LoadPlugin("neo-f3kdb.dll")
-neo_f3kdb(clip, Y=64, Cb=64, Cr=64, grainY=0, grainC=0, ...)
+neo_f3kdb(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
 # VapourSynth
-core.neo_f3kdb.Deband(clip, Y=64, Cb=64, Cr=64, grainY=0, grainC=0, ...)
+core.neo_f3kdb.Deband(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
 ```
 
 [Check original usage documents.](https://f3kdb.readthedocs.io/en/stable/usage.html)

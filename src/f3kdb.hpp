@@ -74,11 +74,11 @@ struct F3KDB final : Filter {
       ep.Y = ep.grainY = 0;
     int tmp;
     in->Read("range", ep.range);
-    in->Read("Y", ep.Y);
-    in->Read("Cb", ep.Cb);
-    in->Read("Cr", ep.Cr);
-    in->Read("grainY", ep.grainY);
-    in->Read("grainC", ep.grainC);
+    in->Read("y", ep.Y);
+    in->Read("cb", ep.Cb);
+    in->Read("cr", ep.Cr);
+    in->Read("grainy", ep.grainY);
+    in->Read("grainc", ep.grainC);
     in->Read("sample_mode", ep.sample_mode);
     in->Read("seed", ep.seed);
     in->Read("blur_first", ep.blur_first);
