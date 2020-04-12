@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <mutex>
 
 #include "impl_dispatch.h"
 #include "sse_utils.h"
@@ -432,7 +433,7 @@ static void __forceinline read_reference_pixels(
     }
 }
 
-
+std::mutex cache_mutex;
 template<int sample_mode, bool blur_first, int dither_algo, bool aligned, PIXEL_MODE output_mode>
 static void __cdecl _process_plane_sse_impl(const process_plane_params& params, process_plane_context* context)
 {
@@ -622,39 +623,28 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
     // for thread-safety, save context after all data is processed
     if (!use_cached_info && !context->data && cache)
     {
+        std::lock_guard<std::mutex> lock(cache_mutex);
         context->destroy = destroy_cache;
-        if (_InterlockedCompareExchangePointer(&context->data, cache, NULL) != NULL)
-        {
-            // other thread has completed first, so we can destroy our copy
+        if (context->data)
             destroy_cache(cache);
-        }
+        else
+            context->data = cache;
     }
 }
 
 
-template<int sample_mode, bool blur_first, int dither_algo, bool aligned>
-static void process_plane_sse_impl_stub1(const process_plane_params& params, process_plane_context* context)
+template<int sample_mode, bool blur_first, int dither_algo>
+static void process_plane_sse_impl(const process_plane_params& params, process_plane_context* context)
 {
     switch (params.output_mode)
     {
     case LOW_BIT_DEPTH:
-        _process_plane_sse_impl<sample_mode, blur_first, dither_algo, aligned, LOW_BIT_DEPTH>(params, context);
+        _process_plane_sse_impl<sample_mode, blur_first, dither_algo, true, LOW_BIT_DEPTH>(params, context);
         break;
     case HIGH_BIT_DEPTH_INTERLEAVED:
-        _process_plane_sse_impl<sample_mode, blur_first, dither_algo, aligned, HIGH_BIT_DEPTH_INTERLEAVED>(params, context);
+        _process_plane_sse_impl<sample_mode, blur_first, dither_algo, true, HIGH_BIT_DEPTH_INTERLEAVED>(params, context);
         break;
     default:
         abort();
-    }
-}
-
-template<int sample_mode, bool blur_first, int dither_algo>
-static void __cdecl process_plane_sse_impl(const process_plane_params& params, process_plane_context* context)
-{
-    if ( ( (intptr_t)params.src_plane_ptr & (PLANE_ALIGNMENT - 1) ) == 0 && (params.src_pitch & (PLANE_ALIGNMENT - 1) ) == 0 )
-    {
-        process_plane_sse_impl_stub1<sample_mode, blur_first, dither_algo, true>(params, context);
-    } else {
-        process_plane_sse_impl_stub1<sample_mode, blur_first, dither_algo, false>(params, context);
     }
 }

@@ -1,6 +1,8 @@
 #pragma once
 
-#include <f3kdb.h>
+#include <ds_common.hpp>
+
+#include "f3kdb.h"
 #include "process_plane_context.h"
 #include "compiler_compat.h"
 
@@ -77,8 +79,10 @@ private:
 
     int* _grain_buffer_offsets;
 
-    f3kdb_video_info_t _video_info;
+    DSVideoInfo _video_info;
     f3kdb_params_t _params;
+
+    OPTIMIZATION_MODE _opt;
 
     void init(void);
     void init_frame_luts(void);
@@ -89,8 +93,8 @@ private:
     f3kdb_core_t operator=(const f3kdb_core_t&);
     
 public:
-    f3kdb_core_t(const f3kdb_video_info_t* video_info, const f3kdb_params_t* params);
+    f3kdb_core_t(DSVideoInfo vi, const f3kdb_params_t params, OPTIMIZATION_MODE opt);
     virtual ~f3kdb_core_t();
 
-    int process_plane(int frame_index, int plane, unsigned char* dst_frame_ptr, int dst_pitch, const unsigned char* src_frame_ptr, int src_pitch);
+    void process_plane(int frame_index, int plane, unsigned char* dst_frame_ptr, int dst_pitch, const unsigned char* src_frame_ptr, int src_pitch);
 };

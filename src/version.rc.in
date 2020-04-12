@@ -1,5 +1,4 @@
 #include <winver.h>
-#include <ntdef.h>
 
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION             1,0,0,0
@@ -14,13 +13,13 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-        VALUE "Comments",         "neo-f3kdb"
+        VALUE "Comments",         "Neo-F3KDB"
         VALUE "CompanyName",      ""
-        VALUE "FileDescription",  "neo-f3kdb"
+        VALUE "FileDescription",  "Neo-F3KDB"
         VALUE "FileVersion",      "@VERSION@"
-        VALUE "InternalName",     "neo-f3kdb"
-        VALUE "OriginalFilename", "neo-f3kdb.dll"
-        VALUE "ProductName",      "neo-f3kdb"
+        VALUE "InternalName",     "Neo-F3KDB"
+        VALUE "OriginalFilename", "Neo-F3KDB.dll"
+        VALUE "ProductName",      "Neo-F3KDB"
         VALUE "ProductVersion",   "@VERSION@"
         END
     END

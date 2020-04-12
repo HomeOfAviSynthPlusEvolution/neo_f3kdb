@@ -1,21 +1,24 @@
 # Neo f3kdb (forked from flash3kyuu_deband)
 
-Neo f3kdb Copyright(C) 2019 msg7086
+Neo f3kdb Copyright(C) 2019-2020 Xinyue Lu, and previous developers
 
-F3kdb is a deband filter originally written for AviUtl and later ported to AviSynth by [SAPikachu](https://github.com/SAPikachu) many years ago.
+F3kdb is a deband filter. It was originally written for AviUtl (author uncovered) and later ported to AviSynth by [SAPikachu](https://github.com/SAPikachu) many years ago.
 
-Legacy format support is removed and the filter is renamed to avoid confusion. SSE4.1 is now required to run optimized routine. SSE4.1 is supported since Intel Penryn (2007) and AMD bulldozer (2011).
+Legacy format support was removed and a few options that are no longer useful were also removed. Due to API change, the project has been renamed from f3kdb to Neo_f3kdb to avoid confusion. SSE4.1 is now required to run optimized routine. SSE4.1 is required to run optimized routine. SSE4.1 is supported since Intel Penryn (2007) and AMD bulldozer (2011). AVX routine didn't show much performance benefit and is not included.
 
 ## Usage
 
 ```python
 # AviSynth+
-neo_f3kdb(clip, Y=64, Cb=64, Cr=64, grainY=0, grainC=0, mt=true)
+LoadPlugin("neo-f3kdb.dll")
+neo_f3kdb(clip, Y=64, Cb=64, Cr=64, grainY=0, grainC=0, ...)
+# VapourSynth
+core.neo_f3kdb.Deband(clip, Y=64, Cb=64, Cr=64, grainY=0, grainC=0, ...)
 ```
 
 [Check original usage documents.](https://f3kdb.readthedocs.io/en/stable/usage.html)
 
-* sample_mode
+- *sample_mode*
 
     * 1: Column references.
 
@@ -44,6 +47,14 @@ neo_f3kdb(clip, Y=64, Cb=64, Cr=64, grainY=0, grainC=0, mt=true)
             (A + B) / 2
 
     Reference points are randomly picked within the `range`.
+
+- *input_depth* (removed)
+
+- *input_mode* (removed)
+
+- *output_mode* (removed)
+
+- *mt* (removed)
 
 ## Compilation
 

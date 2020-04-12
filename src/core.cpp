@@ -8,11 +8,6 @@
 #include "random.h"
 #include "impl_dispatch.h"
 
-#include "cpuinfo_x86.h"
-
-using namespace cpu_features;
-static const X86Features features = GetX86Info().features;
-
 #ifdef _WIN32
 #include <intrin.h>
 #endif
@@ -83,11 +78,11 @@ void f3kdb_core_t::init_frame_luts(void)
 
     int seed = 0x92D68CA2 - _params.seed;
 
-    seed ^= (_video_info.width << 16) ^ _video_info.height;
-    seed ^= (_video_info.num_frames << 16) ^ _video_info.num_frames;
+    seed ^= (_video_info.Width << 16) ^ _video_info.Height;
+    seed ^= (_video_info.Frames << 16) ^ _video_info.Frames;
 
-    int height_in_pixels = _video_info.height;
-    int width_in_pixels =  _video_info.width;
+    int height_in_pixels = _video_info.Height;
+    int width_in_pixels =  _video_info.Width;
 
     int y_stride;
     y_stride = get_frame_lut_stride(width_in_pixels);
@@ -99,8 +94,8 @@ void f3kdb_core_t::init_frame_luts(void)
     memset(_y_info, 0, y_size);
 
     int c_stride;
-    c_stride = get_frame_lut_stride(_video_info.get_plane_width(PLANE_CB));
-    int c_size = sizeof(pixel_dither_info) * c_stride * (_video_info.get_plane_height(PLANE_CB));
+    c_stride = get_frame_lut_stride(width_in_pixels >> _video_info.Format.SSW);
+    int c_size = sizeof(pixel_dither_info) * c_stride * (height_in_pixels >> _video_info.Format.SSH);
     _cb_info = (pixel_dither_info*)_aligned_malloc(c_size, FRAME_LUT_ALIGNMENT);
     _cr_info = (pixel_dither_info*)_aligned_malloc(c_size, FRAME_LUT_ALIGNMENT);
 
@@ -109,8 +104,8 @@ void f3kdb_core_t::init_frame_luts(void)
 
     pixel_dither_info *y_info_ptr, *cb_info_ptr, *cr_info_ptr;
 
-    int width_subsamp = _video_info.chroma_width_subsampling;
-    int height_subsamp = _video_info.chroma_height_subsampling;
+    int width_subsamp = _video_info.Format.SSW;
+    int height_subsamp = _video_info.Format.SSH;
 
     for (int y = 0; y < height_in_pixels; y++)
     {
@@ -210,8 +205,8 @@ void f3kdb_core_t::init_frame_luts(void)
     if (_params.dynamic_grain)
     {
         // Pre-generate offset here so that result is deterministic even if we request frame in different order
-        _grain_buffer_offsets = (int*)malloc(sizeof(int) * _video_info.num_frames);
-        for (int i = 0; i < _video_info.num_frames; i++)
+        _grain_buffer_offsets = (int*)malloc(sizeof(int) * _video_info.Frames);
+        for (int i = 0; i < _video_info.Frames; i++)
         {
             int offset = item_count + random(RANDOM_ALGORITHM_UNIFORM, seed, item_count, DEFAULT_RANDOM_PARAM);
             offset &= 0xfffffff0; // align to 16-byte for SSE codes
@@ -223,7 +218,7 @@ void f3kdb_core_t::init_frame_luts(void)
     }
 }
 
-f3kdb_core_t::f3kdb_core_t(const f3kdb_video_info_t* video_info, const f3kdb_params_t* params) :
+f3kdb_core_t::f3kdb_core_t(DSVideoInfo vi, const f3kdb_params_t params, OPTIMIZATION_MODE opt) :
     _process_plane_impl(NULL),
     _y_info(NULL),
     _cb_info(NULL),
@@ -231,8 +226,9 @@ f3kdb_core_t::f3kdb_core_t(const f3kdb_video_info_t* video_info, const f3kdb_par
     _grain_buffer_y(NULL),
     _grain_buffer_c(NULL),
     _grain_buffer_offsets(NULL),
-    _video_info(*video_info),
-    _params(*params)
+    _video_info(vi),
+    _opt(opt),
+    _params(params)
 {
     this->init();
 }
@@ -248,21 +244,6 @@ static __inline int select_impl_index(int sample_mode, bool blur_first)
     return sample_mode * 2 + (blur_first ? 0 : 1) - 1;
 }
 
-static process_plane_impl_t get_process_plane_impl(int sample_mode, bool blur_first, int opt, int dither_algo)
-{
-    if (opt == IMPL_AUTO_DETECT) {
-        if (features.avx2) {
-            opt = IMPL_SSE4;
-        } else if (features.sse4_1) {
-            opt = IMPL_SSE4;
-        } else {
-            opt = IMPL_C;
-        }
-    }
-    const process_plane_impl_t* impl_table = process_plane_impls[dither_algo][opt];
-    return impl_table[select_impl_index(sample_mode, blur_first)];
-}
-
 void f3kdb_core_t::init(void) 
 {
     init_context(&_y_context);
@@ -271,10 +252,11 @@ void f3kdb_core_t::init(void)
 
     init_frame_luts();
 
-    _process_plane_impl = get_process_plane_impl(_params.sample_mode, _params.blur_first, _params.opt, _params.dither_algo);
+    const process_plane_impl_t* impl_table = process_plane_impls[_params.dither_algo][(int)_opt];
+    _process_plane_impl = impl_table[select_impl_index(_params.sample_mode, _params.blur_first)];
 }
 
-int f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_frame_ptr, int dst_pitch, const unsigned char* src_frame_ptr, int src_pitch)
+void f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_frame_ptr, int dst_pitch, const unsigned char* src_frame_ptr, int src_pitch)
 {
     process_plane_params params;
 
@@ -286,18 +268,18 @@ int f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_f
     params.dst_plane_ptr = dst_frame_ptr;
     params.dst_pitch = dst_pitch;
 
-    params.input_mode = _video_info.pixel_mode;
-    params.input_depth = _video_info.depth;
+    params.input_mode = _video_info.Format.BitsPerSample == 8 ? LOW_BIT_DEPTH : HIGH_BIT_DEPTH_INTERLEAVED;
+    params.input_depth = _video_info.Format.BitsPerSample;
     params.output_mode = _params.output_depth <= 8 ? LOW_BIT_DEPTH : HIGH_BIT_DEPTH_INTERLEAVED;
     params.output_depth = _params.output_depth;
 
     params.plane = plane;
     
-    params.width_subsampling = plane == PLANE_Y ? 0 : _video_info.chroma_width_subsampling;
-    params.height_subsampling = plane == PLANE_Y ? 0 : _video_info.chroma_height_subsampling;
+    params.width_subsampling = plane == 0 ? 0 : _video_info.Format.SSW;
+    params.height_subsampling = plane == 0 ? 0 : _video_info.Format.SSH;
 
-    params.plane_width_in_pixels = _video_info.get_plane_width(plane);
-    params.plane_height_in_pixels = _video_info.get_plane_height(plane);
+    params.plane_width_in_pixels = plane == 0 ? _video_info.Width : (_video_info.Width >> _video_info.Format.SSW);
+    params.plane_height_in_pixels = plane == 0 ? _video_info.Height : (_video_info.Height >> _video_info.Format.SSH);
 
     params.info_stride = get_frame_lut_stride(params.plane_width_in_pixels);
     params.grain_buffer_stride = get_frame_lut_stride(params.plane_width_in_pixels);
@@ -308,7 +290,7 @@ int f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_f
 
     switch (plane)
     {
-    case PLANE_Y:
+    case 0:
         params.info_ptr_base = _y_info;
         params.threshold = _params.Y;
         params.pixel_max = _params.keep_tv_range ? TV_RANGE_Y_MAX : FULL_RANGE_Y_MAX;
@@ -317,7 +299,7 @@ int f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_f
         grain_setting = _params.grainY;
         context = &_y_context;
         break;
-    case PLANE_CB:
+    case 1:
         params.info_ptr_base = _cb_info;
         params.threshold = _params.Cb;
         params.pixel_max = _params.keep_tv_range ? TV_RANGE_C_MAX : FULL_RANGE_C_MAX;
@@ -326,7 +308,7 @@ int f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_f
         grain_setting = _params.grainC;
         context = &_cb_context;
         break;
-    case PLANE_CR:
+    case 2:
         params.info_ptr_base = _cr_info;
         params.threshold = _params.Cr;
         params.pixel_max = _params.keep_tv_range ? TV_RANGE_C_MAX : FULL_RANGE_C_MAX;
@@ -341,11 +323,11 @@ int f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_f
     
     if (_grain_buffer_offsets)
     {
-        params.grain_buffer += _grain_buffer_offsets[frame_index % _video_info.num_frames];
+        params.grain_buffer += _grain_buffer_offsets[frame_index % _video_info.Frames];
     }
 
     bool copy_plane = false;
-    if (_video_info.depth == _params.output_depth &&
+    if (_video_info.Format.BitsPerSample == _params.output_depth &&
         grain_setting == 0 &&
         params.threshold == 0)
     {
@@ -368,10 +350,8 @@ int f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_f
                 dst += dst_pitch;
             }
         }
-        return F3KDB_SUCCESS;
+        return;
     }
 
     _process_plane_impl(params, context);
-
-    return F3KDB_SUCCESS;
 }
