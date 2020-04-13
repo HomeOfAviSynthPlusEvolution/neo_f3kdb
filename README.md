@@ -4,7 +4,7 @@ Neo f3kdb Copyright(C) 2019-2020 Xinyue Lu, and previous developers
 
 F3kdb is a deband filter. It was originally written for AviUtl (author uncovered) and later ported to AviSynth by [SAPikachu](https://github.com/SAPikachu) many years ago.
 
-Legacy format support was removed and a few options that are no longer useful were also removed. Due to API change, the project has been renamed from f3kdb to Neo_f3kdb to avoid confusion. SSE4.1 is now required to run optimized routine. SSE4.1 is required to run optimized routine. SSE4.1 is supported since Intel Penryn (2007) and AMD bulldozer (2011). AVX routine didn't show much performance benefit and is not included.
+Legacy format support was removed and a few options that are no longer useful were also removed. Due to API change, the project has been renamed from f3kdb to Neo_f3kdb to avoid confusion. SSE4.1 is now required to run optimized routine. SSE4.1 is supported since Intel Penryn (2007) and AMD bulldozer (2011). AVX routine didn't show much performance benefit and is not included.
 
 ## Usage
 
