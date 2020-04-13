@@ -48,7 +48,9 @@ struct F3KDB final : Filter {
       Param {"random_algo_grain", Integer},
       Param {"random_param_ref", Float},
       Param {"random_param_grain", Float},
-      Param {"preset", String}
+      Param {"preset", String},
+      Param {"mt", Boolean},
+      Param {"opt", Integer}
     };
   }
   void Initialize(InDelegator* in, DSVideoInfo in_vi, FetchFrameFunctor* fetch_frame) override
@@ -97,10 +99,13 @@ struct F3KDB final : Filter {
     in->Read("random_param_ref", ep.random_param_ref);
     in->Read("random_param_grain", ep.random_param_grain);
 
+    int opt_in = -1;
+    in->Read("opt", opt_in);
+
     OPTIMIZATION_MODE opt = IMPL_C;
     int CPUFlags = GetCPUFlags();
 
-    if (CPUFlags & CPUF_SSE4_1)
+    if ((CPUFlags & CPUF_SSE4_1) && (opt_in > 0 || opt_in < 0))
       opt = IMPL_SSE4;
 
     #define INVALID_PARAM_IF(cond) \
