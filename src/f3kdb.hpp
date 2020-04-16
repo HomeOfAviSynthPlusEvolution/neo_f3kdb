@@ -41,6 +41,8 @@ struct F3KDB final : Filter {
       Param {"seed", Integer},
       Param {"blur_first", Boolean},
       Param {"dynamic_grain", Boolean},
+      Param {"opt", Integer},
+      Param {"mt", Boolean},
       Param {"dither_algo", Integer},
       Param {"keep_tv_range", Boolean},
       Param {"output_depth", Integer},
@@ -48,9 +50,7 @@ struct F3KDB final : Filter {
       Param {"random_algo_grain", Integer},
       Param {"random_param_ref", Float},
       Param {"random_param_grain", Float},
-      Param {"preset", String},
-      Param {"mt", Boolean},
-      Param {"opt", Integer}
+      Param {"preset", String}
     };
   }
   void Initialize(InDelegator* in, DSVideoInfo in_vi, FetchFrameFunctor* fetch_frame) override
