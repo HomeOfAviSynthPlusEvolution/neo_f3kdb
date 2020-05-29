@@ -58,22 +58,28 @@ struct F3KDB final : Filter {
     Filter::Initialize(in, in_vi, fetch_frame);
     std::string preset;
     in->Read("preset", preset);
-    if (preset == "depth")
-      ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = 0;
-    else if (preset == "low")
-      ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = 32;
-    else if (preset == "medium")
-      ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = 48;
-    else if (preset == "high")
-      ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = 64;
-    else if (preset == "veryhigh")
-      ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = 80;
-    else if (preset == "nograin")
-      ep.grainY = ep.grainC = 0;
-    else if (preset == "luma")
-      ep.Cb = ep.Cr = ep.grainC = 0;
-    else if (preset == "chroma")
-      ep.Y = ep.grainY = 0;
+    std::istringstream piss(preset);
+
+    while(!piss.eof()) {
+      std::string piss1;
+      std::getline(piss, piss1, '/');
+      if (piss1 == "depth")
+        ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = 0;
+      else if (piss1 == "low")
+        ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = 32;
+      else if (piss1 == "medium")
+        ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = 48;
+      else if (piss1 == "high")
+        ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = 64;
+      else if (piss1 == "veryhigh")
+        ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = 80;
+      else if (piss1 == "nograin")
+        ep.grainY = ep.grainC = 0;
+      else if (piss1 == "luma")
+        ep.Cb = ep.Cr = ep.grainC = 0;
+      else if (piss1 == "chroma")
+        ep.Y = ep.grainY = 0;
+    }
     int tmp;
     in->Read("range", ep.range);
     in->Read("y", ep.Y);
