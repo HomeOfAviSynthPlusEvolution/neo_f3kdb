@@ -6,7 +6,7 @@ add_library(neo-f3kdb SHARED main.cpp src/version.rc ${CODE} ${CODE_IMPL})
 set_property(TARGET neo-f3kdb PROPERTY CXX_STANDARD 17)
 
 find_package(Git REQUIRED)
-execute_process(COMMAND ${GIT_EXECUTABLE} describe --first-parent --tags --always OUTPUT_VARIABLE GIT_REPO_VERSION)
+execute_process(COMMAND ${GIT_EXECUTABLE} describe --first-parent --tags --always OUTPUT_VARIABLE GIT_REPO_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
 string(REGEX REPLACE "(r[0-9]+).*" "\\1" VERSION ${GIT_REPO_VERSION})
 
 configure_file (
