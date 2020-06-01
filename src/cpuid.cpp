@@ -24,6 +24,7 @@
 #ifdef AVS_WINDOWS
 #include <intrin.h>
 #else
+#include <cpuid.h>
 #include <x86intrin.h>
 #undef __cpuid
 
