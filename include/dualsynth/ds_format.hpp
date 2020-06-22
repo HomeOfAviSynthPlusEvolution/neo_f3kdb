@@ -11,14 +11,11 @@ struct DSFormat
 {
   bool IsFamilyYUV {true}, IsFamilyRGB {false}, IsFamilyYCC {false};
   bool IsInteger {true}, IsFloat {false};
-  int SSW {1}, SSH {1};
+  int SSW {0}, SSH {0};
   int BitsPerSample {8}, BytesPerSample {1};
   int Planes {3};
-  const VSCore* _vscore {nullptr};
-  const VSAPI* _vsapi {nullptr};
   DSFormat() {}
-  DSFormat(const VSFormat* format, const VSCore* vscore, const VSAPI* vsapi)
-    : _vscore(vscore), _vsapi(vsapi)
+  DSFormat(const VSFormat* format)
   {
     Planes = format->numPlanes;
     IsFamilyYUV = format->colorFamily == cmYUV || format->colorFamily == cmGray;
@@ -32,7 +29,7 @@ struct DSFormat
     IsFloat = format->sampleType == stFloat;
   }
 
-  const VSFormat* ToVSFormat() const
+  const VSFormat* ToVSFormat(const VSCore* vscore, const VSAPI* vsapi) const
   {
     VSColorFamily family = cmYUV;
     if (IsFamilyYUV)
@@ -41,7 +38,7 @@ struct DSFormat
       family = cmRGB;
     else if (IsFamilyYCC)
       family = cmYCoCg;
-    return _vsapi->registerFormat(family, IsInteger ? stInteger : stFloat, BitsPerSample, SSW, SSH, const_cast<VSCore*>(_vscore));
+    return vsapi->registerFormat(family, IsInteger ? stInteger : stFloat, BitsPerSample, SSW, SSH, const_cast<VSCore*>(vscore));
   }
 
   DSFormat(int format)
@@ -49,12 +46,12 @@ struct DSFormat
     const int componentBitSizes[8] = {8,16,32,0,0,10,12,14};
     if (format == VideoInfo::CS_I420)
       format = VideoInfo::CS_YV12;
-    
-    IsFamilyYUV = format & VideoInfo::CS_YUV;
-    IsFamilyRGB = format & VideoInfo::CS_BGR;
+
+    auto PYUV = VideoInfo::CS_PLANAR | VideoInfo::CS_YUV;
+    IsFamilyYUV = (format & PYUV) == PYUV;
+    auto PRGB = VideoInfo::CS_PLANAR | VideoInfo::CS_BGR;
+    IsFamilyRGB = (format & PRGB) == PRGB;
     IsFamilyYCC = false;
-    SSW = ((format >> VideoInfo::CS_Shift_Sub_Width) + 1) & 3;
-    SSH = ((format >> VideoInfo::CS_Shift_Sub_Height) + 1) & 3;
     BitsPerSample = componentBitSizes[(format >> VideoInfo::CS_Shift_Sample_Bits) & 7];
     BytesPerSample = BitsPerSample == 8 ? 1 : BitsPerSample == 32 ? 4 : 2;
     IsInteger = BitsPerSample < 32;
@@ -65,32 +62,36 @@ struct DSFormat
       Planes = 4;
     else if (IsFamilyRGB && (format & VideoInfo::CS_RGBA_TYPE) == VideoInfo::CS_RGBA_TYPE)
       Planes = 4;
+
+    if (IsFamilyYUV && Planes > 1) {
+      SSW = ((format >> VideoInfo::CS_Shift_Sub_Width) + 1) & 3;
+      SSH = ((format >> VideoInfo::CS_Shift_Sub_Height) + 1) & 3;
+    }
   }
 
   int ToAVSFormat() const
   {
     int pixel_format = VideoInfo::CS_PLANAR | (Planes == 3 ? VideoInfo::CS_YUV : VideoInfo::CS_YUVA) | VideoInfo::CS_VPlaneFirst;
-    if (IsFamilyYUV)
+    if (IsFamilyYUV) {
       pixel_format = VideoInfo::CS_PLANAR | (Planes == 3 ? VideoInfo::CS_YUV : VideoInfo::CS_YUVA) | VideoInfo::CS_VPlaneFirst;
-    else if (IsFamilyRGB)
-      pixel_format = VideoInfo::CS_PLANAR | VideoInfo::CS_BGR | (Planes == 3 ? VideoInfo::CS_BGR : VideoInfo::CS_RGB_TYPE) | VideoInfo::CS_VPlaneFirst;
-    else if (IsFamilyYCC)
-      pixel_format = VideoInfo::CS_PLANAR | VideoInfo::CS_BGR | (Planes == 3 ? VideoInfo::CS_BGR : VideoInfo::CS_RGBA_TYPE) | VideoInfo::CS_VPlaneFirst;
 
-    switch(SSW) {
-      case 0: pixel_format |= VideoInfo::CS_Sub_Width_1; break;
-      case 1: pixel_format |= VideoInfo::CS_Sub_Width_2; break;
-      case 2: pixel_format |= VideoInfo::CS_Sub_Width_4; break;
+      switch(SSW) {
+        case 0: pixel_format |= VideoInfo::CS_Sub_Width_1; break;
+        case 1: pixel_format |= VideoInfo::CS_Sub_Width_2; break;
+        case 2: pixel_format |= VideoInfo::CS_Sub_Width_4; break;
+      }
+
+      switch(SSH) {
+        case 0: pixel_format |= VideoInfo::CS_Sub_Height_1; break;
+        case 1: pixel_format |= VideoInfo::CS_Sub_Height_2; break;
+        case 2: pixel_format |= VideoInfo::CS_Sub_Height_4; break;
+      }
+
+      if (Planes == 1)
+        pixel_format = VideoInfo::CS_GENERIC_Y;
     }
-
-    switch(SSH) {
-      case 0: pixel_format |= VideoInfo::CS_Sub_Height_1; break;
-      case 1: pixel_format |= VideoInfo::CS_Sub_Height_2; break;
-      case 2: pixel_format |= VideoInfo::CS_Sub_Height_4; break;
-    }
-
-    if (Planes == 1 && IsFamilyYUV)
-      pixel_format = VideoInfo::CS_GENERIC_Y;
+    else if (IsFamilyRGB || IsFamilyYCC)
+      pixel_format = VideoInfo::CS_PLANAR | VideoInfo::CS_BGR | (Planes == 3 ? VideoInfo::CS_RGB_TYPE : VideoInfo::CS_RGBA_TYPE);
 
     switch(BitsPerSample) {
       case 8: pixel_format |= VideoInfo::CS_Sample_Bits_8; break;

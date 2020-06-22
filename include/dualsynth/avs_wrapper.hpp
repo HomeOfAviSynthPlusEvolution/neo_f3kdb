@@ -115,9 +115,11 @@ namespace AVSInterface
     PClip _clip;
     VideoInfo _vi;
     IScriptEnvironment* _env;
+    std::mutex fetch_frame_mutex;
     AVSFetchFrameFunctor(PClip clip, VideoInfo vi, IScriptEnvironment * env)
       : _clip(clip), _vi(vi), _env(env) {}
     DSFrame operator()(int n) override {
+      std::lock_guard<std::mutex> guard(fetch_frame_mutex);
       auto frame = _clip->GetFrame(n, _env);
       return DSFrame(frame, _vi, _env);
     }

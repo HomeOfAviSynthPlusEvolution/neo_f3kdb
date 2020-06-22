@@ -15,6 +15,7 @@
 #include <vector>
 #include <unordered_map>
 #include <algorithm>
+#include <mutex>
 #include "ds_format.hpp"
 #include "ds_videoinfo.hpp"
 #include "ds_frame.hpp"

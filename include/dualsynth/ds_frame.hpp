@@ -39,7 +39,7 @@ struct DSFrame
     , _vsformat(src ? _vsapi->getFrameFormat(src) : nullptr)
   {
     if (_vssrc) {
-      Format = DSFormat(_vsformat, _vscore, _vsapi);
+      Format = DSFormat(_vsformat);
       FrameWidth = _vsapi->getFrameWidth(src, 0);
       FrameHeight = _vsapi->getFrameHeight(src, 0);
 
@@ -99,8 +99,9 @@ struct DSFrame
     throw "Unable to create from nothing.";
   }
   DSFrame Create(DSVideoInfo vi) {
+    planes = vi.Format.IsFamilyYUV ? planes_y : planes_r;
     if (_vsapi) {
-      auto vsframe = _vsapi->newVideoFrame(vi.Format.ToVSFormat(), vi.Width, vi.Height, NULL, const_cast<VSCore*>(_vscore));
+      auto vsframe = _vsapi->newVideoFrame(vi.Format.ToVSFormat(_vscore, _vsapi), vi.Width, vi.Height, NULL, const_cast<VSCore*>(_vscore));
       DSFrame new_frame(vsframe, _vscore, _vsapi);
       new_frame._vsdst = vsframe;
       new_frame.DstPointers = new unsigned char*[Format.Planes];
