@@ -7,7 +7,19 @@
 
 #pragma once
 
-#include <execution>
+#ifdef HAS_EXECUTION
+  #include <execution>
+#endif
+
+#ifndef __cpp_lib_execution
+  #undef ENABLE_PAR
+#endif
+
+#ifdef ENABLE_PAR
+  #define PAR_POLICY std::execution::par
+#else
+  #define PAR_POLICY nullptr
+#endif
 
 #include "compiler_compat.h"
 #include "core.h"
@@ -23,6 +35,7 @@ struct F3KDB final : Filter {
   bool crop;
   char error_msg[1024];
   DSVideoInfo out_vi;
+  bool mt {true};
 
   const char* VSName() const override { return "Deband"; }
   const char* AVSName() const override { return "neo_f3kdb"; }
@@ -107,6 +120,7 @@ struct F3KDB final : Filter {
 
     int opt_in = -1;
     in->Read("opt", opt_in);
+    in->Read("mt", mt);
 
     OPTIMIZATION_MODE opt = IMPL_C;
     int CPUFlags = GetCPUFlags();
@@ -174,7 +188,7 @@ struct F3KDB final : Filter {
   {
     auto src = in_frames[n];
     auto dst = src.Create(out_vi);
-    std::for_each_n(std::execution::par_unseq, reinterpret_cast<char*>(0), in_vi.Format.Planes, [&](char&idx) {
+    auto core = [&](char&idx) {
       int p = static_cast<int>(reinterpret_cast<intptr_t>(&idx));
       auto src_stride = src.StrideBytes[p];
       auto src_ptr = src.SrcPointers[p];
@@ -182,7 +196,15 @@ struct F3KDB final : Filter {
       auto dst_ptr = dst.DstPointers[p];
 
       engine->process_plane(n, p, dst_ptr, dst_stride, src_ptr, src_stride);
-    });
+    };
+
+#ifdef ENABLE_PAR
+    if(mt)
+      std::for_each_n(PAR_POLICY, reinterpret_cast<char*>(0), in_vi.Format.Planes, core);
+    else
+#endif
+    for (intptr_t i = 0; i < in_vi.Format.Planes; i++)
+      core(*reinterpret_cast<char*>(i));
 
     return dst;
   }

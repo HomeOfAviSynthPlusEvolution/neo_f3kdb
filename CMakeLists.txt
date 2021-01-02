@@ -4,6 +4,7 @@ file(GLOB CODE "src/*.cpp")
 file(GLOB SSE41_CODE_IMPL "src/*sse4.cpp")
 add_library(neo-f3kdb SHARED main.cpp src/version.rc ${CODE} ${CODE_IMPL})
 set_property(TARGET neo-f3kdb PROPERTY CXX_STANDARD 17)
+option(ENABLE_PAR "Enable C++17 Parallel Execution" ON)
 
 find_package(Git REQUIRED)
 execute_process(COMMAND ${GIT_EXECUTABLE} describe --first-parent --tags --always OUTPUT_VARIABLE GIT_REPO_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -51,10 +52,20 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
 
 else()
   set_source_files_properties(${SSE41_CODE_IMPL} PROPERTIES COMPILE_FLAGS "-msse4.1")
+
+endif()
+
+include(CheckIncludeFileCXX)
+CHECK_INCLUDE_FILE_CXX(execution HAS_EXECUTION)
+if(HAS_EXECUTION)
+  add_definitions(-DHAS_EXECUTION)
+endif()
+if(ENABLE_PAR AND HAS_EXECUTION)
+  add_definitions(-DENABLE_PAR)
+
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_link_libraries(neo-f3kdb tbb)
   endif()
-
 endif()
 
 add_custom_command(
