@@ -54,19 +54,17 @@ core.neo_f3kdb.Deband(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
 
 - *output_mode* (removed)
 
-- *mt* (removed)
+- *mt*
+
+    Process planes in parallel. Default: true.
+
+    If you notice a dead lock under extreme condition, try disabling it. 
 
 ## Compilation
 
 ```cmd
-mkdir build\x86
-pushd build\x86
-cmake -DCMAKE_GENERATOR_PLATFORM=Win32 -D_DIR=x86 ..\..\
-popd
-mkdir build\x64
-pushd build\x64
-cmake -DCMAKE_GENERATOR_PLATFORM=x64 -D_DIR=x64 ..\..\
-popd
+cmake -B build\x86 -S . -DCMAKE_GENERATOR_PLATFORM=Win32 -D_DIR=x86
+cmake -B build\x64 -S . -DCMAKE_GENERATOR_PLATFORM=x64 -D_DIR=x64
 cmake --build build\x86 --config Release
 cmake --build build\x64 --config Release
 ```
@@ -74,10 +72,7 @@ cmake --build build\x64 --config Release
 ## Compilation (GCC)
 
 ```bash
-mkdir -p build/gcc
-pushd build/gcc
-cmake -G "MSYS Makefiles" -D_DIR=gcc ../../
-popd
+cmake -B build/gcc -S . -G "MSYS Makefiles" -D_DIR=gcc
 cmake --build build/gcc
 ```
 
