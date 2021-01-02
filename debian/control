@@ -1,0 +1,22 @@
+Source: neo-f3kdb
+Section: libs
+Priority: optional
+Maintainer: Xinyue Lu <i@7086.in>
+Bugs: https://github.com/HomeOfAviSynthPlusEvolution/neo_f3kdb/issues
+Homepage: https://github.com/HomeOfAviSynthPlusEvolution/neo_f3kdb
+Standards-Version: 4.5.0
+Build-Depends: debhelper-compat (= 12),
+ avisynthplus-yuuki-dev,
+ liblsmash-yuuki-dev
+
+# -yuuki tag is used for yuuki's own builds.
+# Replace it with your own tag for your own builds.
+
+Package: dualsynth-neo-f3kdb-yuuki
+Architecture: any
+Multi-Arch: same
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Provides: dualsynth-neo-f3kdb, neo-f3kdb
+Conflicts: dualsynth-neo-f3kdb, neo-f3kdb
+Description: Plugin for AviSynthPlus and VapourSynth: neo-f3kdb
+ F3KDB is a deband filter. It was originally written for AviUtl by bunyuchan and later ported to AviSynth by SAPikachu many years ago.
