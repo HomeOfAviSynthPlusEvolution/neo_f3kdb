@@ -209,7 +209,7 @@ struct F3KDB final : Filter {
     return dst;
   }
 
-  DSVideoInfo GetOutputVI()
+  DSVideoInfo GetOutputVI() override
   {
     return out_vi;
   }
