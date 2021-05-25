@@ -36,9 +36,10 @@
 #include "config.h"
 
 #ifdef AVS_POSIX
-// this is also defined in avs/posix.h, but that header is for the core,
-// not external programs
+// this is also defined in avs/posix.h
+#ifndef AVS_HAIKU
 #define __declspec(x)
+#endif
 #endif
 
 #ifdef __cplusplus
@@ -93,7 +94,11 @@
 
 #ifdef BUILDING_AVSCORE
 #ifdef AVS_WINDOWS
-#  define AVSC_EXPORT __declspec(dllexport)
+#  ifndef AVS_STATIC_LIB
+#    define AVSC_EXPORT __declspec(dllexport)
+#  else
+#    define AVSC_EXPORT
+#  endif
 #  define AVSC_API(ret, name) EXTERN_C AVSC_EXPORT ret AVSC_CC name
 #else
 #  define AVSC_EXPORT EXTERN_C
@@ -101,8 +106,13 @@
 #endif
 #else
 #  define AVSC_EXPORT EXTERN_C __declspec(dllexport)
+#  ifndef AVS_STATIC_LIB
+#    define AVSC_IMPORT __declspec(dllimport)
+#  else
+#    define AVSC_IMPORT
+#  endif
 #  ifndef AVSC_NO_DECLSPEC
-#    define AVSC_API(ret, name) EXTERN_C __declspec(dllimport) ret AVSC_CC name
+#    define AVSC_API(ret, name) EXTERN_C AVSC_IMPORT ret AVSC_CC name
 #  else
 #    define AVSC_API(ret, name) typedef ret (AVSC_CC *name##_func)
 #  endif
