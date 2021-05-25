@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <memory>
+
 #ifdef HAS_EXECUTION
   #include <execution>
 #endif
@@ -30,7 +32,7 @@ int GetCPUFlags();
 
 struct F3KDB final : Filter {
   f3kdb_params_t ep;
-  f3kdb_core_t* engine;
+  std::unique_ptr<f3kdb_core_t> engine;
   InDelegator* _in;
   bool crop;
   char error_msg[1024];
@@ -178,7 +180,7 @@ struct F3KDB final : Filter {
 
     try
     {
-        engine = new f3kdb_core_t(in_vi, ep, opt);
+        engine = std::make_unique<f3kdb_core_t>(in_vi, ep, opt);
     } catch (std::bad_alloc&) {
         throw "Memory allocation failed";
     }
