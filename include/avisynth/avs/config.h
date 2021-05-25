@@ -48,14 +48,23 @@
 #   define X86_64
 #elif defined(_M_IX86) || defined(__i386__)
 #   define X86_32
+// VS2017 introduced _M_ARM64
+#elif defined(_M_ARM64) || defined(__aarch64__)
+#   define ARM64
+#elif defined(_M_ARM) || defined(__arm__)
+#   define ARM32
+#elif defined(__PPC64__)
+#   define PPC64
+#elif defined(_M_PPC) || defined(__PPC__) || defined(__POWERPC__)
+#   define PPC32
 #else
 #   error Unsupported CPU architecture.
 #endif
 
 //            VC++  LLVM-Clang-cl   MinGW-Gnu
-// MSVC        x          x 
+// MSVC        x          x
 // MSVC_PURE   x
-// CLANG                  x             
+// CLANG                  x
 // GCC                                  x
 
 #if defined(__clang__)
@@ -66,7 +75,6 @@
 #   define MSVC
 #   define AVS_FORCEINLINE __attribute__((always_inline))
 #else
-#   define GCC
 #   define AVS_FORCEINLINE __attribute__((always_inline)) inline
 #endif
 #elif   defined(_MSC_VER)
@@ -94,12 +102,54 @@
 #elif defined(__APPLE__)
 #   define AVS_MACOS
 #   define AVS_POSIX
+#elif defined(__HAIKU__)
+#   define AVS_HAIKU
+#   define AVS_POSIX
 #else
 #   error Operating system unsupported.
 #endif
 
+// useful warnings disabler macros for supported compilers
+
+#if defined(_MSC_VER)
+#define DISABLE_WARNING_PUSH           __pragma(warning( push ))
+#define DISABLE_WARNING_POP            __pragma(warning( pop ))
+#define DISABLE_WARNING(warningNumber) __pragma(warning( disable : warningNumber ))
+
+#define DISABLE_WARNING_UNREFERENCED_LOCAL_VARIABLE      DISABLE_WARNING(4101)
+#define DISABLE_WARNING_UNREFERENCED_FUNCTION            DISABLE_WARNING(4505)
+// other warnings you want to deactivate...
+
+#elif defined(__GNUC__) || defined(__clang__)
+#define DO_PRAGMA(X) _Pragma(#X)
+#define DISABLE_WARNING_PUSH           DO_PRAGMA(GCC diagnostic push)
+#define DISABLE_WARNING_POP            DO_PRAGMA(GCC diagnostic pop)
+#define DISABLE_WARNING(warningName)   DO_PRAGMA(GCC diagnostic ignored #warningName)
+
+#define DISABLE_WARNING_UNREFERENCED_LOCAL_VARIABLE      DISABLE_WARNING(-Wunused-variable)
+#define DISABLE_WARNING_UNREFERENCED_FUNCTION            DISABLE_WARNING(-Wunused-function)
+// other warnings you want to deactivate...
+
+#else
+#define DISABLE_WARNING_PUSH
+#define DISABLE_WARNING_POP
+#define DISABLE_WARNING_UNREFERENCED_LOCAL_VARIABLE
+#define DISABLE_WARNING_UNREFERENCED_FUNCTION
+// other warnings you want to deactivate...
+
+#endif
+
 #if defined(AVS_POSIX)
 #define NEW_AVSVALUE
+#else
+#define NEW_AVSVALUE
+#endif
+
+#if defined(AVS_WINDOWS)
+// Windows XP does not have proper initialization for
+// thread local variables.
+// Use workaround instead __declspec(thread)
+#define XP_TLS
 #endif
 
 #endif //AVS_CONFIG_H
