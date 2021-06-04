@@ -81,8 +81,8 @@ struct DSFrame
       const VSFrameRef* copy_frames[1] {ToVSFrame()};
       int copy_planes[4] = {0};
       auto vsframe = copy ?
-        _vsapi->newVideoFrame2(_vsformat, FrameWidth, FrameHeight, copy_frames, copy_planes, ToVSFrame(), const_cast<VSCore*>(_vscore)) :
-        _vsapi->newVideoFrame(_vsformat, FrameWidth, FrameHeight, ToVSFrame(), const_cast<VSCore*>(_vscore));
+        _vsapi->newVideoFrame2(_vsformat, FrameWidth, FrameHeight, copy_frames, copy_planes, _vssrc, const_cast<VSCore*>(_vscore)) :
+        _vsapi->newVideoFrame(_vsformat, FrameWidth, FrameHeight, _vssrc, const_cast<VSCore*>(_vscore));
       _vsapi->freeFrame(copy_frames[0]);
 
       DSFrame new_frame(vsframe, _vscore, _vsapi);
@@ -101,7 +101,7 @@ struct DSFrame
   DSFrame Create(DSVideoInfo vi) {
     planes = vi.Format.IsFamilyYUV ? planes_y : planes_r;
     if (_vsapi) {
-      auto vsframe = _vsapi->newVideoFrame(vi.Format.ToVSFormat(_vscore, _vsapi), vi.Width, vi.Height, ToVSFrame(), const_cast<VSCore*>(_vscore));
+      auto vsframe = _vsapi->newVideoFrame(vi.Format.ToVSFormat(_vscore, _vsapi), vi.Width, vi.Height, _vssrc, const_cast<VSCore*>(_vscore));
       DSFrame new_frame(vsframe, _vscore, _vsapi);
       new_frame._vsdst = vsframe;
       new_frame.DstPointers = new unsigned char*[Format.Planes];
