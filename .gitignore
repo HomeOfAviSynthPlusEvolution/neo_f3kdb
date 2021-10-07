@@ -2,4 +2,5 @@
 *.dyn
 *.obj
 *.sublime-*
-build
+build*
+release*
