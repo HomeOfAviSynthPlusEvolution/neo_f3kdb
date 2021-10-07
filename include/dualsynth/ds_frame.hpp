@@ -17,11 +17,11 @@ struct DSFrame
   DSFormat Format;
 
   // VapourSynth Interface
-  const VSFrameRef* _vssrc {nullptr};
-  VSFrameRef* _vsdst {nullptr};
+  const VSFrame* _vssrc {nullptr};
+  VSFrame* _vsdst {nullptr};
   const VSCore* _vscore {nullptr};
   const VSAPI* _vsapi {nullptr};
-  const VSFormat* _vsformat {nullptr};
+  const VSVideoFormat* _vsformat {nullptr};
 
   // AviSynth+ Interface
   PVideoFrame _avssrc;
@@ -34,12 +34,12 @@ struct DSFrame
   DSFrame() {}
   DSFrame(const VSCore* vscore, const VSAPI* vsapi)
     : _vscore(vscore), _vsapi(vsapi) {}
-  DSFrame(const VSFrameRef* src, const VSCore* vscore, const VSAPI* vsapi)
+  DSFrame(const VSFrame* src, const VSCore* vscore, const VSAPI* vsapi)
     : _vssrc(src), _vscore(vscore), _vsapi(vsapi)
-    , _vsformat(src ? _vsapi->getFrameFormat(src) : nullptr)
+    , _vsformat(src ? _vsapi->getVideoFrameFormat(src) : nullptr)
   {
     if (_vssrc) {
-      Format = DSFormat(_vsformat);
+      Format = DSFormat(*_vsformat);
       FrameWidth = _vsapi->getFrameWidth(src, 0);
       FrameHeight = _vsapi->getFrameHeight(src, 0);
 
@@ -78,7 +78,7 @@ struct DSFrame
   {
     if (_vssrc) {
       // Create a new VS frame
-      const VSFrameRef* copy_frames[1] {ToVSFrame()};
+      const VSFrame* copy_frames[1] {ToVSFrame()};
       int copy_planes[4] = {0};
       auto vsframe = copy ?
         _vsapi->newVideoFrame2(_vsformat, FrameWidth, FrameHeight, copy_frames, copy_planes, _vssrc, const_cast<VSCore*>(_vscore)) :
@@ -101,7 +101,7 @@ struct DSFrame
   DSFrame Create(DSVideoInfo vi) {
     planes = vi.Format.IsFamilyYUV ? planes_y : planes_r;
     if (_vsapi) {
-      auto vsframe = _vsapi->newVideoFrame(vi.Format.ToVSFormat(_vscore, _vsapi), vi.Width, vi.Height, _vssrc, const_cast<VSCore*>(_vscore));
+      auto vsframe = _vsapi->newVideoFrame(&vi.Format.ToVSFormat(), vi.Width, vi.Height, _vssrc, const_cast<VSCore*>(_vscore));
       DSFrame new_frame(vsframe, _vscore, _vsapi);
       new_frame._vsdst = vsframe;
       new_frame.DstPointers = new unsigned char*[Format.Planes];
@@ -125,10 +125,10 @@ struct DSFrame
     throw "Unable to create from nothing.";
   }
 
-  const VSFrameRef* ToVSFrame()
+  const VSFrame* ToVSFrame()
   {
-    return _vsdst ? _vsapi->cloneFrameRef(_vsdst) :
-           _vssrc ? _vsapi->cloneFrameRef(_vssrc) :
+    return _vsdst ? _vsapi->addFrameRef(_vsdst) :
+           _vssrc ? _vsapi->addFrameRef(_vssrc) :
            nullptr;
   }
   PVideoFrame ToAVSFrame() {return _avssrc ? _avssrc : nullptr;}
@@ -164,9 +164,9 @@ struct DSFrame
       std::copy_n(old.StrideBytes, Format.Planes, StrideBytes);
     }
     if (_vsdst && _vsdst != _vssrc)
-      _vsdst = const_cast<VSFrameRef*>(_vsapi->cloneFrameRef(old._vsdst));
+      _vsdst = const_cast<VSFrame*>(_vsapi->addFrameRef(old._vsdst));
     if (_vssrc)
-      _vssrc = _vsapi->cloneFrameRef(old._vssrc);
+      _vssrc = _vsapi->addFrameRef(old._vssrc);
   }
   DSFrame& operator =(const DSFrame & old)
   {
@@ -199,9 +199,9 @@ struct DSFrame
       std::copy_n(old.StrideBytes, Format.Planes, StrideBytes);
     }
     if (_vsdst && _vsdst != _vssrc)
-      _vsdst = const_cast<VSFrameRef*>(_vsapi->cloneFrameRef(old._vsdst));
+      _vsdst = const_cast<VSFrame*>(_vsapi->addFrameRef(old._vsdst));
     if (_vssrc)
-      _vssrc = _vsapi->cloneFrameRef(old._vssrc);
+      _vssrc = _vsapi->addFrameRef(old._vssrc);
     return *this;
   }
   DSFrame(DSFrame && old) noexcept
