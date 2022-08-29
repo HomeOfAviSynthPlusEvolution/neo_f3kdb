@@ -19,19 +19,24 @@ configure_file (
   "${PROJECT_SOURCE_DIR}/src/version.rc"
 )
 
-find_package(PkgConfig REQUIRED)
+if (NOT MSVC)
+  find_package(PkgConfig REQUIRED)
 
-pkg_check_modules(AVISYNTH avisynth)
-if(AVISYNTH_FOUND)
-  include_directories(${AVISYNTH_INCLUDE_DIRS})
+  pkg_check_modules(AVISYNTH avisynth)
+  if(AVISYNTH_FOUND)
+    include_directories(${AVISYNTH_INCLUDE_DIRS})
+  else()
+    include_directories(include/avisynth)
+  endif()
+
+  pkg_check_modules(VAPOURSYNTH vapoursynth)
+  if(VAPOURSYNTH_FOUND)
+    include_directories(${VAPOURSYNTH_INCLUDE_DIRS})
+  else()
+    include_directories(include/vapoursynth)
+  endif()
 else()
   include_directories(include/avisynth)
-endif()
-
-pkg_check_modules(VAPOURSYNTH vapoursynth)
-if(VAPOURSYNTH_FOUND)
-  include_directories(${VAPOURSYNTH_INCLUDE_DIRS})
-else()
   include_directories(include/vapoursynth)
 endif()
 
