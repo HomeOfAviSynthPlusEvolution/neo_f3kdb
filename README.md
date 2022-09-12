@@ -58,7 +58,13 @@ core.neo_f3kdb.Deband(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
 
     Process planes in parallel. Default: true.
 
-    If you notice a dead lock under extreme condition, try disabling it. 
+    If you notice a dead lock under extreme condition, try disabling it.
+
+- *Y2*, *Cb2*, *Cr2* (> r7)
+
+    When specified respectively `Y`, `Cb`, `Cr` do not have effect.
+
+    `Y`, `Cb`, `Cr` are internally left shifted by `2` while `Y2`, `Cb2`, `Cr2` - by `5`.
 
 ## Compilation
 
@@ -76,7 +82,7 @@ cmake -B build/gcc -S . -G "MSYS Makefiles" -D_DIR=gcc
 cmake --build build/gcc
 ```
 
-## License 
+## License
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

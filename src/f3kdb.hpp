@@ -65,7 +65,10 @@ struct F3KDB final : Filter {
       Param {"random_algo_grain", Integer},
       Param {"random_param_ref", Float},
       Param {"random_param_grain", Float},
-      Param {"preset", String}
+      Param {"preset", String},
+      Param{ "y2", Integer },
+      Param{ "cb2", Integer },
+      Param{ "cr2", Integer }
     };
   }
   void Initialize(InDelegator* in, DSVideoInfo in_vi, FetchFrameFunctor* fetch_frame) override
@@ -124,6 +127,13 @@ struct F3KDB final : Filter {
     in->Read("opt", opt_in);
     in->Read("mt", mt);
 
+    int y2 = -1;
+    int cb2 = -1;
+    int cr2 = -1;
+    in->Read("y2", y2);
+    in->Read("cb2", cb2);
+    in->Read("cr2", cr2);
+
     OPTIMIZATION_MODE opt = IMPL_C;
     int CPUFlags = GetCPUFlags();
 
@@ -148,8 +158,8 @@ struct F3KDB final : Filter {
         // set to appropriate precision mode
         ep.dither_algo = DA_16BIT_INTERLEAVED;
 
-    int threshold_upper_limit = 64 * 8 - 1;
-    int dither_upper_limit = 4096;
+    constexpr int threshold_upper_limit = 511; //64 * 8 - 1
+    constexpr int dither_upper_limit = 4096;
 
     #define CHECK_PARAM(value, lower_bound, upper_bound) \
     do { if ((int)value < (int)lower_bound || (int)value > (int)upper_bound) { snprintf(error_msg, sizeof(error_msg), "Invalid parameter %s, must be between %d and %d", #value, lower_bound, upper_bound); throw error_msg; } } while(0)
@@ -164,13 +174,16 @@ struct F3KDB final : Filter {
     CHECK_PARAM(ep.dither_algo, DA_HIGH_NO_DITHERING, (DA_COUNT - 1) );
     CHECK_PARAM(ep.random_algo_ref, 0, (RANDOM_ALGORITHM_COUNT - 1) );
     CHECK_PARAM(ep.random_algo_grain, 0, (RANDOM_ALGORITHM_COUNT - 1) );
+    CHECK_PARAM(y2, -1, threshold_upper_limit);
+    CHECK_PARAM(cb2, -1, threshold_upper_limit);
+    CHECK_PARAM(cr2, -1, threshold_upper_limit);
     
 
     // now the internal bit depth is 16, 
     // scale parameters to be consistent with 14bit range in previous versions
-    ep.Y <<= 2;
-    ep.Cb <<= 2;
-    ep.Cr <<= 2;
+    ep.Y = y2 >= 0 ? y2 << 5 : ep.Y << 2;
+    ep.Cb = cb2 >= 0 ? cb2 << 5 : ep.Cb << 2;
+    ep.Cr = cr2 >= 0 ? cr2 << 5 : ep.Cr << 2;
     ep.grainY <<= 2;
     ep.grainC <<= 2;
 
