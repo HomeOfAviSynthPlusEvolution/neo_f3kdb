@@ -158,32 +158,34 @@ struct F3KDB final : Filter {
         // set to appropriate precision mode
         ep.dither_algo = DA_16BIT_INTERLEAVED;
 
-    constexpr int threshold_upper_limit = 511; //64 * 8 - 1
+    const int y_threshold_upper_limit = y2 >= 0 ? 65535 : 511;
+    const int cb_threshold_upper_limit = cb2 >= 0 ? 65535 : 511;
+    const int cr_threshold_upper_limit = cr2 >= 0 ? 65535 : 511;
     constexpr int dither_upper_limit = 4096;
 
     #define CHECK_PARAM(value, lower_bound, upper_bound) \
     do { if ((int)value < (int)lower_bound || (int)value > (int)upper_bound) { snprintf(error_msg, sizeof(error_msg), "Invalid parameter %s, must be between %d and %d", #value, lower_bound, upper_bound); throw error_msg; } } while(0)
 
     CHECK_PARAM(ep.range, 0, 31);
-    CHECK_PARAM(ep.Y, 0, threshold_upper_limit);
-    CHECK_PARAM(ep.Cb, 0, threshold_upper_limit);
-    CHECK_PARAM(ep.Cr, 0, threshold_upper_limit);
+    CHECK_PARAM(ep.Y, 0, y_threshold_upper_limit);
+    CHECK_PARAM(ep.Cb, 0, cb_threshold_upper_limit);
+    CHECK_PARAM(ep.Cr, 0, cr_threshold_upper_limit);
     CHECK_PARAM(ep.grainY, 0, dither_upper_limit);
     CHECK_PARAM(ep.grainC, 0, dither_upper_limit);
     CHECK_PARAM(ep.sample_mode, 1, 4);
     CHECK_PARAM(ep.dither_algo, DA_HIGH_NO_DITHERING, (DA_COUNT - 1) );
     CHECK_PARAM(ep.random_algo_ref, 0, (RANDOM_ALGORITHM_COUNT - 1) );
     CHECK_PARAM(ep.random_algo_grain, 0, (RANDOM_ALGORITHM_COUNT - 1) );
-    CHECK_PARAM(y2, -1, threshold_upper_limit);
-    CHECK_PARAM(cb2, -1, threshold_upper_limit);
-    CHECK_PARAM(cr2, -1, threshold_upper_limit);
+    CHECK_PARAM(y2, -1, y_threshold_upper_limit);
+    CHECK_PARAM(cb2, -1, cb_threshold_upper_limit);
+    CHECK_PARAM(cr2, -1, cr_threshold_upper_limit);
     
 
     // now the internal bit depth is 16, 
     // scale parameters to be consistent with 14bit range in previous versions
-    ep.Y = y2 >= 0 ? y2 << 5 : ep.Y << 2;
-    ep.Cb = cb2 >= 0 ? cb2 << 5 : ep.Cb << 2;
-    ep.Cr = cr2 >= 0 ? cr2 << 5 : ep.Cr << 2;
+    ep.Y = y2 >= 0 ? y2 : ep.Y << 2;
+    ep.Cb = cb2 >= 0 ? cb2 : ep.Cb << 2;
+    ep.Cr = cr2 >= 0 ? cr2 : ep.Cr << 2;
     ep.grainY <<= 2;
     ep.grainC <<= 2;
 
