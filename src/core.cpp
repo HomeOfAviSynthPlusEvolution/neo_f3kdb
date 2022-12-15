@@ -132,6 +132,7 @@ void f3kdb_core_t::init_frame_luts(void)
                 break;
             
             case 2:
+            case 5:
             case 4:
                 cur_range = min_multi(x_range, y_range, -1);
                 break;
@@ -293,6 +294,8 @@ void f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_
     case 0:
         params.info_ptr_base = _y_info;
         params.threshold = _params.Y;
+        params.threshold1 = _params.Y_1;
+        params.threshold2 = _params.Y_2;
         params.pixel_max = _params.keep_tv_range ? TV_RANGE_Y_MAX : FULL_RANGE_Y_MAX;
         params.pixel_min = _params.keep_tv_range ? TV_RANGE_Y_MIN : FULL_RANGE_Y_MIN;
         params.grain_buffer = _grain_buffer_y;
@@ -302,6 +305,8 @@ void f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_
     case 1:
         params.info_ptr_base = _cb_info;
         params.threshold = _params.Cb;
+        params.threshold1 = _params.Cb_1;
+        params.threshold2 = _params.Cb_2;
         params.pixel_max = _params.keep_tv_range ? TV_RANGE_C_MAX : FULL_RANGE_C_MAX;
         params.pixel_min = _params.keep_tv_range ? TV_RANGE_C_MIN : FULL_RANGE_C_MIN;
         params.grain_buffer = _grain_buffer_c;
@@ -311,6 +316,8 @@ void f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_
     case 2:
         params.info_ptr_base = _cr_info;
         params.threshold = _params.Cr;
+        params.threshold1 = _params.Cr_1;
+        params.threshold2 = _params.Cr_2;
         params.pixel_max = _params.keep_tv_range ? TV_RANGE_C_MAX : FULL_RANGE_C_MAX;
         params.pixel_min = _params.keep_tv_range ? TV_RANGE_C_MIN : FULL_RANGE_C_MIN;
         params.grain_buffer = _grain_buffer_c;

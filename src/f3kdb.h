@@ -54,4 +54,10 @@ typedef struct _f3kdb_params_t {
   RANDOM_ALGORITHM random_algo_grain {RANDOM_ALGORITHM_UNIFORM};
   double random_param_ref {1.0f};
   double random_param_grain {1.0f};
+  int Y_1 {-1};
+  int Cb_1 {-1};
+  int Cr_1 {-1};
+  int Y_2 {-1};
+  int Cb_2 {-1};
+  int Cr_2 {-1};
 } f3kdb_params_t;

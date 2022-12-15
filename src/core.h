@@ -31,6 +31,8 @@ typedef struct _process_plane_params
     int output_depth;
 
     unsigned short threshold;
+    unsigned short threshold1;
+    unsigned short threshold2;
     pixel_dither_info *info_ptr_base;
     int info_stride;
     

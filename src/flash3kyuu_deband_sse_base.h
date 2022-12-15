@@ -70,6 +70,7 @@ static __forceinline void process_plane_info_block(
         temp_ref1 = _mm_sra_epi32(ref1, width_subsample_vector);
         ref_offset1 = _mm_sll_epi32(temp_ref1, pixel_step_shift_bits);
         break;
+    case 5:
     case 4:
         temp_ref1 = _mm_sra_epi32(ref1, height_subsample_vector);
         ref_offset1 = _mm_mullo_epi32(src_pitch_vector, temp_ref1);
@@ -105,7 +106,7 @@ static __forceinline void process_plane_info_block(
         _mm_store_si128((__m128i*)info_data_stream, ref_offset1);
         info_data_stream += 16;
 
-        if (sample_mode == 2 || sample_mode == 4) {
+        if (sample_mode == 2 || sample_mode == 4 || sample_mode == 5) {
             _mm_store_si128((__m128i*)info_data_stream, ref_offset2);
             info_data_stream += 16;
         }
@@ -132,67 +133,123 @@ static __forceinline __m128i generate_blend_mask_high(__m128i a, __m128i b, __m1
     return _mm_cmpgt_epi16(converted_threshold, converted_diff);
 }
 
+static __forceinline __m128i generate_blend_mask_high(__m128i a, __m128i threshold)
+{
+    __m128i sign_convert_vector = _mm_set1_epi16((short)0x8000);
+
+    __m128i converted_diff = _mm_sub_epi16(a, sign_convert_vector);
+
+    __m128i converted_threshold = _mm_sub_epi16(threshold, sign_convert_vector);
+
+    // mask: if threshold >= diff, set to 0xff, otherwise 0x00
+    // note that this is the opposite of low bitdepth implementation
+    return _mm_cmpgt_epi16(converted_threshold, converted_diff);
+}
+
 
 template<int sample_mode, bool blur_first>
-static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels, __m128i threshold_vector, __m128i change, const __m128i& ref_pixels_1, const __m128i& ref_pixels_2, const __m128i& ref_pixels_3, const __m128i& ref_pixels_4)
+static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels, __m128i threshold_vector, __m128i threshold1_vector, __m128i threshold2_vector,
+    __m128i change, const __m128i& ref_pixels_1, const __m128i& ref_pixels_2, const __m128i& ref_pixels_3, const __m128i& ref_pixels_4)
 {
     __m128i use_orig_pixel_blend_mask_12, use_orig_pixel_blend_mask_34;
     __m128i avg_12, avg_34;
     __m128i dst_pixels;
 
-    if (true)
+    if (sample_mode < 5)
     {
-        if (!blur_first)
+        if (true)
         {
-            // note: use AND instead of OR, because two operands are reversed
-            // (different from low bit-depth mode!)
-            use_orig_pixel_blend_mask_12 = _mm_and_si128(
-                generate_blend_mask_high(src_pixels, ref_pixels_1, threshold_vector),
-                generate_blend_mask_high(src_pixels, ref_pixels_2, threshold_vector) );
+            if (!blur_first)
+            {
+                // note: use AND instead of OR, because two operands are reversed
+                // (different from low bit-depth mode!)
+                use_orig_pixel_blend_mask_12 = _mm_and_si128(
+                    generate_blend_mask_high(src_pixels, ref_pixels_1, threshold_vector),
+                    generate_blend_mask_high(src_pixels, ref_pixels_2, threshold_vector));
+            }
+
+            avg_12 = _mm_avg_epu16(ref_pixels_1, ref_pixels_2);
         }
 
-        avg_12 = _mm_avg_epu16(ref_pixels_1, ref_pixels_2);
-    }
-
-    if (process_34)
-    {
-        if (!blur_first)
+        if (process_34)
         {
-            use_orig_pixel_blend_mask_34 = _mm_and_si128(
-                generate_blend_mask_high(src_pixels, ref_pixels_3, threshold_vector),
-                generate_blend_mask_high(src_pixels, ref_pixels_4, threshold_vector) );
+            if (!blur_first)
+            {
+                use_orig_pixel_blend_mask_34 = _mm_and_si128(
+                    generate_blend_mask_high(src_pixels, ref_pixels_3, threshold_vector),
+                    generate_blend_mask_high(src_pixels, ref_pixels_4, threshold_vector));
+            }
+
+            avg_34 = _mm_avg_epu16(ref_pixels_3, ref_pixels_4);
         }
 
-        avg_34 = _mm_avg_epu16(ref_pixels_3, ref_pixels_4);
-    }
+        if (sample_mode == 2)
+        {
+            // merge 34 into 12 for mode 2
+            if (!blur_first)
+                use_orig_pixel_blend_mask_12 = _mm_and_si128(use_orig_pixel_blend_mask_12, use_orig_pixel_blend_mask_34);
+            avg_12 = _mm_subs_epu16(avg_12, _mm_set1_epi16(1));
+            avg_12 = _mm_avg_epu16(avg_12, avg_34);
+        }
 
-    if (sample_mode == 2)
-    {
-        // merge 34 into 12 for mode 2
-        if (!blur_first)
-            use_orig_pixel_blend_mask_12 = _mm_and_si128(use_orig_pixel_blend_mask_12, use_orig_pixel_blend_mask_34 );
-        avg_12 = _mm_subs_epu16(avg_12, _mm_set1_epi16(1));
-        avg_12 = _mm_avg_epu16(avg_12, avg_34);
-    }
+        if (blur_first)
+            use_orig_pixel_blend_mask_12 = generate_blend_mask_high(src_pixels, avg_12, threshold_vector);
 
-    if (blur_first)
-        use_orig_pixel_blend_mask_12 = generate_blend_mask_high(src_pixels, avg_12, threshold_vector);
+        if (process_34 && blur_first)
+            use_orig_pixel_blend_mask_34 = generate_blend_mask_high(src_pixels, avg_34, threshold_vector);
 
-    if (process_34 && blur_first)
-        use_orig_pixel_blend_mask_34 = generate_blend_mask_high(src_pixels, avg_34, threshold_vector);
-    
-    if (sample_mode == 4)
-    {
-        // average dst_12 and dst_34 for mode 4
-        __m128i dst_pixels_12 = _mm_blendv_epi8(src_pixels, avg_12, use_orig_pixel_blend_mask_12);
-        __m128i dst_pixels_34 = _mm_blendv_epi8(src_pixels, avg_34, use_orig_pixel_blend_mask_34);
-        dst_pixels = _mm_avg_epu16(dst_pixels_12, dst_pixels_34);
+        if (sample_mode == 4)
+        {
+            // average dst_12 and dst_34 for mode 4
+            __m128i dst_pixels_12 = _mm_blendv_epi8(src_pixels, avg_12, use_orig_pixel_blend_mask_12);
+            __m128i dst_pixels_34 = _mm_blendv_epi8(src_pixels, avg_34, use_orig_pixel_blend_mask_34);
+            dst_pixels = _mm_avg_epu16(dst_pixels_12, dst_pixels_34);
+        }
+        else
+        {
+            // if mask is 0xff (NOT over threshold), select second operand, otherwise select first
+            // note this is different from low bitdepth code
+            dst_pixels = _mm_blendv_epi8(src_pixels, avg_12, use_orig_pixel_blend_mask_12);
+        }
     }
     else
     {
-        // if mask is 0xff (NOT over threshold), select second operand, otherwise select first
-        // note this is different from low bitdepth code
-        dst_pixels = _mm_blendv_epi8(src_pixels, avg_12, use_orig_pixel_blend_mask_12);
+        __m128i avg12 = _mm_avg_epu16(ref_pixels_1, ref_pixels_2);
+        __m128i avg34 = _mm_avg_epu16(ref_pixels_3, ref_pixels_4);
+        __m128i avg = _mm_avg_epu16(avg12, avg34);
+        __m128i avgDif = _mm_or_si128(_mm_subs_epu16(avg, src_pixels), _mm_subs_epu16(src_pixels, avg));
+        
+        __m128i maxDif = _mm_max_epu16(
+            _mm_or_si128(_mm_subs_epu16(ref_pixels_1, src_pixels), _mm_subs_epu16(src_pixels, ref_pixels_1)),
+            _mm_or_si128(_mm_subs_epu16(ref_pixels_2, src_pixels), _mm_subs_epu16(src_pixels, ref_pixels_2)));
+        maxDif = _mm_max_epu16(
+            _mm_or_si128(_mm_subs_epu16(ref_pixels_3, src_pixels), _mm_subs_epu16(src_pixels, ref_pixels_3)),
+            maxDif);
+        maxDif = _mm_max_epu16(
+            _mm_or_si128(_mm_subs_epu16(ref_pixels_4, src_pixels), _mm_subs_epu16(src_pixels, ref_pixels_4)),
+            maxDif);
+
+        __m128i midDif1 = _mm_adds_epu16(ref_pixels_1, ref_pixels_2);
+        midDif1 = _mm_or_si128(
+            _mm_subs_epu16(midDif1, _mm_sll_epi16(src_pixels, _mm_cvtsi32_si128(1))),
+            _mm_subs_epu16(_mm_sll_epi16(src_pixels, _mm_cvtsi32_si128(1)), midDif1));
+
+        __m128i midDif2 = _mm_adds_epu16(ref_pixels_3, ref_pixels_4);
+        midDif2 = _mm_or_si128(
+            _mm_subs_epu16(midDif2, _mm_sll_epi16(src_pixels, _mm_cvtsi32_si128(1))),
+            _mm_subs_epu16(_mm_sll_epi16(src_pixels, _mm_cvtsi32_si128(1)), midDif2));
+
+        use_orig_pixel_blend_mask_12 = _mm_and_si128(
+            generate_blend_mask_high(avgDif, threshold_vector),
+            generate_blend_mask_high(maxDif, threshold1_vector));
+        use_orig_pixel_blend_mask_12 = _mm_and_si128(
+            use_orig_pixel_blend_mask_12,
+            generate_blend_mask_high(midDif1, threshold2_vector));
+        use_orig_pixel_blend_mask_12 = _mm_and_si128(
+            use_orig_pixel_blend_mask_12,
+            generate_blend_mask_high(midDif2, threshold2_vector));
+
+        dst_pixels = _mm_blendv_epi8(src_pixels, avg, use_orig_pixel_blend_mask_12);       
     }
 
     __m128i sign_convert_vector = _mm_set1_epi16((short)0x8000);
@@ -211,7 +268,9 @@ static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels,
 template<int sample_mode, bool blur_first, int dither_algo>
 static __m128i __forceinline process_pixels(
     __m128i src_pixels_0, 
-    __m128i threshold_vector, 
+    __m128i threshold_vector,
+    __m128i threshold1_vector,
+    __m128i threshold2_vector,
     const __m128i& change_1, 
     const __m128i& ref_pixels_1_0,
     const __m128i& ref_pixels_2_0,
@@ -227,7 +286,9 @@ static __m128i __forceinline process_pixels(
 {
     __m128i ret = process_pixels_mode12_high_part<sample_mode, blur_first>
         (src_pixels_0, 
-         threshold_vector, 
+         threshold_vector,
+         threshold1_vector,
+         threshold2_vector,
          change_1, 
          ref_pixels_1_0, 
          ref_pixels_2_0, 
@@ -403,6 +464,7 @@ static void __forceinline read_reference_pixels(
             tmp_2[i] = read_pixel<input_mode>(src_px_start, i_fix + -*(int*)(info_data_start + 4 * i));
             break;
         case 2:
+        case 5:
         case 4:
             tmp_1[i] = read_pixel<input_mode>(src_px_start, i_fix + *(int*)(info_data_start + 4 * (i + i / 4 * 4)));
             tmp_2[i] = read_pixel<input_mode>(src_px_start, i_fix + -*(int*)(info_data_start + 4 * (i + i / 4 * 4)));
@@ -424,6 +486,7 @@ static void __forceinline read_reference_pixels(
         ref_pixels_2_0 = load_reference_pixels<dither_algo>(shift, tmp_2);
         break;
     case 2:
+    case 5:
     case 4:
         ref_pixels_1_0 = load_reference_pixels<dither_algo>(shift, tmp_1);
         ref_pixels_2_0 = load_reference_pixels<dither_algo>(shift, tmp_2);
@@ -444,6 +507,8 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
     __m128i src_pitch_vector = _mm_set1_epi32(params.src_pitch);
            
     __m128i threshold_vector = _mm_set1_epi16(params.threshold);
+    __m128i threshold1_vector = _mm_set1_epi16(params.threshold1);
+    __m128i threshold2_vector = _mm_set1_epi16(params.threshold2);
 
     // general-purpose constant
     __m128i minus_one = _mm_set1_epi32(-1);
@@ -511,7 +576,7 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
         cache->pitch = params.src_pitch;
     }
 
-    const int info_cache_block_size = (process_34 ? 64 : 32);
+    const int info_cache_block_size = (process_34 || sample_mode == 5 ? 64 : 32);
 
     int input_mode = params.input_mode;
 
@@ -597,6 +662,8 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
             __m128i dst_pixels = process_pixels<sample_mode, blur_first, dither_algo>(
                                      src_pixels, 
                                      threshold_vector,
+                                     threshold1_vector,
+                                     threshold2_vector,
                                      change_1, 
                                      ref_pixels_1_0, 
                                      ref_pixels_2_0, 
