@@ -46,6 +46,10 @@ core.neo_f3kdb.Deband(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
 
             (A + B) / 2
 
+    * 5: Similar to sample mode 4 but performing additional checks for better details preserving. (> r8)\
+        For more info - https://forum.doom9.org/showthread.php?p=1652256#post1652256 (avgDif, maxDif, midDif1, midDif2)\
+        `blur_first` doesn't have effect for this sample mode.
+
     Reference points are randomly picked within the `range`.
 
 - *input_depth* (removed)
@@ -60,11 +64,15 @@ core.neo_f3kdb.Deband(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
 
     If you notice a dead lock under extreme condition, try disabling it.
 
-- *Y2*, *Cb2*, *Cr2* (> r7)
+- *scale* (> r8)
 
-    When specified respectively `Y`, `Cb`, `Cr` do not have effect.
+    Whether to use threshold parameters (Y, Cb, Cr...) within the internal bit depth range (0..65535).
+    
+    Default: false.
+    
+- *Y_1 / Cb_1 / Cr_1 (maxDif),  Y_2 / Cb_2 / Cr_2 (midDif1, midDif2)* (> r8)
 
-    `Y`, `Cb`, `Cr` are internally left shifted by `2` while `Y2`, `Cb2`, `Cr2` - by `5`.
+    Additional thresholds for `sample_mode=5`.    
 
 ## Compilation
 
