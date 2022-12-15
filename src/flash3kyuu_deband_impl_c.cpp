@@ -1,10 +1,10 @@
-#include <cstdlib>
+#include <algorithm>
 #include "core.h"
 #include "pixel_proc_c.h"
 #include <limits.h>
 
 static inline bool _is_above_threshold(int threshold, int diff) {
-    return abs(diff) >= threshold;
+    return std::abs(diff) >= threshold;
 }
 
 static inline bool is_above_threshold(int threshold, int diff1) {
@@ -73,14 +73,14 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
             pixel_dither_info info = *info_ptr;
             int src_px_up = read_pixel<mode>(params, context, src_px);
             
-            if (sample_mode == 1 || sample_mode == 2 || sample_mode == 4)
+            if (sample_mode == 1 || sample_mode == 2 || sample_mode == 4 || sample_mode == 5)
             {
                 assert(info.ref1 >= 0);
                 assert((info.ref1 >> params.height_subsampling) <= i && 
                     (info.ref1 >> params.height_subsampling) + i < params.plane_height_in_pixels);
             }
 
-            if (sample_mode == 3 || sample_mode == 2 || sample_mode == 4)
+            if (sample_mode == 3 || sample_mode == 2 || sample_mode == 4 || sample_mode == 5)
             {
                 assert(info.ref2 >= 0);
                 assert((info.ref2 >> params.height_subsampling) <= i && 
@@ -167,6 +167,30 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                     int diff4 = ref_4_up - src_px_up;
                     use_org_px_as_base = is_above_threshold(threshold, diff1, diff2, diff3, diff4);
                 }
+                new_pixel = use_org_px_as_base ? src_px_up : avg;
+            }
+            if (sample_mode == 5)
+            {
+                ref_pos = (info.ref1 >> params.height_subsampling) * params.src_pitch;
+
+                int ref_1_h = read_pixel<mode>(params, context, src_px, ref_pos);
+                int ref_2_h = read_pixel<mode>(params, context, src_px, -ref_pos);
+
+                ref_pos_2 = (info.ref1 >> params.width_subsampling) * pixel_step;
+
+                int ref_1_w = read_pixel<mode>(params, context, src_px, ref_pos_2);
+                int ref_2_w = read_pixel<mode>(params, context, src_px, -ref_pos_2);
+
+                int avg = pixel_proc_avg_4<mode>(context, ref_1_h, ref_2_h, ref_1_w, ref_2_w);
+                int avgDif = std::abs(avg - src_px_up);
+                int maxDif = std::max(std::abs(ref_1_h - src_px_up), std::max(std::abs(ref_2_h - src_px_up), std::max(std::abs(ref_1_w - src_px_up), std::abs(ref_2_w - src_px_up))));
+                int midDif1 = std::abs(ref_1_h + ref_2_h - 2 * src_px_up);
+                int midDif2 = std::abs(ref_1_w + ref_2_w - 2 * src_px_up);
+                use_org_px_as_base = is_above_threshold(threshold, avgDif) ||
+                    is_above_threshold(params.threshold1, maxDif) ||
+                    is_above_threshold(params.threshold2, midDif1) ||
+                    is_above_threshold(params.threshold2, midDif2);
+
                 new_pixel = use_org_px_as_base ? src_px_up : avg;
             }
 

@@ -13,7 +13,8 @@
 					impl_func_mode3_blur, \
 					impl_func_mode3_noblur, \
 					impl_func_mode4_blur, \
-					impl_func_mode4_noblur) \
+					impl_func_mode4_noblur, \
+					impl_func_mode5_noblur) \
 	extern const process_plane_impl_t process_plane_impl_##n [];
 
 #else
@@ -27,7 +28,8 @@
 					impl_func_mode3_blur, \
 					impl_func_mode3_noblur, \
 					impl_func_mode4_blur, \
-					impl_func_mode4_noblur) \
+					impl_func_mode4_noblur, \
+					impl_func_mode5_noblur) \
 	extern const process_plane_impl_t process_plane_impl_##n [] = { \
 					nullptr, \
 					impl_func_mode1_blur, \
@@ -37,7 +39,8 @@
 					impl_func_mode3_blur, \
 					impl_func_mode3_noblur, \
 					impl_func_mode4_blur, \
-					impl_func_mode4_noblur};
+					impl_func_mode4_noblur, \
+					impl_func_mode5_noblur};
 
 #endif
 
@@ -52,7 +55,8 @@
 				(&impl_func<3, true, __VA_ARGS__>), \
 				(&impl_func<3, false, __VA_ARGS__>), \
 				(&impl_func<4, true, __VA_ARGS__>), \
-				(&impl_func<4, false, __VA_ARGS__>) );
+				(&impl_func<4, false, __VA_ARGS__>), \
+				(&impl_func<5, false, __VA_ARGS__>) );
 
 #define DEFINE_SSE_IMPL(name, ...) \
 	DEFINE_TEMPLATE_IMPL(name, process_plane_sse_impl, __VA_ARGS__);

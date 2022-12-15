@@ -66,9 +66,13 @@ struct F3KDB final : Filter {
       Param {"random_param_ref", Float},
       Param {"random_param_grain", Float},
       Param {"preset", String},
-      Param{ "y2", Integer },
-      Param{ "cb2", Integer },
-      Param{ "cr2", Integer }
+      Param{ "y_1", Integer},
+      Param{ "cb_1", Integer},
+      Param{ "cr_1", Integer},
+      Param{ "y_2", Integer },
+      Param{ "cb_2", Integer },
+      Param{ "cr_2", Integer },
+      Param{ "scale", Boolean },
     };
   }
   void Initialize(InDelegator* in, DSVideoInfo in_vi, FetchFrameFunctor* fetch_frame) override
@@ -78,19 +82,22 @@ struct F3KDB final : Filter {
     in->Read("preset", preset);
     std::istringstream piss(preset);
 
+    bool scale = false;
+    in->Read("scale", scale);
+
     while(!piss.eof()) {
       std::string piss1;
       std::getline(piss, piss1, '/');
       if (piss1 == "depth")
-        ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = 0;
+          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = 0;
       else if (piss1 == "low")
-        ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = 32;
+          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 128 : 32;
       else if (piss1 == "medium")
-        ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = 48;
+          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 192 : 48;
       else if (piss1 == "high")
-        ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = 64;
+          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 256 : 64;
       else if (piss1 == "veryhigh")
-        ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = 80;
+          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 320 : 80;        
       else if (piss1 == "nograin")
         ep.grainY = ep.grainC = 0;
       else if (piss1 == "luma")
@@ -122,17 +129,23 @@ struct F3KDB final : Filter {
     ep.random_algo_grain = static_cast<RANDOM_ALGORITHM>(tmp);
     in->Read("random_param_ref", ep.random_param_ref);
     in->Read("random_param_grain", ep.random_param_grain);
+    in->Read("y_1", ep.Y_1);
+    in->Read("cb_1", ep.Cb_1);
+    in->Read("cr_1", ep.Cr_1);
+    in->Read("y_2", ep.Y_2);
+    in->Read("cb_2", ep.Cb_2);
+    in->Read("cr_2", ep.Cr_2);
+
+    ep.Y_1 = ep.Y_1 == -1 ? ep.Y : ep.Y_1;
+    ep.Cb_1 = ep.Cb_1 == -1 ? ep.Cb : ep.Cb_1;
+    ep.Cr_1 = ep.Cr_1 == -1 ? ep.Cr : ep.Cr_1;
+    ep.Y_2 = ep.Y_2 == -1 ? ep.Y : ep.Y_2;
+    ep.Cb_2 = ep.Cb_2 == -1 ? ep.Cb : ep.Cb_2;
+    ep.Cr_2 = ep.Cr_2 == -1 ? ep.Cr : ep.Cr_2;
 
     int opt_in = -1;
     in->Read("opt", opt_in);
     in->Read("mt", mt);
-
-    int y2 = -1;
-    int cb2 = -1;
-    int cr2 = -1;
-    in->Read("y2", y2);
-    in->Read("cb2", cb2);
-    in->Read("cr2", cr2);
 
     OPTIMIZATION_MODE opt = IMPL_C;
     int CPUFlags = GetCPUFlags();
@@ -158,9 +171,9 @@ struct F3KDB final : Filter {
         // set to appropriate precision mode
         ep.dither_algo = DA_16BIT_INTERLEAVED;
 
-    const int y_threshold_upper_limit = y2 >= 0 ? 65535 : 511;
-    const int cb_threshold_upper_limit = cb2 >= 0 ? 65535 : 511;
-    const int cr_threshold_upper_limit = cr2 >= 0 ? 65535 : 511;
+    const int y_threshold_upper_limit = scale ? 65535 : 511;
+    const int cb_threshold_upper_limit = scale ? 65535 : 511;
+    const int cr_threshold_upper_limit = scale ? 65535 : 511;
     constexpr int dither_upper_limit = 4096;
 
     #define CHECK_PARAM(value, lower_bound, upper_bound) \
@@ -172,20 +185,29 @@ struct F3KDB final : Filter {
     CHECK_PARAM(ep.Cr, 0, cr_threshold_upper_limit);
     CHECK_PARAM(ep.grainY, 0, dither_upper_limit);
     CHECK_PARAM(ep.grainC, 0, dither_upper_limit);
-    CHECK_PARAM(ep.sample_mode, 1, 4);
+    CHECK_PARAM(ep.sample_mode, 1, 5);
     CHECK_PARAM(ep.dither_algo, DA_HIGH_NO_DITHERING, (DA_COUNT - 1) );
     CHECK_PARAM(ep.random_algo_ref, 0, (RANDOM_ALGORITHM_COUNT - 1) );
     CHECK_PARAM(ep.random_algo_grain, 0, (RANDOM_ALGORITHM_COUNT - 1) );
-    CHECK_PARAM(y2, -1, y_threshold_upper_limit);
-    CHECK_PARAM(cb2, -1, cb_threshold_upper_limit);
-    CHECK_PARAM(cr2, -1, cr_threshold_upper_limit);
+    CHECK_PARAM(ep.Y_1, 0, y_threshold_upper_limit);
+    CHECK_PARAM(ep.Cb_1, 0, cb_threshold_upper_limit);
+    CHECK_PARAM(ep.Cr_1, 0, cr_threshold_upper_limit);
+    CHECK_PARAM(ep.Y_2, 0, y_threshold_upper_limit);
+    CHECK_PARAM(ep.Cb_2, 0, cb_threshold_upper_limit);
+    CHECK_PARAM(ep.Cr_2, 0, cr_threshold_upper_limit);
     
 
     // now the internal bit depth is 16, 
     // scale parameters to be consistent with 14bit range in previous versions
-    ep.Y = y2 >= 0 ? y2 : ep.Y << 2;
-    ep.Cb = cb2 >= 0 ? cb2 : ep.Cb << 2;
-    ep.Cr = cr2 >= 0 ? cr2 : ep.Cr << 2;
+    ep.Y = scale ? ep.Y : ep.Y << 2;
+    ep.Cb = scale ? ep.Cb : ep.Cb << 2;
+    ep.Cr = scale ? ep.Cr : ep.Cr << 2;
+    ep.Y_1 = scale ? ep.Y_1 : ep.Y_1 << 2;
+    ep.Cb_1 = scale ? ep.Cb_1 : ep.Cb_1 << 2;
+    ep.Cr_1 = scale ? ep.Cr_1 : ep.Cr_1 << 2;
+    ep.Y_2 = scale ? ep.Y_2 : ep.Y_2 << 2;
+    ep.Cb_2 = scale ? ep.Cb_2 : ep.Cb_2 << 2;
+    ep.Cr_2 = scale ? ep.Cr_2 : ep.Cr_2 << 2;
     ep.grainY <<= 2;
     ep.grainC <<= 2;
 
