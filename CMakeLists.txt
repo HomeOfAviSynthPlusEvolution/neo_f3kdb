@@ -55,6 +55,10 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
   set_source_files_properties(${SSE41_CODE_IMPL} PROPERTIES COMPILE_FLAGS "/arch:SSE2")
   target_link_libraries(neo-f3kdb libmmds)
 
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
+  set_source_files_properties(${SSE41_CODE_IMPL} PROPERTIES COMPILE_FLAGS "-msse4.1")
+  target_link_libraries(neo-f3kdb libmmds)
+
 else()
   set_source_files_properties(${SSE41_CODE_IMPL} PROPERTIES COMPILE_FLAGS "-msse4.1")
 
