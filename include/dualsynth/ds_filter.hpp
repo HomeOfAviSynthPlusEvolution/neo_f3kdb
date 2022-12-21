@@ -14,7 +14,7 @@ struct Filter
   virtual const char* VSName() const { return "FilterFoo"; }
   virtual const char* AVSName() const { return "FilterFoo"; }
   virtual const MtMode AVSMode() const { return MT_SERIALIZED; }
-  virtual const VSFilterMode VSMode() const { return fmSerial; }
+  virtual const VSFilterMode VSMode() const { return fmFrameState; } // do we really need to run in this mode?
   virtual const std::vector<Param> Params() const = 0;
   virtual const std::string VSParams() const
   {
@@ -25,7 +25,7 @@ struct Filter
       if (!p.VSEnabled) continue;
       std::string type_name;
       switch(p.Type) {
-        case Clip: type_name = "clip"; break;
+        case Clip: type_name = "vnode"; break;
         case Integer: type_name = "int"; break;
         case Float: type_name = "float"; break;
         case Boolean: type_name = "int"; break;
@@ -40,6 +40,9 @@ struct Filter
     }
     return ss.str();
   };
+  virtual const std::string VSReturnType() const {
+    return std::string("clip:vnode;");
+  }
   virtual const std::string AVSParams() const
   {
     std::stringstream ss;

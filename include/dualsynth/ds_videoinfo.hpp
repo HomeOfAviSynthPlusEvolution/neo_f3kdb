@@ -45,8 +45,8 @@ struct DSVideoInfo
     , Audio_NChannels(avsvi.nchannels)
     , Field(avsvi.image_type)
   { }
-  const VSVideoInfo* ToVSVI(const VSCore* vscore, const VSAPI* vsapi) {
-    return new VSVideoInfo {Format.ToVSFormat(vscore, vsapi), FPSNum, FPSDenom, Width, Height, Frames, 0};
+  const VSVideoInfo* ToVSVI() {
+    return new VSVideoInfo {Format.ToVSFormat(), FPSNum, FPSDenom, Width, Height, Frames};
   }
   const VideoInfo ToAVSVI() {
     return VideoInfo{Width, Height, static_cast<unsigned>(FPSNum), static_cast<unsigned>(FPSDenom), Frames, Format.ToAVSFormat(), Audio_SPS, Audio_SType, Audio_NSamples, Audio_NChannels, Field};

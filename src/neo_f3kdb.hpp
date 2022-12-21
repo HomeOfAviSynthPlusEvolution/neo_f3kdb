@@ -14,6 +14,7 @@ namespace Plugin {
   const char* Identifier = "in.7086.neo_f3kdb";
   const char* Namespace = "neo_f3kdb";
   const char* Description = "Neo F3KDB Deband Filter " PLUGIN_VERSION;
+  const int Version = 8;
 }
 
 std::vector<register_vsfilter_proc> RegisterVSFilters()

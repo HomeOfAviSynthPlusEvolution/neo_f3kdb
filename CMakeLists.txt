@@ -8,7 +8,7 @@ option(ENABLE_PAR "Enable C++17 Parallel Execution" ON)
 
 find_package(Git REQUIRED)
 execute_process(COMMAND ${GIT_EXECUTABLE} describe --first-parent --tags --always OUTPUT_VARIABLE GIT_REPO_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
-string(REGEX REPLACE "(r[0-9]+).*" "\\1" VERSION ${GIT_REPO_VERSION})
+string(REGEX REPLACE "(r[0-9]+).*" "\\1" VERSION "${GIT_REPO_VERSION}")
 
 configure_file (
   "${PROJECT_SOURCE_DIR}/src/version.hpp.in"

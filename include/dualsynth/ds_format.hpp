@@ -15,30 +15,39 @@ struct DSFormat
   int BitsPerSample {8}, BytesPerSample {1};
   int Planes {3};
   DSFormat() {}
-  DSFormat(const VSFormat* format)
+  DSFormat(const VSVideoFormat format)
   {
-    Planes = format->numPlanes;
-    IsFamilyYUV = format->colorFamily == cmYUV || format->colorFamily == cmGray;
-    IsFamilyRGB = format->colorFamily == cmRGB;
-    IsFamilyYCC = format->colorFamily == cmYCoCg;
-    SSW = format->subSamplingW;
-    SSH = format->subSamplingH;
-    BitsPerSample = format->bitsPerSample;
-    BytesPerSample = format->bytesPerSample;
-    IsInteger = format->sampleType == stInteger;
-    IsFloat = format->sampleType == stFloat;
+    Planes = format.numPlanes;
+    IsFamilyYUV = format.colorFamily == cfYUV || format.colorFamily == cfGray;
+    IsFamilyRGB = format.colorFamily == cfRGB;
+    // IsFamilyYCC = format.colorFamily == cfYCoCg;
+    SSW = format.subSamplingW;
+    SSH = format.subSamplingH;
+    BitsPerSample = format.bitsPerSample;
+    BytesPerSample = format.bytesPerSample;
+    IsInteger = format.sampleType == stInteger;
+    IsFloat = format.sampleType == stFloat;
   }
 
-  const VSFormat* ToVSFormat(const VSCore* vscore, const VSAPI* vsapi) const
+  const VSVideoFormat ToVSFormat() const
   {
-    VSColorFamily family = cmYUV;
+    VSColorFamily family = cfYUV;
     if (IsFamilyYUV)
-      family = Planes == 1 ? cmGray : cmYUV;
+      family = Planes == 1 ? cfGray : cfYUV;
     else if (IsFamilyRGB)
-      family = cmRGB;
-    else if (IsFamilyYCC)
-      family = cmYCoCg;
-    return vsapi->registerFormat(family, IsInteger ? stInteger : stFloat, BitsPerSample, SSW, SSH, const_cast<VSCore*>(vscore));
+      family = cfRGB;
+    // else if (IsFamilyYCC)
+    //   family = cfYCoCg;
+    
+    VSVideoFormat format;
+    format.colorFamily = family;
+    format.sampleType = IsInteger ? stInteger : stFloat;
+    format.bitsPerSample = BitsPerSample;
+    format.bytesPerSample = BytesPerSample;
+    format.subSamplingW = SSW;
+    format.subSamplingH = SSH;
+    format.numPlanes = Planes;
+    return format;
   }
 
   DSFormat(int format)

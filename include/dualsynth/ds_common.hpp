@@ -7,7 +7,7 @@
 #pragma once
 
 #include <avisynth.h>
-#include <VapourSynth.h>
+#include <VapourSynth4.h>
 #include <cstring>
 #include <cmath>
 #include <string>
@@ -20,7 +20,7 @@
 #include "ds_videoinfo.hpp"
 #include "ds_frame.hpp"
 
-typedef void (*register_vsfilter_proc)(VSRegisterFunction, VSPlugin*);
+typedef void (*register_vsfilter_proc)(VSPlugin *plugin, const VSPLUGINAPI *vspapi);
 typedef void (*register_avsfilter_proc)(IScriptEnvironment* env);
 std::vector<register_vsfilter_proc> RegisterVSFilters();
 std::vector<register_avsfilter_proc> RegisterAVSFilters();
