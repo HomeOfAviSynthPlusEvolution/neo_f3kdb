@@ -59,6 +59,9 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
   set_source_files_properties(${SSE41_CODE_IMPL} PROPERTIES COMPILE_FLAGS "-msse4.1")
   target_link_libraries(neo-f3kdb libmmds)
 
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm" OR CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+  # NEON is enabled by default on ARM64, no special flags needed
+
 else()
   set_source_files_properties(${SSE41_CODE_IMPL} PROPERTIES COMPILE_FLAGS "-msse4.1")
 

@@ -21,31 +21,30 @@
 #include <avs/cpuid.h>
 #include <avs/config.h>
 #include <stdint.h>
+
 #ifdef AVS_WINDOWS
 #include <intrin.h>
-#else
+#elif defined(__x86_64__) || defined(__i386__)
 #include <cpuid.h>
 #include <x86intrin.h>
 #undef __cpuid
 
 static inline void __cpuid(int cpuinfo[4], int leaf) {
   unsigned int eax, ebx, ecx, edx;
-  // for deeper leaves __get_cpuid is not enough
   __get_cpuid_count(leaf, 0, &eax, &ebx, &ecx, &edx);
   cpuinfo[0] = eax;
   cpuinfo[1] = ebx;
   cpuinfo[2] = ecx;
   cpuinfo[3] = edx;
 }
-
 #endif
 
 #define IS_BIT_SET(bitfield, bit) ((bitfield) & (1<<(bit)) ? true : false)
 
+#ifdef __x86_64__ || defined(__i386__)
 static uint32_t get_xcr0()
 {
     uint32_t xcr0;
-    // _XCR_XFEATURE_ENABLED_MASK: 0
 #if defined(GCC) || defined(CLANG)
     __asm__("xgetbv" : "=a" (xcr0) : "c" (0) : "%edx");
 #else
@@ -53,13 +52,16 @@ static uint32_t get_xcr0()
 #endif
     return xcr0;
 }
+#endif
 
 static int CPUCheckForExtensions()
 {
   int result = 0;
-  int cpuinfo[4];
 
+#if defined(__x86_64__) || defined(__i386__)
+  int cpuinfo[4];
   __cpuid(cpuinfo, 1);
+
   if (IS_BIT_SET(cpuinfo[3], 0))
     result |= CPUF_FPU;
   if (IS_BIT_SET(cpuinfo[3], 23))
@@ -84,7 +86,7 @@ static int CPUCheckForExtensions()
     result |= CPUF_AES;
   if (IS_BIT_SET(cpuinfo[2], 29))
     result |= CPUF_F16C;
-  // AVX
+
   bool xgetbv_supported = IS_BIT_SET(cpuinfo[2], 27);
   bool avx_supported = IS_BIT_SET(cpuinfo[2], 28);
   if (xgetbv_supported && avx_supported)
@@ -98,11 +100,7 @@ static int CPUCheckForExtensions()
       if (IS_BIT_SET(cpuinfo[1], 5))
         result |= CPUF_AVX2;
     }
-    if((xgetbv0_32 & (0x7u << 5)) && // OPMASK: upper-256 enabled by OS
-       (xgetbv0_32 & (0x3u << 1))) { // XMM/YMM enabled by OS
-      // Verify that XCR0[7:5] = "111b" (OPMASK state, upper 256-bit of ZMM0-ZMM15 and
-      // ZMM16-ZMM31 state are enabled by OS)
-      /// and that XCR0[2:1] = "11b" (XMM state and YMM state are enabled by OS).
+    if((xgetbv0_32 & (0x7u << 5)) && (xgetbv0_32 & (0x3u << 1))) {
       __cpuid(cpuinfo, 7);
       if (IS_BIT_SET(cpuinfo[1], 16))
         result |= CPUF_AVX512F;
@@ -120,12 +118,11 @@ static int CPUCheckForExtensions()
         result |= CPUF_AVX512BW;
       if (IS_BIT_SET(cpuinfo[1], 31))
         result |= CPUF_AVX512VL;
-      if (IS_BIT_SET(cpuinfo[2], 1)) // [2]!
+      if (IS_BIT_SET(cpuinfo[2], 1))
         result |= CPUF_AVX512VBMI;
     }
   }
 
-  // 3DNow!, 3DNow!, ISSE, FMA4
   __cpuid(cpuinfo, 0x80000000);
   if (cpuinfo[0] >= 0x80000001)
   {
@@ -145,6 +142,10 @@ static int CPUCheckForExtensions()
         result |= CPUF_FMA4;
     }
   }
+#elif defined(__aarch64__) || defined(__arm__)
+  result |= CPUF_SSE | CPUF_SSE2 | CPUF_SSE3 | CPUF_SSSE3;
+  result |= CPUF_SSE4_1 | CPUF_SSE4_2 | CPUF_AES;
+#endif
 
   return result;
 }
