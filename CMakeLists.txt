@@ -1,7 +1,6 @@
-cmake_minimum_required (VERSION 3.15)
-project (neo_f3kdb CXX)
+cmake_minimum_required(VERSION 3.15)
+project(neo_f3kdb CXX)
 file(GLOB CODE "src/*.cpp")
-file(GLOB SSE41_CODE_IMPL "src/*sse4.cpp")
 add_library(neo-f3kdb SHARED main.cpp src/version.rc ${CODE} ${CODE_IMPL})
 set_property(TARGET neo-f3kdb PROPERTY CXX_STANDARD 17)
 option(ENABLE_PAR "Enable C++17 Parallel Execution" ON)
@@ -10,16 +9,16 @@ find_package(Git REQUIRED)
 execute_process(COMMAND ${GIT_EXECUTABLE} describe --first-parent --tags --always OUTPUT_VARIABLE GIT_REPO_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
 string(REGEX REPLACE "(r[0-9]+).*" "\\1" VERSION ${GIT_REPO_VERSION})
 
-configure_file (
+configure_file(
   "${PROJECT_SOURCE_DIR}/src/version.hpp.in"
   "${PROJECT_SOURCE_DIR}/src/version.hpp"
 )
-configure_file (
+configure_file(
   "${PROJECT_SOURCE_DIR}/src/version.rc.in"
   "${PROJECT_SOURCE_DIR}/src/version.rc"
 )
 
-if (NOT MSVC)
+if(NOT MSVC)
   find_package(PkgConfig REQUIRED)
 
   pkg_check_modules(AVISYNTH avisynth)
@@ -43,30 +42,6 @@ endif()
 include_directories(.)
 include_directories(include/dualsynth)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-  set_source_files_properties(${SSE41_CODE_IMPL} PROPERTIES COMPILE_FLAGS "/arch:SSE2")
-
-  if (CMAKE_GENERATOR_TOOLSET MATCHES "v[0-9]*_xp")
-    target_compile_definitions(neo-f3kdb PRIVATE WINVER=0x502 _WIN32_WINNT=0x502)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:threadSafeInit-")
-  endif()
-
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
-  set_source_files_properties(${SSE41_CODE_IMPL} PROPERTIES COMPILE_FLAGS "/arch:SSE2")
-  target_link_libraries(neo-f3kdb libmmds)
-
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
-  set_source_files_properties(${SSE41_CODE_IMPL} PROPERTIES COMPILE_FLAGS "-msse4.1")
-  target_link_libraries(neo-f3kdb libmmds)
-
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm" OR CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-  # NEON is enabled by default on ARM64, no special flags needed
-
-else()
-  set_source_files_properties(${SSE41_CODE_IMPL} PROPERTIES COMPILE_FLAGS "-msse4.1")
-
-endif()
-
 include(CheckIncludeFileCXX)
 CHECK_INCLUDE_FILE_CXX(execution HAS_EXECUTION)
 if(HAS_EXECUTION)
@@ -78,6 +53,14 @@ if(ENABLE_PAR AND HAS_EXECUTION)
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_link_libraries(neo-f3kdb tbb)
   endif()
+endif()
+
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm" OR CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+  target_compile_options(neo-f3kdb PRIVATE -Ofast -ftree-vectorize -fopenmp)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "i686")
+  target_compile_options(neo-f3kdb PRIVATE -Ofast -msse4.2 -mavx -funroll-loops -fopenmp)
+else()
+  target_compile_options(neo-f3kdb PRIVATE -Ofast -funroll-loops -fopenmp)
 endif()
 
 add_custom_command(
