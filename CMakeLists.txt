@@ -46,7 +46,7 @@ include_directories(include/dualsynth)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   set_source_files_properties(${SSE41_CODE_IMPL} PROPERTIES COMPILE_FLAGS "/arch:SSE2")
-  
+
   if(CMAKE_GENERATOR_TOOLSET MATCHES "v[0-9]*_xp")
     target_compile_definitions(neo-f3kdb PRIVATE WINVER=0x502 _WIN32_WINNT=0x502)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:threadSafeInit-")
@@ -66,12 +66,12 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "IntelLLVM")
 
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm" OR CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-    target_compile_options(neo-f3kdb PRIVATE -Ofast -funroll-loops)
-  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "i686")
-    target_compile_options(neo-f3kdb PRIVATE -Ofast -march=native -funroll-loops)
+    target_compile_options(neo-f3kdb PRIVATE -O3 -funroll-loops)
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "i686")
+    target_compile_options(neo-f3kdb PRIVATE -O3 -funroll-loops)
     set_source_files_properties(${SSE41_CODE_IMPL} PROPERTIES COMPILE_FLAGS "-msse4.1")
   else()
-    target_compile_options(neo-f3kdb PRIVATE -Ofast -funroll-loops)
+    target_compile_options(neo-f3kdb PRIVATE -O3 -funroll-loops)
   endif()
 
 else()
