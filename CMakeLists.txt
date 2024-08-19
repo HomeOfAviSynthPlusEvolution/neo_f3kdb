@@ -58,9 +58,9 @@ endif()
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm" OR CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
   target_compile_options(neo-f3kdb PRIVATE -Ofast -ftree-vectorize -fopenmp)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "i686")
-  target_compile_options(neo-f3kdb PRIVATE -Ofast -msse4.2 -mavx -funroll-loops -fopenmp)
+  target_compile_options(neo-f3kdb PRIVATE -Ofast -msse4.2 -mavx -funroll-loops)
 else()
-  target_compile_options(neo-f3kdb PRIVATE -Ofast -funroll-loops -fopenmp)
+  target_compile_options(neo-f3kdb PRIVATE -Ofast -funroll-loops)
 endif()
 
 add_custom_command(

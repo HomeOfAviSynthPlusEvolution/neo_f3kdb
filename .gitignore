@@ -3,3 +3,6 @@
 *.obj
 *.sublime-*
 build
+*.DS_Store
+version.hpp
+version.rc

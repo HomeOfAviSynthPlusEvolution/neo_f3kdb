@@ -41,7 +41,7 @@ static inline void __cpuid(int cpuinfo[4], int leaf) {
 
 #define IS_BIT_SET(bitfield, bit) ((bitfield) & (1<<(bit)) ? true : false)
 
-#ifdef __x86_64__ || defined(__i386__)
+#if defined(__x86_64__) || defined(__i386__)
 static uint32_t get_xcr0()
 {
     uint32_t xcr0;

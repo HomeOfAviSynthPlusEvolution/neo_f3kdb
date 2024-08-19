@@ -16,11 +16,11 @@ BEGIN
         VALUE "Comments",         "Neo-F3KDB"
         VALUE "CompanyName",      ""
         VALUE "FileDescription",  "Neo-F3KDB"
-        VALUE "FileVersion",      "r9"
+        VALUE "FileVersion",      "5374299"
         VALUE "InternalName",     "Neo-F3KDB"
         VALUE "OriginalFilename", "Neo-F3KDB.dll"
         VALUE "ProductName",      "Neo-F3KDB"
-        VALUE "ProductVersion",   "r9"
+        VALUE "ProductVersion",   "5374299"
         END
     END
     BLOCK "VarFileInfo"
