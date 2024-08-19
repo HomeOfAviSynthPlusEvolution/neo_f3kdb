@@ -83,10 +83,17 @@ cmake --build build\x86 --config Release
 cmake --build build\x64 --config Release
 ```
 
-## Compilation (GCC)
+## Compilation (GCC, Windows)
 
 ```bash
 cmake -B build/gcc -S . -G "MSYS Makefiles" -D_DIR=gcc
+cmake --build build/gcc
+```
+
+## Compilation (GCC, Unix-like)
+
+```bash
+cmake -B build/gcc -S . -G "Unix Makefiles" -D_DIR=gcc
 cmake --build build/gcc
 ```
 

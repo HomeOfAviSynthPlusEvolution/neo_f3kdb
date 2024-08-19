@@ -8,8 +8,11 @@
 #include "pixel_proc_c_high_ordered_dithering.h"
 
 #include <assert.h>
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86)
 #include <emmintrin.h>
-
+#elif defined(__arm__) || defined(__aarch64__) || defined(_M_ARM)
+#include "sse2neon.h"
+ #endif
 namespace dither_high
 {
     static __m128i _ordered_dithering_threshold_map[16] [2];
