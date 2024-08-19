@@ -45,7 +45,11 @@ include_directories(.)
 include_directories(include/dualsynth)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-  set_source_files_properties(${SSE41_CODE_IMPL} PROPERTIES COMPILE_FLAGS "/arch:SSE2")
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64")
+    set_source_files_properties(${SSE41_CODE_IMPL} PROPERTIES COMPILE_FLAGS "-march=penryn")
+  else()
+    set_source_files_properties(${SSE41_CODE_IMPL} PROPERTIES COMPILE_FLAGS "/arch:SSE2")
+  endif()
 
   if(CMAKE_GENERATOR_TOOLSET MATCHES "v[0-9]*_xp")
     target_compile_definitions(neo-f3kdb PRIVATE WINVER=0x502 _WIN32_WINNT=0x502)
