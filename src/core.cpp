@@ -120,26 +120,25 @@ void f3kdb_core_t::init_frame_luts(void)
 
             int x_range = min_multi(_params.range, x, width_in_pixels - x - 1, -1);
             int y_range = min_multi(_params.range, y, height_in_pixels - y - 1, -1);
-            int cur_range;
-            switch (_params.sample_mode)
-            {
-            case 1:
-                cur_range = y_range;
-                break;
-            
-            case 3:
-                cur_range = x_range;
-                break;
-            
-            case 2:
-            case 5:
-            case 4:
-                cur_range = min_multi(x_range, y_range, -1);
-                break;
+            int cur_range = [&]() {
+                switch (_params.sample_mode)
+                {
+                case 1:
+                    return y_range;
 
-            default:
-                break;
-            }
+                case 3:
+                    return x_range;
+
+                case 2:
+                case 5:
+                case 6:
+                case 4:
+                    return min_multi(x_range, y_range, -1);
+
+                default: // unlikely
+                    return 0;
+                }
+                }();
 
             if (cur_range > 0) {
                 info_y.ref1 = (signed char)random(_params.random_algo_ref, seed, cur_range, _params.random_param_ref);

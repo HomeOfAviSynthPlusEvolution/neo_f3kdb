@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include "core.h"
 #include "pixel_proc_c.h"
 #include <limits.h>
@@ -73,14 +74,14 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
             pixel_dither_info info = *info_ptr;
             int src_px_up = read_pixel<mode>(params, context, src_px);
             
-            if (sample_mode == 1 || sample_mode == 2 || sample_mode == 4 || sample_mode == 5)
+            if constexpr (sample_mode == 1 || sample_mode == 2 || sample_mode == 4 || sample_mode == 5 || sample_mode == 6)
             {
                 assert(info.ref1 >= 0);
                 assert((info.ref1 >> params.height_subsampling) <= i && 
                     (info.ref1 >> params.height_subsampling) + i < params.plane_height_in_pixels);
             }
 
-            if (sample_mode == 3 || sample_mode == 2 || sample_mode == 4 || sample_mode == 5)
+            if constexpr (sample_mode == 3 || sample_mode == 2 || sample_mode == 4 || sample_mode == 5 || sample_mode == 6)
             {
                 assert(info.ref2 >= 0);
                 assert((info.ref2 >> params.height_subsampling) <= i && 
@@ -90,7 +91,7 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
             bool use_org_px_as_base;
             int ref_pos, ref_pos_2;
             int new_pixel = src_px_up, new_pixel_mode1, new_pixel_mode3;
-            if (sample_mode == 1 || sample_mode == 4)
+            if constexpr (sample_mode == 1 || sample_mode == 4)
             {
                 ref_pos = (info.ref1 >> params.height_subsampling) * params.src_pitch;
 
@@ -110,7 +111,7 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                 }
                 new_pixel = new_pixel_mode1 = use_org_px_as_base ? src_px_up : avg;
             }
-            if (sample_mode == 3 || sample_mode == 4)
+            if constexpr (sample_mode == 3 || sample_mode == 4)
             {
                 ref_pos = (info.ref1 >> params.width_subsampling) * pixel_step;
 
@@ -130,11 +131,11 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                 }
                 new_pixel = new_pixel_mode3 = use_org_px_as_base ? src_px_up : avg;
             }
-            if (sample_mode == 4)
+            if constexpr (sample_mode == 4)
             {
                 new_pixel = pixel_proc_avg_2<mode>(context, new_pixel_mode1, new_pixel_mode3);
             }
-            if (sample_mode == 2)
+            if constexpr (sample_mode == 2)
             {
                 int x_multiplier = 1;
                 
@@ -169,7 +170,7 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                 }
                 new_pixel = use_org_px_as_base ? src_px_up : avg;
             }
-            if (sample_mode == 5)
+            if constexpr (sample_mode == 5)
             {
                 ref_pos = (info.ref1 >> params.height_subsampling) * params.src_pitch;
 
@@ -192,6 +193,50 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                     is_above_threshold(params.threshold2, midDif2);
 
                 new_pixel = use_org_px_as_base ? src_px_up : avg;
+            }
+            if constexpr (sample_mode == 6)
+            {
+                const float org_pix_f = static_cast<float>(src_px_up);
+                const float thresh_avg_dif_param_f = static_cast<float>(params.threshold);
+                const float thresh_max_dif_param_f = static_cast<float>(params.threshold1);
+                const float thresh_mid_dif_param_f = static_cast<float>(params.threshold2);
+
+                const int ref_v_offset_bytes = (info.ref1 >> params.height_subsampling) * params.src_pitch;
+                const float ref_1_h_f = static_cast<float>(read_pixel<mode>(params, context, src_px, ref_v_offset_bytes));
+                const float ref_2_h_f = static_cast<float>(read_pixel<mode>(params, context, src_px, -ref_v_offset_bytes));
+
+                const int ref_h_offset_bytes = (info.ref1 >> params.width_subsampling) * pixel_step;
+                const float ref_1_w_f = static_cast<float>(read_pixel<mode>(params, context, src_px, ref_h_offset_bytes));
+                const float ref_2_w_f = static_cast<float>(read_pixel<mode>(params, context, src_px, -ref_h_offset_bytes));
+
+                const float avg_refs_f = (ref_1_h_f + ref_2_h_f + ref_1_w_f + ref_2_w_f) * 0.25f;
+
+                const float avg_dif_f = std::abs(avg_refs_f - org_pix_f);
+                const float max_dif_f = std::max({ std::abs(ref_1_h_f - org_pix_f),
+                                                  std::abs(ref_2_h_f - org_pix_f),
+                                                  std::abs(ref_1_w_f - org_pix_f),
+                                                  std::abs(ref_2_w_f - org_pix_f) });
+                const float mid_dif_v_f = std::abs(ref_1_h_f + ref_2_h_f - 2.0f * org_pix_f);
+                const float mid_dif_h_f = std::abs(ref_1_w_f + ref_2_w_f - 2.0f * org_pix_f);
+
+                auto saturate = [](float val) {
+                    return std::clamp(val, 0.0f, 1.0f);
+                    };
+
+                auto calculate_ratio_term = [](float diff, float thresh) {
+                    if (thresh < 1e-5f)
+                        return (diff < 1e-5f) ? 1.0f : -1e6f;
+
+                    return 1.0f - diff / thresh;
+                    };
+
+                // Calculate the blending factor
+                float factor = std::pow(saturate(3.0f * calculate_ratio_term(avg_dif_f, thresh_avg_dif_param_f)) *
+                    saturate(3.0f * calculate_ratio_term(max_dif_f, thresh_max_dif_param_f)) *
+                    saturate(3.0f * calculate_ratio_term(mid_dif_v_f, thresh_mid_dif_param_f)) *
+                    saturate(3.0f * calculate_ratio_term(mid_dif_h_f, thresh_mid_dif_param_f)), 0.1f);
+
+                new_pixel = static_cast<int>((org_pix_f + (avg_refs_f - org_pix_f) * factor) + 0.5f);
             }
 
             new_pixel = pixel_proc_downsample<mode>(context, new_pixel + *grain_buffer_ptr, i, j, pixel_min, pixel_max, params.output_depth);

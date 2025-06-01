@@ -71,6 +71,7 @@ static __forceinline void process_plane_info_block(
         ref_offset1 = _mm_sll_epi32(temp_ref1, pixel_step_shift_bits);
         break;
     case 5:
+    case 6:
     case 4:
         temp_ref1 = _mm_sra_epi32(ref1, height_subsample_vector);
         ref_offset1 = _mm_mullo_epi32(src_pitch_vector, temp_ref1);
@@ -106,7 +107,7 @@ static __forceinline void process_plane_info_block(
         _mm_store_si128((__m128i*)info_data_stream, ref_offset1);
         info_data_stream += 16;
 
-        if (sample_mode == 2 || sample_mode == 4 || sample_mode == 5) {
+        if (sample_mode == 2 || sample_mode == 4 || sample_mode == 5 || sample_mode == 6) {
             _mm_store_si128((__m128i*)info_data_stream, ref_offset2);
             info_data_stream += 16;
         }
@@ -146,6 +147,51 @@ static __forceinline __m128i generate_blend_mask_high(__m128i a, __m128i thresho
     return _mm_cmpgt_epi16(converted_threshold, converted_diff);
 }
 
+static __forceinline void convert_u16_to_float_x2(const __m128i val_i, __m128& val_f_lo, __m128& val_f_hi)
+{
+    __m128i zero = _mm_setzero_si128();
+
+    val_f_lo = _mm_cvtepi32_ps(_mm_unpacklo_epi16(val_i, zero));
+    val_f_hi = _mm_cvtepi32_ps(_mm_unpackhi_epi16(val_i, zero));
+}
+
+static __forceinline __m128i convert_float_x2_to_u16(const __m128 val_f_lo, const __m128 val_f_hi)
+{
+    const __m128 half = _mm_set1_ps(0.5f);
+    __m128i val_i_lo_32 = _mm_cvttps_epi32(_mm_add_ps(val_f_lo, half));
+    __m128i val_i_hi_32 = _mm_cvttps_epi32(_mm_add_ps(val_f_hi, half));
+
+    return _mm_packus_epi32(val_i_lo_32, val_i_hi_32);
+}
+
+static __forceinline __m128 _mm_pow_ps_scalar_approx(__m128 base, float exponent)
+{
+    alignas(16) float b[4];
+    alignas(16) float r[4];
+    _mm_store_ps(b, base);
+
+    for (int i = 0; i < 4; ++i)
+        r[i] = std::pow(b[i], exponent);
+
+    return _mm_load_ps(r);
+}
+
+static __forceinline __m128 abs_ps(__m128 x)
+{
+    return _mm_and_ps(x, _mm_castsi128_ps(_mm_set1_epi32(0x7fffffff)));
+}
+
+static __forceinline __m128 saturate_ps(__m128 val_ps)
+{
+    return _mm_min_ps(_mm_max_ps(val_ps, _mm_setzero_ps()), _mm_set1_ps(1.0f));
+};
+
+static __forceinline __m128 calculate_ratio_term_ps(__m128 diff_ps, __m128 thresh_ps)
+{
+    __m128 ratio = _mm_div_ps(diff_ps, _mm_max_ps(thresh_ps, _mm_set1_ps(1e-5f)));
+
+    return _mm_sub_ps(_mm_set1_ps(1.0f), ratio);
+};
 
 template<int sample_mode, bool blur_first>
 static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels, __m128i threshold_vector, __m128i threshold1_vector, __m128i threshold2_vector,
@@ -212,7 +258,7 @@ static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels,
             dst_pixels = _mm_blendv_epi8(src_pixels, avg_12, use_orig_pixel_blend_mask_12);
         }
     }
-    else
+    else if (sample_mode == 5)
     {
         __m128i avg12 = _mm_avg_epu16(ref_pixels_1, ref_pixels_2);
         __m128i avg34 = _mm_avg_epu16(ref_pixels_3, ref_pixels_4);
@@ -250,6 +296,73 @@ static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels,
             generate_blend_mask_high(midDif2, threshold2_vector));
 
         dst_pixels = _mm_blendv_epi8(src_pixels, avg, use_orig_pixel_blend_mask_12);       
+    }
+    else if (sample_mode == 6)
+    {
+        const __m128 f_const_3_0 = _mm_set1_ps(3.0f);
+
+        __m128 src_f_lo, src_f_hi;
+        __m128 ref1_f_lo, ref1_f_hi;
+        __m128 ref2_f_lo, ref2_f_hi;
+        __m128 ref3_f_lo, ref3_f_hi;
+        __m128 ref4_f_lo, ref4_f_hi;
+
+        convert_u16_to_float_x2(src_pixels, src_f_lo, src_f_hi);
+        convert_u16_to_float_x2(ref_pixels_1, ref1_f_lo, ref1_f_hi);
+        convert_u16_to_float_x2(ref_pixels_2, ref2_f_lo, ref2_f_hi);
+        convert_u16_to_float_x2(ref_pixels_3, ref3_f_lo, ref3_f_hi);
+        convert_u16_to_float_x2(ref_pixels_4, ref4_f_lo, ref4_f_hi);
+
+        __m128 thresh_avg_dif_f_vec = _mm_set1_ps(static_cast<float>(_mm_extract_epi16(threshold_vector, 0)));
+        __m128 thresh_max_dif_f_vec = _mm_set1_ps(static_cast<float>(_mm_extract_epi16(threshold1_vector, 0)));
+        __m128 thresh_mid_dif_f_vec = _mm_set1_ps(static_cast<float>(_mm_extract_epi16(threshold2_vector, 0)));
+
+        __m128 blended_f_lo;
+        __m128 blended_f_hi;
+
+        for (int part = 0; part < 2; ++part)
+        {
+            __m128 src_f = (part == 0) ? src_f_lo : src_f_hi;
+            __m128 p1_f = (part == 0) ? ref1_f_lo : ref1_f_hi;
+            __m128 p3_f = (part == 0) ? ref2_f_lo : ref2_f_hi;
+            __m128 p2_f = (part == 0) ? ref3_f_lo : ref3_f_hi;
+            __m128 p4_f = (part == 0) ? ref4_f_lo : ref4_f_hi;
+
+            __m128 sum_refs = _mm_add_ps(_mm_add_ps(p1_f, p2_f), _mm_add_ps(p3_f, p4_f));
+            __m128 avg_refs_f = _mm_mul_ps(sum_refs, _mm_set1_ps(0.25f));
+
+            __m128 diff_avg_src = _mm_sub_ps(avg_refs_f, src_f);
+            __m128 avg_dif_f = abs_ps(diff_avg_src);
+
+            __m128 d1 = abs_ps(_mm_sub_ps(p1_f, src_f));
+            __m128 d2 = abs_ps(_mm_sub_ps(p2_f, src_f));
+            __m128 d3 = abs_ps(_mm_sub_ps(p3_f, src_f));
+            __m128 d4 = abs_ps(_mm_sub_ps(p4_f, src_f));
+            __m128 max_dif_f = _mm_max_ps(_mm_max_ps(d1, d2), _mm_max_ps(d3, d4));
+
+            __m128 two_src = _mm_mul_ps(src_f, _mm_set1_ps(2.0f));
+            __m128 mid_dif_v_f = abs_ps(_mm_sub_ps(_mm_add_ps(p1_f, p3_f), two_src));
+
+            __m128 mid_dif_h_f = abs_ps(_mm_sub_ps(_mm_add_ps(p2_f, p4_f), two_src));
+
+            __m128 comp_avg = saturate_ps(_mm_mul_ps(f_const_3_0, calculate_ratio_term_ps(avg_dif_f, thresh_avg_dif_f_vec)));
+            __m128 comp_max = saturate_ps(_mm_mul_ps(f_const_3_0, calculate_ratio_term_ps(max_dif_f, thresh_max_dif_f_vec)));
+            __m128 comp_mid_v = saturate_ps(_mm_mul_ps(f_const_3_0, calculate_ratio_term_ps(mid_dif_v_f, thresh_mid_dif_f_vec)));
+            __m128 comp_mid_h = saturate_ps(_mm_mul_ps(f_const_3_0, calculate_ratio_term_ps(mid_dif_h_f, thresh_mid_dif_f_vec)));
+
+            __m128 product_comps = _mm_mul_ps(_mm_mul_ps(comp_avg, comp_max), _mm_mul_ps(comp_mid_v, comp_mid_h));
+
+            __m128 factor = _mm_pow_ps_scalar_approx(product_comps, 0.1f);
+
+            __m128 blended_f = _mm_add_ps(src_f, _mm_mul_ps(diff_avg_src, factor));
+
+            if (part == 0)
+                blended_f_lo = blended_f;
+            else
+                blended_f_hi = blended_f;
+        }
+
+        dst_pixels = convert_float_x2_to_u16(blended_f_lo, blended_f_hi);
     }
 
     __m128i sign_convert_vector = _mm_set1_epi16((short)0x8000);
@@ -465,6 +578,7 @@ static void __forceinline read_reference_pixels(
             break;
         case 2:
         case 5:
+        case 6:
         case 4:
             tmp_1[i] = read_pixel<input_mode>(src_px_start, i_fix + *(int*)(info_data_start + 4 * (i + i / 4 * 4)));
             tmp_2[i] = read_pixel<input_mode>(src_px_start, i_fix + -*(int*)(info_data_start + 4 * (i + i / 4 * 4)));
@@ -487,6 +601,7 @@ static void __forceinline read_reference_pixels(
         break;
     case 2:
     case 5:
+    case 6:
     case 4:
         ref_pixels_1_0 = load_reference_pixels<dither_algo>(shift, tmp_1);
         ref_pixels_2_0 = load_reference_pixels<dither_algo>(shift, tmp_2);
@@ -576,7 +691,7 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
         cache->pitch = params.src_pitch;
     }
 
-    const int info_cache_block_size = (process_34 || sample_mode == 5 ? 64 : 32);
+    const int info_cache_block_size = (process_34 || sample_mode == 5 || sample_mode == 6 ? 64 : 32);
 
     int input_mode = params.input_mode;
 
