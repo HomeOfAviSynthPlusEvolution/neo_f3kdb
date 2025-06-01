@@ -46,9 +46,15 @@ core.neo_f3kdb.Deband(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
 
             (A + B) / 2
 
-    * 5: Similar to sample mode 4 but performing additional checks for better details preserving. (> r8)\
-        For more info - https://forum.doom9.org/showthread.php?p=1652256#post1652256 (avgDif, maxDif, midDif1, midDif2)\
-        `blur_first` doesn't have effect for this sample mode.
+    * 5: (Integer-based) Similar to sample mode 4 but uses multiple thresholds for detail preservation. (>r8)<br>
+        Optimized for speed version of https://forum.doom9.org/showthread.php?p=1652256#post1652256.<br>
+        `blur_first` doesn't have effect for this sample mode.<br>
+        `Y`/`Cb`/`Cr` - for this mode they are used for the `avgDif` check – the difference between the current pixel and the average of all four cross-shaped reference pixels.
+
+    * 6: (Floating-point) Similar to sample mode 4 but uses multiple thresholds for detail preservation. (>r9)<br>
+        Direct implementation of https://forum.doom9.org/showthread.php?p=1652256#post1652256.<br>
+        `blur_first` doesn't have effect for this sample mode.<br>
+        `Y`/`Cb`/`Cr` - for this mode they are used for the `avgDif` check – the difference between the current pixel and the average of all four cross-shaped reference pixels.
 
     Reference points are randomly picked within the `range`.
 
@@ -67,12 +73,32 @@ core.neo_f3kdb.Deband(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
 - *scale* (> r8)
 
     Whether to use threshold parameters (Y, Cb, Cr...) within the internal bit depth range (0..65535).
-    
-    Default: false.
-    
-- *Y_1 / Cb_1 / Cr_1 (maxDif),  Y_2 / Cb_2 / Cr_2 (midDif1, midDif2)* (> r8)
 
-    Additional thresholds for `sample_mode=5`.    
+    Default: false.
+
+- *Y_1 / Cb_1 / Cr_1 (maxDif)* (> r8)
+
+    Detail protection threshold (max difference) for `sample_mode=5` and `sample_mode=6`.
+
+    This threshold applies to the `maxDif` check. `maxDif` is the largest absolute difference found between the current pixel and any of its four individual cross-shaped reference pixels. If this `maxDif` is greater than or equal to `Y_1`/`Cb_1`/`Cr_1`, the pixel is considered detail.
+
+    Helps protect sharp edges and fine details from being blurred by the debanding process.
+
+    The valid range is same as `Y`/`Cb`/`Cr`.
+
+    Default value - they are equal to `Y`/`Cb`/`Cr`.
+
+- *Y_2 / Cb_2 / Cr_2 (midDifs)* (> r8)
+
+    Gradient/Texture protection threshold (mid-pair difference) for `sample_mode=5` and `sample_mode=6`.
+
+    This threshold applies to the `midDif` checks. `midDif` measures how much the current pixel deviates from the midpoint of a pair of opposing reference pixels (one check for the vertical pair, one for the horizontal pair). If the current pixel is far from this midpoint (i.e., `midDif` is greater than or equal to `Y_2` / `Cb_2` / `Cr_2`), it might indicate a texture.
+
+    This helps distinguish true banding in gradients from textured areas or complex details.
+
+    The valid range is same as `Y`/`Cb`/`Cr`.
+
+    Default value - they are equal to `Y`/`Cb`/`Cr`.
 
 ## Compilation
 

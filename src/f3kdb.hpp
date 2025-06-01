@@ -185,7 +185,7 @@ struct F3KDB final : Filter {
     CHECK_PARAM(ep.Cr, 0, cr_threshold_upper_limit);
     CHECK_PARAM(ep.grainY, 0, dither_upper_limit);
     CHECK_PARAM(ep.grainC, 0, dither_upper_limit);
-    CHECK_PARAM(ep.sample_mode, 1, 5);
+    CHECK_PARAM(ep.sample_mode, 1, 6);
     CHECK_PARAM(ep.dither_algo, DA_HIGH_NO_DITHERING, (DA_COUNT - 1) );
     CHECK_PARAM(ep.random_algo_ref, 0, (RANDOM_ALGORITHM_COUNT - 1) );
     CHECK_PARAM(ep.random_algo_grain, 0, (RANDOM_ALGORITHM_COUNT - 1) );
