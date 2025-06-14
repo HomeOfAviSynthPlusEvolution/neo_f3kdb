@@ -130,9 +130,10 @@ void f3kdb_core_t::init_frame_luts(void)
                     return x_range;
 
                 case 2:
+                case 4:
                 case 5:
                 case 6:
-                case 4:
+                case 7:
                     return min_multi(x_range, y_range, -1);
 
                 default: // unlikely
@@ -272,6 +273,8 @@ void f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_
     params.input_depth = _video_info.Format.BitsPerSample;
     params.output_mode = _params.output_depth <= 8 ? LOW_BIT_DEPTH : HIGH_BIT_DEPTH_INTERLEAVED;
     params.output_depth = _params.output_depth;
+    params.angle_boost = _params.angle_boost;
+    params.max_angle = _params.max_angle;
 
     params.plane = plane;
     
@@ -335,7 +338,7 @@ void f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_
     bool copy_plane = false;
     if (_video_info.Format.BitsPerSample == _params.output_depth &&
         grain_setting == 0 &&
-        params.threshold == 0)
+        params.threshold == 0 && params.threshold1 == 0 && params.threshold2 == 0)
     {
         copy_plane = true;
     }

@@ -33,8 +33,6 @@ int GetCPUFlags();
 struct F3KDB final : Filter {
   f3kdb_params_t ep;
   std::unique_ptr<f3kdb_core_t> engine;
-  InDelegator* _in;
-  bool crop;
   char error_msg[1024];
   DSVideoInfo out_vi;
   bool mt {true};
@@ -73,6 +71,8 @@ struct F3KDB final : Filter {
       Param{ "cb_2", Integer },
       Param{ "cr_2", Integer },
       Param{ "scale", Boolean },
+      Param{ "angle_boost", Float },
+      Param{ "max_angle", Float },
     };
   }
   void Initialize(InDelegator* in, DSVideoInfo in_vi, FetchFrameFunctor* fetch_frame) override
@@ -97,7 +97,7 @@ struct F3KDB final : Filter {
       else if (piss1 == "high")
           ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 256 : 64;
       else if (piss1 == "veryhigh")
-          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 320 : 80;        
+          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 320 : 80;
       else if (piss1 == "nograin")
         ep.grainY = ep.grainC = 0;
       else if (piss1 == "luma")
@@ -135,6 +135,8 @@ struct F3KDB final : Filter {
     in->Read("y_2", ep.Y_2);
     in->Read("cb_2", ep.Cb_2);
     in->Read("cr_2", ep.Cr_2);
+    in->Read("angle_boost", ep.angle_boost);
+    in->Read("max_angle", ep.max_angle);
 
     ep.Y_1 = ep.Y_1 == -1 ? ep.Y : ep.Y_1;
     ep.Cb_1 = ep.Cb_1 == -1 ? ep.Cb : ep.Cb_1;
@@ -147,11 +149,24 @@ struct F3KDB final : Filter {
     in->Read("opt", opt_in);
     in->Read("mt", mt);
 
-    OPTIMIZATION_MODE opt = IMPL_C;
-    int CPUFlags = GetCPUFlags();
+    OPTIMIZATION_MODE opt = [&]() {
+        const int CPUFlags = GetCPUFlags();
 
-    if ((CPUFlags & CPUF_SSE4_1) && (opt_in > 0 || opt_in < 0))
-      opt = IMPL_SSE4;
+        if (ep.sample_mode >= 5 && ep.sample_mode <= 7) {
+            const int AVX512_REQUIRED_FLAGS = CPUF_AVX512F | CPUF_AVX512BW | CPUF_AVX512DQ | CPUF_AVX512VL | CPUF_AVX512CD;
+
+            if (((CPUFlags & AVX512_REQUIRED_FLAGS) == AVX512_REQUIRED_FLAGS) && (opt_in == 3 || opt_in < 0))
+                return IMPL_AVX512;
+
+            if ((CPUFlags & CPUF_AVX2) && (opt_in == 2 || opt_in < 0))
+                return IMPL_AVX2;
+        }
+
+        if ((CPUFlags & CPUF_SSE4_1) && (opt_in > 0 || opt_in < 0))
+            return IMPL_SSE4;
+
+        return IMPL_C;
+        }();
 
     #define INVALID_PARAM_IF(cond) \
     do { if (cond) { throw("Invalid parameter condition: " #cond); } } while (0)
@@ -185,7 +200,7 @@ struct F3KDB final : Filter {
     CHECK_PARAM(ep.Cr, 0, cr_threshold_upper_limit);
     CHECK_PARAM(ep.grainY, 0, dither_upper_limit);
     CHECK_PARAM(ep.grainC, 0, dither_upper_limit);
-    CHECK_PARAM(ep.sample_mode, 1, 6);
+    CHECK_PARAM(ep.sample_mode, 1, 7);
     CHECK_PARAM(ep.dither_algo, DA_HIGH_NO_DITHERING, (DA_COUNT - 1) );
     CHECK_PARAM(ep.random_algo_ref, 0, (RANDOM_ALGORITHM_COUNT - 1) );
     CHECK_PARAM(ep.random_algo_grain, 0, (RANDOM_ALGORITHM_COUNT - 1) );
@@ -195,9 +210,14 @@ struct F3KDB final : Filter {
     CHECK_PARAM(ep.Y_2, 0, y_threshold_upper_limit);
     CHECK_PARAM(ep.Cb_2, 0, cb_threshold_upper_limit);
     CHECK_PARAM(ep.Cr_2, 0, cr_threshold_upper_limit);
-    
 
-    // now the internal bit depth is 16, 
+    if (ep.angle_boost < 0.0f)
+        throw "invalid parameter angle_boost, must be positive value";
+
+    if (ep.max_angle < 0.0f || ep.max_angle > 1.0f)
+        throw "invalid parameter max_angle, must be between 0.0 and 1.0";
+
+    // now the internal bit depth is 16,
     // scale parameters to be consistent with 14bit range in previous versions
     ep.Y = scale ? ep.Y : ep.Y << 2;
     ep.Cb = scale ? ep.Cb : ep.Cb << 2;
