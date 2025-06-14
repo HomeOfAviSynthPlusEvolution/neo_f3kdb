@@ -41,7 +41,7 @@ static inline void __cpuid(int cpuinfo[4], int leaf) {
 
 #define IS_BIT_SET(bitfield, bit) ((bitfield) & (1<<(bit)) ? true : false)
 
-#if defined(__x86_64__) || defined(__i386__)
+#if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86)
 static uint32_t get_xcr0()
 {
     uint32_t xcr0;
@@ -58,7 +58,7 @@ static int CPUCheckForExtensions()
 {
   int result = 0;
 
-#if defined(__x86_64__) || defined(__i386__)
+#if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86)
   int cpuinfo[4];
   __cpuid(cpuinfo, 1);
 
