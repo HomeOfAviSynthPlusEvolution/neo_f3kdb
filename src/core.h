@@ -33,6 +33,8 @@ typedef struct _process_plane_params
     unsigned short threshold;
     unsigned short threshold1;
     unsigned short threshold2;
+    float angle_boost;
+    float max_angle;
     pixel_dither_info *info_ptr_base;
     int info_stride;
     

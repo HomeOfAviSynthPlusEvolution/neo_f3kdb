@@ -56,6 +56,11 @@ core.neo_f3kdb.Deband(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
         `blur_first` doesn't have effect for this sample mode.<br>
         `Y`/`Cb`/`Cr` - for this mode they are used for the `avgDif` check – the difference between the current pixel and the average of all four cross-shaped reference pixels.
 
+    * 7: (Floating-point) An extension of sample_mode=6 that adds a gradient angle check for more intelligent detail preservation. (>r9)<br>
+        Direct implementation of https://forum.doom9.org/showthread.php?p=1652256#post1652256.<br>
+        `blur_first` doesn't have effect for this sample mode.<br>
+        `Y`/`Cb`/`Cr` - for this mode they are used for the `avgDif` check – the difference between the current pixel and the average of all four cross-shaped reference pixels.
+
     Reference points are randomly picked within the `range`.
 
 - *input_depth* (removed)
@@ -63,6 +68,22 @@ core.neo_f3kdb.Deband(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
 - *input_mode* (removed)
 
 - *output_mode* (removed)
+
+- *opt*
+
+    Sets which cpu optimizations to use.
+
+    `sample_mode=1`, `sample_mode=2`, `sample_mode=3`, and `sample_mode=4` have `C++` and `SSE4.1` code.
+
+    `sample_mode=5`, `sample_mode=6` and `sample_mode=7` have `C++`, `SSE4.1`, `AVX2` and `AVX-512` code.
+
+    - `-1`: Auto-detect.
+    - `0`: Use C++ code.
+    - `1`: Use SSE4.1 code.
+    - `2`: Use AVX2 code.
+    - `3`: Use AVX-512 code.
+
+    Default: `-1`.
 
 - *mt*
 
@@ -78,7 +99,7 @@ core.neo_f3kdb.Deband(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
 
 - *Y_1 / Cb_1 / Cr_1 (maxDif)* (> r8)
 
-    Detail protection threshold (max difference) for `sample_mode=5` and `sample_mode=6`.
+    Detail protection threshold (max difference) for `sample_mode=5`, `sample_mode=6` and `sample_mode=7`.
 
     This threshold applies to the `maxDif` check. `maxDif` is the largest absolute difference found between the current pixel and any of its four individual cross-shaped reference pixels. If this `maxDif` is greater than or equal to `Y_1`/`Cb_1`/`Cr_1`, the pixel is considered detail.
 
@@ -90,7 +111,7 @@ core.neo_f3kdb.Deband(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
 
 - *Y_2 / Cb_2 / Cr_2 (midDifs)* (> r8)
 
-    Gradient/Texture protection threshold (mid-pair difference) for `sample_mode=5` and `sample_mode=6`.
+    Gradient/Texture protection threshold (mid-pair difference) for `sample_mode=5`, `sample_mode=6` and `sample_mode=7`.
 
     This threshold applies to the `midDif` checks. `midDif` measures how much the current pixel deviates from the midpoint of a pair of opposing reference pixels (one check for the vertical pair, one for the horizontal pair). If the current pixel is far from this midpoint (i.e., `midDif` is greater than or equal to `Y_2` / `Cb_2` / `Cr_2`), it might indicate a texture.
 
@@ -99,6 +120,30 @@ core.neo_f3kdb.Deband(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
     The valid range is same as `Y`/`Cb`/`Cr`.
 
     Default value - they are equal to `Y`/`Cb`/`Cr`.
+
+- *angle_boost* (>r9)
+
+    A multiplier used in `sample_mode=7` to increase the debanding strength on consistent gradients.
+
+    When the gradient angle check passes, the `Y`/`Cb`/`Cr`, `Y_1`/`Cb_1`/`Cr_1`, and `Y_2`/`Cb_2`/`Cr_2` thresholds are multiplied by this factor.
+
+    A value greater than `1.0` boosts the strength. A value of `1.0` has no effect.
+
+    Must be a positive number.
+
+    Default value - `1.5`.
+
+- *max_angle* (>r9)
+
+    The threshold for the gradient angle check in `sample_mode=7`.
+
+    It represents the maximum allowed difference between the gradient angle of the center pixel and its reference pixels for the `angle_boost` to be applied. The gradient angle is normalized to a `[0.0, 1.0]` range.
+
+    A smaller value is stricter and requires a more consistent gradient. A larger value is more lenient.
+
+    The valid range is `0.0` to `1.0`.
+
+    Default value - `0.15`.
 
 ## Compilation
 

@@ -32,6 +32,8 @@ typedef enum _OPTIMIZATION_MODE : int {
   IMPL_SSE2,
   IMPL_SSSE3,
   IMPL_SSE4,
+  IMPL_AVX2,
+  IMPL_AVX512,
 
   IMPL_COUNT
 } OPTIMIZATION_MODE;
@@ -60,4 +62,6 @@ typedef struct _f3kdb_params_t {
   int Y_2 {-1};
   int Cb_2 {-1};
   int Cr_2 {-1};
+  double angle_boost {1.5};
+  double max_angle {0.15};
 } f3kdb_params_t;
