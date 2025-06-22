@@ -4,5 +4,3 @@
 *.sublime-*
 build
 *.DS_Store
-src/version.hpp
-src/version.rc
