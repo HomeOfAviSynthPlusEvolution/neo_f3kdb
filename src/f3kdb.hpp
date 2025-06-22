@@ -194,7 +194,7 @@ struct F3KDB final : Filter {
     #define CHECK_PARAM(value, lower_bound, upper_bound) \
     do { if ((int)value < (int)lower_bound || (int)value > (int)upper_bound) { snprintf(error_msg, sizeof(error_msg), "Invalid parameter %s, must be between %d and %d", #value, lower_bound, upper_bound); throw error_msg; } } while(0)
 
-    CHECK_PARAM(ep.range, 0, 31);
+    CHECK_PARAM(ep.range, 0, 255);
     CHECK_PARAM(ep.Y, 0, y_threshold_upper_limit);
     CHECK_PARAM(ep.Cb, 0, cb_threshold_upper_limit);
     CHECK_PARAM(ep.Cr, 0, cr_threshold_upper_limit);

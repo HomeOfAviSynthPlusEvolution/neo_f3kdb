@@ -18,6 +18,16 @@ core.neo_f3kdb.Deband(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
 
 [Check original usage documents.](https://f3kdb.readthedocs.io/en/stable/usage.html)
 
+Below are the additional parameters or the these that differ from the original ones.
+
+- *range* (>r9)
+
+    Banding detection range.
+
+    Must be between `0` to `255`.
+
+    Default value - `15`.
+
 - *sample_mode*
 
     * 1: Column references.
@@ -95,7 +105,7 @@ core.neo_f3kdb.Deband(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
 
     Whether to use threshold parameters (Y, Cb, Cr...) within the internal bit depth range (0..65535).
 
-    Default: false.
+    Default: `false`.
 
 - *Y_1 / Cb_1 / Cr_1 (maxDif)* (> r8)
 
