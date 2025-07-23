@@ -15,13 +15,7 @@ target_sources(${LIBRARY_NAME} PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/src/dither_high.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/f3kdb.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/f3kdb.hpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_avx2_base.h"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_avx512_base.h"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_avx2.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_avx512.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_c.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_sse4.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_sse_base.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/impl_dispatch.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/impl_dispatch.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/impl_dispatch_decl.h"
@@ -70,7 +64,6 @@ endif()
 target_include_directories(${LIBRARY_NAME} PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/dualsynth"
-  "${CMAKE_CURRENT_SOURCE_DIR}/VCL2"
   "${CMAKE_CURRENT_BINARY_DIR}"
 )
 
@@ -82,6 +75,17 @@ endif()
 # Only apply SIMD flags if we are on a capable architecture (x86/x86_64).
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|i.86")
     message(STATUS "x86/x86_64 architecture detected. Configuring SIMD instruction sets.")
+
+    target_sources(${LIBRARY_NAME} PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_avx2_base.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_avx512_base.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_avx2.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_avx512.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_sse4.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_sse_base.h"
+    )
+
+    target_include_directories(${LIBRARY_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/VCL2")
 
     set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_sse4.cpp" PROPERTIES COMPILE_OPTIONS
         "$<$<CXX_COMPILER_ID:MSVC>:/arch:SSE2>$<$<AND:$<CXX_COMPILER_ID:Intel>,$<PLATFORM_ID:Windows>>:/arch:SSE4.1>$<$<NOT:$<OR:$<CXX_COMPILER_ID:MSVC>,$<AND:$<CXX_COMPILER_ID:Intel>,$<PLATFORM_ID:Windows>>>>:-msse4.1>"
