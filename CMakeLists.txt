@@ -72,7 +72,7 @@ if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
     target_compile_options(${LIBRARY_NAME} PRIVATE -O3 -funroll-loops)
 endif()
 
-# Only apply SIMD flags if we are on a capable architecture (x86/x86_64).
+# Only apply SIMD flags if we are on a capable architecture (x86/x86_64/arm/arm64).
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|i.86")
     message(STATUS "x86/x86_64 architecture detected. Configuring SIMD instruction sets.")
 
@@ -101,6 +101,27 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|i.86")
         set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_avx512.cpp" PROPERTIES COMPILE_OPTIONS "/arch:AVX512")
     elseif(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
         set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_avx512.cpp" PROPERTIES COMPILE_OPTIONS "-mavx512f;-mavx512bw;-mavx512dq;-mavx512vl;-mavx512cd;-mfma")
+    endif()
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm.*|ARM.*|aarch64")
+    message(STATUS "arm/arm64 architecture detected. Configuring SIMD instruction sets.")
+
+    target_sources(${LIBRARY_NAME} PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_sse4.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_sse_base.h"
+    )
+
+    # Workaround missing x86 intrinsics header for Vector Class Library
+    set(GENERATED_INCLUDE_DIR "${CMAKE_BINARY_DIR}/include")
+    set(X86INTRIN_H_STUB "x86intrin.h")
+    file(MAKE_DIRECTORY ${GENERATED_INCLUDE_DIR})
+    file(TOUCH "${GENERATED_INCLUDE_DIR}/${X86INTRIN_H_STUB}")
+
+    target_include_directories(${LIBRARY_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/VCL2" "${GENERATED_INCLUDE_DIR}")
+
+    if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_sse4.cpp" PROPERTIES COMPILE_OPTIONS "/DINSTRSET=6")
+    elseif(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+        set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_sse4.cpp" PROPERTIES COMPILE_OPTIONS "-DINSTRSET=6;-Wno-narrowing")
     endif()
 else()
     message(STATUS "Non-x86 architecture detected (${CMAKE_SYSTEM_PROCESSOR}). Skipping SIMD-specific source files.")
