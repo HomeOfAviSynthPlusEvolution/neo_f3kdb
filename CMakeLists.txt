@@ -102,8 +102,22 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|i.86")
     elseif(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
         set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_avx512.cpp" PROPERTIES COMPILE_OPTIONS "-mavx512f;-mavx512bw;-mavx512dq;-mavx512vl;-mavx512cd;-mfma")
     endif()
+
+    target_compile_definitions(${LIBRARY_NAME} PRIVATE HAS_SSE4 HAS_AVX2 HAS_AVX512)
 else()
-    message(STATUS "Non-x86 architecture detected (${CMAKE_SYSTEM_PROCESSOR}). Skipping SIMD-specific source files.")
+    message(STATUS "Non-x86 architecture detected (${CMAKE_SYSTEM_PROCESSOR}). Skipping some SIMD-specific source files.")
+
+    target_include_directories(${LIBRARY_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/arm")
+
+    target_sources(${LIBRARY_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_sse4.cpp")
+
+    target_compile_definitions(${LIBRARY_NAME} PRIVATE HAS_SSE4 INSTRSET=6)
+
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+        target_compile_options(${LIBRARY_NAME} PRIVATE -march=armv8-a+simd)
+    else()
+        target_compile_options(${LIBRARY_NAME} PRIVATE -mfpu=neon)
+    endif()
 endif()
 
 target_link_libraries(${LIBRARY_NAME} PRIVATE "$<$<OR:$<CXX_COMPILER_ID:Intel>,$<CXX_COMPILER_ID:IntelLLVM>>:libmmds>")

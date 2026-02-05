@@ -91,26 +91,32 @@
 
 
 #if defined(IMPL_DISPATCH_IMPORT_DECLARATION) || defined(DECLARE_IMPL_SSE4)
-	DEFINE_SSE_IMPL(sse4_high_no_dithering, DA_HIGH_NO_DITHERING);
-	DEFINE_SSE_IMPL(sse4_high_ordered_dithering, DA_HIGH_ORDERED_DITHERING);
-	DEFINE_SSE_IMPL(sse4_high_floyd_steinberg_dithering, DA_HIGH_FLOYD_STEINBERG_DITHERING);
-	DEFINE_SSE_IMPL(sse4_16bit_interleaved, DA_16BIT_INTERLEAVED);
+	#if defined(HAS_SSE4) || !defined(IMPL_DISPATCH_IMPORT_DECLARATION)
+		DEFINE_SSE_IMPL(sse4_high_no_dithering, DA_HIGH_NO_DITHERING);
+		DEFINE_SSE_IMPL(sse4_high_ordered_dithering, DA_HIGH_ORDERED_DITHERING);
+		DEFINE_SSE_IMPL(sse4_high_floyd_steinberg_dithering, DA_HIGH_FLOYD_STEINBERG_DITHERING);
+		DEFINE_SSE_IMPL(sse4_16bit_interleaved, DA_16BIT_INTERLEAVED);
+	#endif
 #endif
 
 #if defined(IMPL_DISPATCH_IMPORT_DECLARATION) || defined(DECLARE_IMPL_AVX2)
-#define DEFINE_AVX2_IMPL(name, ...) \
-		DEFINE_TEMPLATE_IMPL(name, process_plane_avx2_impl, __VA_ARGS__);
-	DEFINE_AVX2_IMPL(avx2_high_no_dithering, DA_HIGH_NO_DITHERING);
-	DEFINE_AVX2_IMPL(avx2_high_ordered_dithering, DA_HIGH_ORDERED_DITHERING);
-	DEFINE_AVX2_IMPL(avx2_high_floyd_steinberg_dithering, DA_HIGH_FLOYD_STEINBERG_DITHERING);
-	DEFINE_AVX2_IMPL(avx2_16bit_interleaved, DA_16BIT_INTERLEAVED);
+	#if defined(HAS_AVX2) || !defined(IMPL_DISPATCH_IMPORT_DECLARATION)
+	#define DEFINE_AVX2_IMPL(name, ...) \
+			DEFINE_TEMPLATE_IMPL(name, process_plane_avx2_impl, __VA_ARGS__);
+		DEFINE_AVX2_IMPL(avx2_high_no_dithering, DA_HIGH_NO_DITHERING);
+		DEFINE_AVX2_IMPL(avx2_high_ordered_dithering, DA_HIGH_ORDERED_DITHERING);
+		DEFINE_AVX2_IMPL(avx2_high_floyd_steinberg_dithering, DA_HIGH_FLOYD_STEINBERG_DITHERING);
+		DEFINE_AVX2_IMPL(avx2_16bit_interleaved, DA_16BIT_INTERLEAVED);
+	#endif
 #endif
 
 #if defined(IMPL_DISPATCH_IMPORT_DECLARATION) || defined(DECLARE_IMPL_AVX512)
-#define DEFINE_AVX512_IMPL(name, ...) \
-		DEFINE_TEMPLATE_IMPL(name, process_plane_avx512_impl, __VA_ARGS__);
-	DEFINE_AVX512_IMPL(avx512_high_no_dithering, DA_HIGH_NO_DITHERING);
-	DEFINE_AVX512_IMPL(avx512_high_ordered_dithering, DA_HIGH_ORDERED_DITHERING);
-	DEFINE_AVX512_IMPL(avx512_high_floyd_steinberg_dithering, DA_HIGH_FLOYD_STEINBERG_DITHERING);
-	DEFINE_AVX512_IMPL(avx512_16bit_interleaved, DA_16BIT_INTERLEAVED);
+	#if defined(HAS_AVX512) || !defined(IMPL_DISPATCH_IMPORT_DECLARATION)
+	#define DEFINE_AVX512_IMPL(name, ...) \
+			DEFINE_TEMPLATE_IMPL(name, process_plane_avx512_impl, __VA_ARGS__);
+		DEFINE_AVX512_IMPL(avx512_high_no_dithering, DA_HIGH_NO_DITHERING);
+		DEFINE_AVX512_IMPL(avx512_high_ordered_dithering, DA_HIGH_ORDERED_DITHERING);
+		DEFINE_AVX512_IMPL(avx512_high_floyd_steinberg_dithering, DA_HIGH_FLOYD_STEINBERG_DITHERING);
+		DEFINE_AVX512_IMPL(avx512_16bit_interleaved, DA_16BIT_INTERLEAVED);
+	#endif
 #endif
