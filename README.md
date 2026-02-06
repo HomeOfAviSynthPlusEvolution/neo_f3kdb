@@ -16,144 +16,274 @@ neo_f3kdb(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
 core.neo_f3kdb.Deband(clip, y=64, cb=64, cr=64, grainy=0, grainc=0, ...)
 ```
 
-[Check original usage documents.](https://f3kdb.readthedocs.io/en/stable/usage.html)
+##### ***clip***
 
-Below are the additional parameters or the these that differ from the original ones.
+It must be in YUV 8..16-bit planar format.
 
-- *range* (>r9)
+##### ***range***
 
-    Banding detection range.
+Banding detection range.
 
-    Must be between `0` to `255`.
+Must be between `0` to `255`.
 
-    Default value - `15`.
+Default: `15`
 
-- *sample_mode*
+##### ***y, cb, cr***
 
-    * 1: Column references.
+Banding detection threshold for the respective plane. If the difference between the current pixel and the reference pixel is less than this threshold, it is considered banded.
 
-            +
-            o
-            +
+Must be between `0` to `65535` (`scale=true`) or `0` to `511` (`scale=false`).
 
-    * 2: Square references.
+Default: `64`
 
-            + +
-             o
-            + +
+##### ***grainy, grainc***
 
-    * 3: Row references. (> r2)
+Specifies the amount of grain added to the Luma (Y) and Chroma (Cb/Cr) planes in the final stage.
 
-            + o +
+Must be between `0` to `4096`.
 
-    * 4: Average of sample mode 1 and 3. (> r2)
+Default: `64`
 
-             +
-            (o) => A
-             +
+##### ***sample_mode***
 
-            + (o) + => B
+1. Column references.
 
-            (A + B) / 2
+```
++
+o
++
+```
 
-    * 5: (Integer-based) Similar to sample mode 4 but uses multiple thresholds for detail preservation. (>r8)<br>
-        Optimized for speed version of https://forum.doom9.org/showthread.php?p=1652256#post1652256.<br>
-        `blur_first` doesn't have effect for this sample mode.<br>
-        `Y`/`Cb`/`Cr` - for this mode they are used for the `avgDif` check – the difference between the current pixel and the average of all four cross-shaped reference pixels.
+2. Square references.
 
-    * 6: (Floating-point) Similar to sample mode 4 but uses multiple thresholds for detail preservation. (>r9)<br>
-        Direct implementation of https://forum.doom9.org/showthread.php?p=1652256#post1652256.<br>
-        `blur_first` doesn't have effect for this sample mode.<br>
-        `Y`/`Cb`/`Cr` - for this mode they are used for the `avgDif` check – the difference between the current pixel and the average of all four cross-shaped reference pixels.
+```
++ +
+ o
++ +
+```
 
-    * 7: (Floating-point) An extension of sample_mode=6 that adds a gradient angle check for more intelligent detail preservation. (>r9)<br>
-        Direct implementation of https://forum.doom9.org/showthread.php?p=1652256#post1652256.<br>
-        `blur_first` doesn't have effect for this sample mode.<br>
-        `Y`/`Cb`/`Cr` - for this mode they are used for the `avgDif` check – the difference between the current pixel and the average of all four cross-shaped reference pixels.
+3. Row references.
 
-    Reference points are randomly picked within the `range`.
+```
++ o +
+```
 
-- *input_depth* (removed)
+4. Average of sample mode 1 and 3.
 
-- *input_mode* (removed)
+```
+ +
+(o) => A
+ +
 
-- *output_mode* (removed)
++ (o) + => B
 
-- *opt*
+(A + B) / 2
+```
 
-    Sets which cpu optimizations to use.
+5. (Integer-based) Similar to sample mode 4 but uses multiple thresholds for detail preservation.
 
-    `sample_mode=1`, `sample_mode=2`, `sample_mode=3`, and `sample_mode=4` have `C++` and `SSE4.1` code.
+    Optimized for speed version of https://forum.doom9.org/showthread.php?p=1652256#post1652256.
 
-    `sample_mode=5`, `sample_mode=6` and `sample_mode=7` have `C++`, `SSE4.1`, `AVX2` and `AVX-512` code.
+    `blur_first` doesn't have effect for this sample mode.
 
-    - `-1`: Auto-detect.
-    - `0`: Use C++ code.
-    - `1`: Use SSE4.1 code.
-    - `2`: Use AVX2 code.
-    - `3`: Use AVX-512 code.
+    `Y`/`Cb`/`Cr` - for this mode they are used for the `avgDif` check – the difference between the current pixel and the average of all four cross-shaped reference pixels.
 
-    Default: `-1`.
+6. (Floating-point) Similar to sample mode 4 but uses multiple thresholds for detail preservation.
 
-- *mt*
+    Direct implementation of https://forum.doom9.org/showthread.php?p=1652256#post1652256.
 
-    Process planes in parallel. Default: true.
+    `blur_first` doesn't have effect for this sample mode.
 
-    If you notice a dead lock under extreme condition, try disabling it.
+    `Y`/`Cb`/`Cr` - for this mode they are used for the `avgDif` check – the difference between the current pixel and the average of all four cross-shaped reference pixels.
 
-- *scale* (> r8)
+7. (Floating-point) An extension of sample_mode=6 that adds a gradient angle check for more intelligent detail preservation.
 
-    Whether to use threshold parameters (Y, Cb, Cr...) within the internal bit depth range (0..65535).
+    Direct implementation of https://forum.doom9.org/showthread.php?p=1652256#post1652256.
 
-    Default: `false`.
+    `blur_first` doesn't have effect for this sample mode.
 
-- *Y_1 / Cb_1 / Cr_1 (maxDif)* (> r8)
+    `Y`/`Cb`/`Cr` - for this mode they are used for the `avgDif` check – the difference between the current pixel and the average of all four cross-shaped reference pixels.
 
-    Detail protection threshold (max difference) for `sample_mode=5`, `sample_mode=6` and `sample_mode=7`.
+Default: `2`
 
-    This threshold applies to the `maxDif` check. `maxDif` is the largest absolute difference found between the current pixel and any of its four individual cross-shaped reference pixels. If this `maxDif` is greater than or equal to `Y_1`/`Cb_1`/`Cr_1`, the pixel is considered detail.
+##### ***seed***
 
-    Helps protect sharp edges and fine details from being blurred by the debanding process.
+Seed for the random number generator.
 
-    The valid range is same as `Y`/`Cb`/`Cr`.
+Default: `0`
 
-    Default value - they are equal to `Y`/`Cb`/`Cr`.
+##### ***blur_first***
 
-- *Y_2 / Cb_2 / Cr_2 (midDifs)* (> r8)
+`true`: Current pixel is compared with the average value of all reference pixels.
 
-    Gradient/Texture protection threshold (mid-pair difference) for `sample_mode=5`, `sample_mode=6` and `sample_mode=7`.
+`false`: Current pixel is compared with each reference pixel individually. Banding is only detected if *all* differences are below the threshold.
 
-    This threshold applies to the `midDif` checks. `midDif` measures how much the current pixel deviates from the midpoint of a pair of opposing reference pixels (one check for the vertical pair, one for the horizontal pair). If the current pixel is far from this midpoint (i.e., `midDif` is greater than or equal to `Y_2` / `Cb_2` / `Cr_2`), it might indicate a texture.
+- *Note: Has no effect on sample_modes 5, 6, and 7.*
 
-    This helps distinguish true banding in gradients from textured areas or complex details.
+Default: `true`
 
-    The valid range is same as `Y`/`Cb`/`Cr`.
+##### ***dynamic_grain***
 
-    Default value - they are equal to `Y`/`Cb`/`Cr`.
+Use a different grain pattern for each frame.
 
-- *angle_boost* (>r9)
+Default: `false`
 
-    A multiplier used in `sample_mode=7` to increase the debanding strength on consistent gradients.
+##### ***opt***
 
-    When the gradient angle check passes, the `Y`/`Cb`/`Cr`, `Y_1`/`Cb_1`/`Cr_1`, and `Y_2`/`Cb_2`/`Cr_2` thresholds are multiplied by this factor.
+Sets which cpu optimizations to use.
 
-    A value greater than `1.0` boosts the strength. A value of `1.0` has no effect.
+`sample_mode=1`, `sample_mode=2`, `sample_mode=3`, and `sample_mode=4` have `C++` and `SSE4.1` code.
 
-    Must be a positive number.
+`sample_mode=5`, `sample_mode=6` and `sample_mode=7` have `C++`, `SSE4.1`, `AVX2` and `AVX-512` code.
 
-    Default value - `1.5`.
+`-1`: Auto-detect.
 
-- *max_angle* (>r9)
+`0`: Use C++ code.
 
-    The threshold for the gradient angle check in `sample_mode=7`.
+`1`: Use SSE4.1 code.
 
-    It represents the maximum allowed difference between the gradient angle of the center pixel and its reference pixels for the `angle_boost` to be applied. The gradient angle is normalized to a `[0.0, 1.0]` range.
+`2`: Use AVX2 code.
 
-    A smaller value is stricter and requires a more consistent gradient. A larger value is more lenient.
+`3`: Use AVX-512 code.
 
-    The valid range is `0.0` to `1.0`.
+Default: `-1`
 
-    Default value - `0.15`.
+##### ***mt***
+
+Process planes in parallel.
+
+- *Note: If you notice a dead lock under extreme condition, try disabling it.*
+
+Default: `true`
+
+##### ***dither_algo***
+
+1. No dithering (LSB is truncated).
+
+2. Ordered dithering.
+
+3. Floyd-Steinberg dithering (Highest visual quality).
+
+
+- *Notes:*
+
+    1. Visual quality of mode 3 is the best, but the debanded pixels may
+       easily be destroyed by x264, you need to carefully tweak the settings
+       to get better result.
+
+    2. Mode 1 and mode 2 don't look the best, but if you are encoding at low
+       bitrate, they may be better choice since the debanded pixels is easier
+       to survive encoding, mode 3 may look worse than 1/2 after encoding in
+       this situation.
+
+       (Thanks sneaker_ger @ doom9 for pointing this out!)
+
+Default: `3`.
+
+##### ***keep_tv_range***
+
+If `true`, processed pixels are clamped to TV range (Luma: `16-235`, Chroma: `16-240`). Recommended for TV-range sources to prevent out-of-bounds values after dithering.
+
+Default: `false`
+
+##### ***output_depth***
+
+Specify output bit-depth.
+
+Must be between `8` to `16`.
+
+Default: `-1` (same as input bit depth)
+
+##### ***random_algo_ref, random_algo_grain***
+
+Choose random number algorithm for reference positions / grains.
+
+`0`: Legacy algorithm.
+
+`1`: Uniform distribution.
+
+`2`: Gaussian distribution.
+
+Default: `1`
+
+##### ***random_param_ref, random_param_grain***
+
+Parameter for the Gaussian generator (Standard Deviation).
+
+Default: `1.0`
+
+##### ***preset***
+
+Use preset parameters. Preset will be applied before other parameters so that you can easily override individual parameter.
+
+| Name | Parameters |
+| :--- | :--- |
+| **depth** | y=0/cb=0/cr=0/grainy=0/grainc=0 |
+| **low** | y=32/cb=32/cr=32/grainy=32/grainc=32 |
+| **medium** | y=48/cb=48/cr=48/grainy=48/grainc=48 |
+| **high** | y=64/cb=64/cr=64/grainy=64/grainc=64 |
+| **veryhigh** | y=80/cb=80/cr=80/grainy=80/grainc=80 |
+| **nograin** | grainy=0/grainc=0 |
+| **luma** | cb=0/cr=0/grainc=0 |
+| **chroma** | y=0/grainy=0 |
+
+Presets can also be combined together, for example `"medium/nograin"` is the same as `y=48/cb=48/cr=48/grainy=0/grainc=0`.
+
+Default: not specified
+
+##### ***Y_1 / Cb_1 / Cr_1 (maxDif)***
+
+Detail protection threshold (max difference) for `sample_mode=5`, `sample_mode=6` and `sample_mode=7`.
+
+This threshold applies to the `maxDif` check. `maxDif` is the largest absolute difference found between the current pixel and any of its four individual cross-shaped reference pixels. If this `maxDif` is greater than or equal to `Y_1`/`Cb_1`/`Cr_1`, the pixel is considered detail.
+
+Helps protect sharp edges and fine details from being blurred by the debanding process.
+
+The valid range is same as `Y`/`Cb`/`Cr`.
+
+Default: they are equal to `Y`/`Cb`/`Cr`
+
+##### ***Y_2 / Cb_2 / Cr_2 (midDifs)***
+
+Gradient/Texture protection threshold (mid-pair difference) for `sample_mode=5`, `sample_mode=6` and `sample_mode=7`.
+
+This threshold applies to the `midDif` checks. `midDif` measures how much the current pixel deviates from the midpoint of a pair of opposing reference pixels (one check for the vertical pair, one for the horizontal pair). If the current pixel is far from this midpoint (i.e., `midDif` is greater than or equal to `Y_2` / `Cb_2` / `Cr_2`), it might indicate a texture.
+
+This helps distinguish true banding in gradients from textured areas or complex details.
+
+The valid range is same as `Y`/`Cb`/`Cr`.
+
+Default: they are equal to `Y`/`Cb`/`Cr`
+
+##### ***scale***
+
+Whether to use threshold parameters (`Y`, `Cb`, `Cr`...) within the internal bit depth range (`0..65535`).
+
+Default: `false`
+
+##### ***angle_boost***
+
+A multiplier used in `sample_mode=7` to increase the debanding strength on consistent gradients.
+
+When the gradient angle check passes, the `Y`/`Cb`/`Cr`, `Y_1`/`Cb_1`/`Cr_1`, and `Y_2`/`Cb_2`/`Cr_2` thresholds are multiplied by this factor.
+
+A value greater than `1.0` boosts the strength. A value of `1.0` has no effect.
+
+Must be a positive number.
+
+Default: `1.5`
+
+##### ***max_angle***
+
+The threshold for the gradient angle check in `sample_mode=7`.
+
+It represents the maximum allowed difference between the gradient angle of the center pixel and its reference pixels for the `angle_boost` to be applied. The gradient angle is normalized to a `[0.0, 1.0]` range.
+
+A smaller value is stricter and requires a more consistent gradient. A larger value is more lenient.
+
+Must be between `0.0` to `1.0`.
+
+Default: `0.15`.
 
 ## Compilation
 
