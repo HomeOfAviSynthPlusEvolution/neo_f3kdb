@@ -4,7 +4,13 @@
 #include "impl_dispatch.h"
 #include "sse_utils.h"
 #include "dither_high.h"
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86)
 #include "VCL2/vectorclass.h"
+#else
+#define __asm(...) __builtin_trap()
+#include "VCL2/vectorclass.h"
+#undef __asm
+#endif
 #include "VCL2/vectormath_exp.h"
 
 /****************************************************************************
