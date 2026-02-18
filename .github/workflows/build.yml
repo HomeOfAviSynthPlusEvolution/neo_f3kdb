@@ -1,0 +1,49 @@
+name: Build Verification
+
+on:
+  push:
+    branches: [ "master" ]
+    tags: [ "r[0-9]*" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    name: ${{ matrix.os }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            arch: x64
+            cmake_flags: -A x64
+
+          - os: ubuntu-latest
+            arch: x86_64
+            cmake_flags: ""
+
+          - os: ubuntu-24.04-arm
+            arch: aarch64
+            cmake_flags: ""
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Build Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config build-essential libtbb-dev
+
+      - name: Configure CMake
+        run: >
+          cmake -B build
+          ${{ matrix.cmake_flags }}
+          -DCMAKE_BUILD_TYPE=Release
+          -DENABLE_PAR=ON
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
