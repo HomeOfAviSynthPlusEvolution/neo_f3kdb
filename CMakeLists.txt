@@ -62,7 +62,6 @@ else()
 endif()
 
 target_include_directories(${LIBRARY_NAME} PRIVATE
-  "${CMAKE_CURRENT_SOURCE_DIR}"
   "${CMAKE_CURRENT_SOURCE_DIR}/include/dualsynth"
   "${CMAKE_CURRENT_BINARY_DIR}"
 )
@@ -119,6 +118,8 @@ else()
         target_compile_options(${LIBRARY_NAME} PRIVATE -mfpu=neon -fsigned-char)
     endif()
 endif()
+
+target_include_directories(${LIBRARY_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 target_link_libraries(${LIBRARY_NAME} PRIVATE "$<$<OR:$<CXX_COMPILER_ID:Intel>,$<CXX_COMPILER_ID:IntelLLVM>>:libmmds>")
 

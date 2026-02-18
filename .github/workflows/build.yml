@@ -28,12 +28,20 @@ jobs:
             arch: aarch64
             cmake_flags: ""
 
+          - os: ubuntu-latest
+            arch: aarch64-android
+            is_android: true
+            cmake_flags: >-
+              -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake
+              -DANDROID_ABI=arm64-v8a
+              -DANDROID_PLATFORM=android-24
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Install Build Dependencies (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !matrix.is_android
         run: |
           sudo apt-get update
           sudo apt-get install -y pkg-config build-essential libtbb-dev
