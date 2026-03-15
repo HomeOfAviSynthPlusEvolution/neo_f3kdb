@@ -112,7 +112,7 @@ else()
 
     target_compile_definitions(${LIBRARY_NAME} PRIVATE HAS_SSE4 INSTRSET=6)
 
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
         target_compile_options(${LIBRARY_NAME} PRIVATE -march=armv8-a+simd -fsigned-char)
     else()
         target_compile_options(${LIBRARY_NAME} PRIVATE -mfpu=neon -fsigned-char)
