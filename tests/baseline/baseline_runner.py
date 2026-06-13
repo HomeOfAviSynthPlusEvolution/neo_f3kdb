@@ -81,12 +81,6 @@ def run_vs_case(case: dict, plugin_path: Path, backend: str) -> list[dict]:
     params = dict(case.get("params", {}))
     if backend == "purec":
         params["opt"] = 0
-    elif backend == "sse4":
-        params["opt"] = 1
-    elif backend == "avx2":
-        params["opt"] = 2
-    elif backend == "avx512":
-        params["opt"] = 3
     elif backend == "highway":
         params.pop("opt", None)
 
@@ -341,12 +335,6 @@ def run_avs_case(case: dict, plugin_path: Path, avs_dump: Path, backend: str) ->
     params = dict(case.get("params", {}))
     if backend == "purec":
         params["opt"] = 0
-    elif backend == "sse4":
-        params["opt"] = 1
-    elif backend == "avx2":
-        params["opt"] = 2
-    elif backend == "avx512":
-        params["opt"] = 3
     elif backend == "highway":
         params.pop("opt", None)
 
@@ -455,7 +443,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--golden", required=True, type=Path)
     parser.add_argument("--tier", default="smoke")
     parser.add_argument("--hosts", nargs="+", default=["vs", "avs"], choices=["vs", "avs"])
-    parser.add_argument("--backend", default="purec", choices=["purec", "sse4", "avx2", "avx512", "highway"])
+    parser.add_argument("--backend", default="purec", choices=["purec", "highway"])
     args = parser.parse_args(argv)
 
     plugin_path = args.plugin.resolve()
