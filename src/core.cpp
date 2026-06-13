@@ -206,7 +206,7 @@ void f3kdb_core_t::init_frame_luts(void)
 }
 
 f3kdb_core_t::f3kdb_core_t(DSVideoInfo vi, const f3kdb_params_t params, OPTIMIZATION_MODE opt) :
-    _process_plane_impl(NULL),
+    _process_plane_c_impl(NULL),
     _video_info(vi),
     _opt(opt),
     _params(params)
@@ -225,6 +225,13 @@ static __inline int select_impl_index(int sample_mode, bool blur_first)
     return sample_mode * 2 + (blur_first ? 0 : 1) - 1;
 }
 
+static bool supports_hwy_path(const process_plane_params& params)
+{
+    return params.dither_algo != DA_HIGH_FLOYD_STEINBERG_DITHERING &&
+        params.sample_mode >= 1 &&
+        params.sample_mode <= 5;
+}
+
 void f3kdb_core_t::init(void) 
 {
     init_context(&_y_context);
@@ -233,8 +240,9 @@ void f3kdb_core_t::init(void)
 
     init_frame_luts();
 
-    const process_plane_impl_t* impl_table = process_plane_impls[_params.dither_algo][(int)_opt];
-    _process_plane_impl = impl_table[select_impl_index(_params.sample_mode, _params.blur_first)];
+    const int impl_index = select_impl_index(_params.sample_mode, _params.blur_first);
+    const process_plane_impl_t* c_impl_table = process_plane_impls[_params.dither_algo][IMPL_C];
+    _process_plane_c_impl = c_impl_table[impl_index];
 }
 
 void f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_frame_ptr, int dst_pitch, const unsigned char* src_frame_ptr, int src_pitch)
@@ -345,10 +353,10 @@ void f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_
         return;
     }
 
-    if (_opt == IMPL_C) {
-        _process_plane_impl(params, context);
+    if (_opt == IMPL_C || !supports_hwy_path(params)) {
+        _process_plane_c_impl(params, context);
         return;
     }
 
-    neo_f3kdb::process_plane_hwy(params, context, _process_plane_impl);
+    neo_f3kdb::process_plane_hwy(params, context);
 }

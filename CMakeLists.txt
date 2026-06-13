@@ -202,7 +202,9 @@ set(F3KDB_SOURCES
   src/core.h
   src/cpuid.cpp
   src/deband_hwy.hpp
+  src/deband_hwy_kernels-inl.hpp
   src/deband_hwy.cpp
+  src/deband_scalar_kernels.hpp
   src/dither_high.h
   src/f3kdb.h
   src/f3kdb.hpp

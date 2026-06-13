@@ -91,7 +91,7 @@ typedef void (*process_plane_impl_t)(const process_plane_params& params, process
 
 class f3kdb_core_t {
 private:
-    process_plane_impl_t _process_plane_impl;
+    process_plane_impl_t _process_plane_c_impl;
         
     AlignedBuffer<pixel_dither_info, 128> _y_info;
     AlignedBuffer<pixel_dither_info, 128> _cb_info;
