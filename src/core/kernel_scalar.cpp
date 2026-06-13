@@ -1,7 +1,7 @@
 #include "core/kernel.hpp"
 
-#define NEO_F3KDB_KERNEL_C_IMPORT_DECLARATION
-#include "core/kernel_c_dispatch.hpp"
+#define NEO_F3KDB_KERNEL_SCALAR_IMPORT_DECLARATION
+#include "core/kernel_scalar_dispatch.hpp"
 
 #include <array>
 #include <cassert>
@@ -19,13 +19,13 @@ int select_impl_index(int sample_mode, bool blur_first) {
 const deband_kernel_proc_t* scalar_table(DITHER_ALGORITHM dither_algo) {
   switch (dither_algo) {
   case DA_HIGH_NO_DITHERING:
-    return process_plane_impl_c_high_no_dithering;
+    return process_plane_impl_scalar_high_no_dithering;
   case DA_HIGH_ORDERED_DITHERING:
-    return process_plane_impl_c_high_ordered_dithering;
+    return process_plane_impl_scalar_high_ordered_dithering;
   case DA_HIGH_FLOYD_STEINBERG_DITHERING:
-    return process_plane_impl_c_high_floyd_steinberg_dithering;
+    return process_plane_impl_scalar_high_floyd_steinberg_dithering;
   case DA_16BIT_INTERLEAVED:
-    return process_plane_impl_c_16bit_interleaved;
+    return process_plane_impl_scalar_16bit_interleaved;
   default:
     std::abort();
   }

@@ -2,7 +2,7 @@
 
 #include "core/kernel.hpp"
 
-#ifdef NEO_F3KDB_KERNEL_C_IMPORT_DECLARATION
+#ifdef NEO_F3KDB_KERNEL_SCALAR_IMPORT_DECLARATION
 
 #define DEFINE_IMPL(n, \
                     null_entry, \
@@ -78,15 +78,15 @@
               (&impl_func<7, true, __VA_ARGS__>), \
               (&impl_func<7, false, __VA_ARGS__>))
 
-#if defined(NEO_F3KDB_KERNEL_C_IMPORT_DECLARATION) || defined(NEO_F3KDB_KERNEL_C_DEFINE_TABLES)
-DEFINE_TEMPLATE_IMPL(c_high_no_dithering, process_plane_plainc, DA_HIGH_NO_DITHERING);
-DEFINE_TEMPLATE_IMPL(c_high_ordered_dithering, process_plane_plainc, DA_HIGH_ORDERED_DITHERING);
+#if defined(NEO_F3KDB_KERNEL_SCALAR_IMPORT_DECLARATION) || defined(NEO_F3KDB_KERNEL_SCALAR_DEFINE_TABLES)
+DEFINE_TEMPLATE_IMPL(scalar_high_no_dithering, process_plane_plainc, DA_HIGH_NO_DITHERING);
+DEFINE_TEMPLATE_IMPL(scalar_high_ordered_dithering, process_plane_plainc, DA_HIGH_ORDERED_DITHERING);
 DEFINE_TEMPLATE_IMPL(
-  c_high_floyd_steinberg_dithering,
+  scalar_high_floyd_steinberg_dithering,
   process_plane_plainc,
   DA_HIGH_FLOYD_STEINBERG_DITHERING
 );
-DEFINE_TEMPLATE_IMPL(c_16bit_interleaved, process_plane_plainc, DA_16BIT_INTERLEAVED);
+DEFINE_TEMPLATE_IMPL(scalar_16bit_interleaved, process_plane_plainc, DA_16BIT_INTERLEAVED);
 #endif
 
 #undef DEFINE_TEMPLATE_IMPL

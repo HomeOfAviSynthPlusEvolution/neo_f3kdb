@@ -205,8 +205,10 @@ set(F3KDB_SOURCES
   src/core/grain.cpp
   src/core/grain.hpp
   src/core/kernel.hpp
-  src/core/kernel_c.cpp
-  src/core/kernel_c_dispatch.hpp
+  src/core/kernel_scalar.cpp
+  src/core/kernel_scalar-inl.hpp
+  src/core/kernel_scalar_dispatch.hpp
+  src/core/kernel_scalar_inst.cpp
   src/core/kernel_hwy.cpp
   src/core/kernel_hwy-inl.hpp
   src/core/math.hpp
@@ -219,7 +221,6 @@ set(F3KDB_SOURCES
   src/core/random.cpp
   src/core/random.hpp
   src/f3kdb.h
-  src/flash3kyuu_deband_impl_c.cpp
   src/pixel_proc_c.h
   src/pixel_proc_c_16bit.h
   src/pixel_proc_c_high_bit_depth_common.h

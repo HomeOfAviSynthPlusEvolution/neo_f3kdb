@@ -398,6 +398,3 @@ void __cdecl process_plane_plainc(const process_plane_params& params, process_pl
         abort();
     }
 }
-
-#define NEO_F3KDB_KERNEL_C_DEFINE_TABLES
-#include "core/kernel_c_dispatch.hpp"
