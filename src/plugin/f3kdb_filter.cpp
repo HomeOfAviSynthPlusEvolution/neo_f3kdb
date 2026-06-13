@@ -1,14 +1,6 @@
 #include "plugin/f3kdb_filter.hpp"
 
-#include "constants.h"
-#include "core.h"
-
-int GetCPUFlags();
-
-#include <climits>
-#include <cstdint>
 #include <exception>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -17,44 +9,19 @@ namespace neo_f3kdb {
 
 namespace {
 
-template <class T>
-T get_value(const ds::Result<T>& res, T default_val) {
-  return res.has_value() ? res.value() : default_val;
+ds::Error invalid_argument(std::string message) {
+  return ds::Error{ds::ErrorCode::InvalidArgument, std::move(message)};
 }
-
-DSFormat make_ds_format(ds::VideoFormat format) {
-  DSFormat df;
-  df.Planes = format.plane_count;
-  df.IsFamilyYUV = format.color_family == ds::ColorFamily::Yuv || format.color_family == ds::ColorFamily::Gray;
-  df.SSW = format.subsampling_w;
-  df.SSH = format.subsampling_h;
-  df.BitsPerSample = ds::bits_per_sample(format.sample_format);
-  return df;
-}
-
-DSVideoInfo make_ds_video_info(ds::VideoInputInfo vi) {
-  DSVideoInfo dvi;
-  dvi.Format = make_ds_format(vi.format);
-  dvi.Width = vi.width;
-  dvi.Height = vi.height;
-  dvi.Frames = vi.num_frames;
-  return dvi;
-}
-
-#define INVALID_PARAM_IF(cond) \
-do { if (cond) { throw std::invalid_argument("Invalid parameter condition: " #cond); } } while (0)
-
-#define CHECK_PARAM(value, lower_bound, upper_bound) \
-do { if (static_cast<int>(value) < static_cast<int>(lower_bound) || static_cast<int>(value) > static_cast<int>(upper_bound)) { \
-    char err[256]; \
-    snprintf(err, sizeof(err), "Invalid parameter %s, must be between %d and %d", #value, static_cast<int>(lower_bound), static_cast<int>(upper_bound)); \
-    throw std::invalid_argument(err); \
-} } while(0)
 
 } // namespace
 
-F3KDBFilterCore::State::State(std::unique_ptr<f3kdb_core_t> engine, f3kdb_params_t params, bool mt)
-  : engine(std::move(engine)), params(params), mt(mt) {}
+F3KDBFilterCore::State::State(
+  std::unique_ptr<core::DebandProcessor> input_processor,
+  core::DebandParameters input_params,
+  bool input_mt
+) : processor(std::move(input_processor)),
+    params(input_params),
+    mt(input_mt) {}
 
 F3KDBFilterCore::State::State(State&&) noexcept = default;
 F3KDBFilterCore::State& F3KDBFilterCore::State::operator=(State&&) noexcept = default;
@@ -67,188 +34,32 @@ ds::Result<ds::VideoInitStateResult<F3KDBFilterCore::State>> F3KDBFilterCore::in
   }
 
   const ds::VideoInputInfo& input_vi = context.inputs[0];
-  f3kdb_params_t ep;
-
-  std::string preset = "";
-  bool scale = false;
-  bool mt = true;
-  int opt_in = -1;
-
-  if (context.params) {
-    preset = get_value(context.params->get_string("preset", ""), std::string(""));
-    scale = get_value(context.params->get_bool("scale", false), false);
-    mt = get_value(context.params->get_bool("mt", true), true);
-    opt_in = get_value(context.params->get_int("opt", -1), -1);
+  auto parsed_result = core::parse_parameters(context.params);
+  if (!parsed_result.has_value()) {
+    return ds::Result<ds::VideoInitStateResult<State>>::failure(parsed_result.error());
   }
 
-  if (!preset.empty()) {
-    std::istringstream piss(preset);
-    while(!piss.eof()) {
-      std::string piss1;
-      std::getline(piss, piss1, '/');
-      if (piss1 == "depth")
-          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = 0;
-      else if (piss1 == "low")
-          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 128 : 32;
-      else if (piss1 == "medium")
-          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 192 : 48;
-      else if (piss1 == "high")
-          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 256 : 64;
-      else if (piss1 == "veryhigh")
-          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 320 : 80;
-      else if (piss1 == "nograin")
-        ep.grainY = ep.grainC = 0;
-      else if (piss1 == "luma")
-        ep.Cb = ep.Cr = ep.grainC = 0;
-      else if (piss1 == "chroma")
-        ep.Y = ep.grainY = 0;
-    }
-  }
-
-  if (context.params) {
-    ep.range = get_value(context.params->get_int("range", ep.range), ep.range);
-    ep.Y = get_value(context.params->get_int("y", ep.Y), ep.Y);
-    ep.Cb = get_value(context.params->get_int("cb", ep.Cb), ep.Cb);
-    ep.Cr = get_value(context.params->get_int("cr", ep.Cr), ep.Cr);
-    ep.grainY = get_value(context.params->get_int("grainy", ep.grainY), ep.grainY);
-    ep.grainC = get_value(context.params->get_int("grainc", ep.grainC), ep.grainC);
-    ep.sample_mode = get_value(context.params->get_int("sample_mode", ep.sample_mode), ep.sample_mode);
-    ep.seed = get_value(context.params->get_int("seed", ep.seed), ep.seed);
-    ep.blur_first = get_value(context.params->get_bool("blur_first", ep.blur_first), ep.blur_first);
-    ep.dynamic_grain = get_value(context.params->get_bool("dynamic_grain", ep.dynamic_grain), ep.dynamic_grain);
-    ep.keep_tv_range = get_value(context.params->get_bool("keep_tv_range", ep.keep_tv_range), ep.keep_tv_range);
-    ep.output_depth = get_value(context.params->get_int("output_depth", ep.output_depth), ep.output_depth);
-    ep.random_algo_ref = static_cast<RANDOM_ALGORITHM>(
-      get_value(
-        context.params->get_int("random_algo_ref", static_cast<int>(ep.random_algo_ref)),
-        static_cast<int>(ep.random_algo_ref)
-      )
-    );
-    ep.random_algo_grain = static_cast<RANDOM_ALGORITHM>(
-      get_value(
-        context.params->get_int("random_algo_grain", static_cast<int>(ep.random_algo_grain)),
-        static_cast<int>(ep.random_algo_grain)
-      )
-    );
-    ep.random_param_ref = get_value(context.params->get_double("random_param_ref", ep.random_param_ref), ep.random_param_ref);
-    ep.random_param_grain = get_value(context.params->get_double("random_param_grain", ep.random_param_grain), ep.random_param_grain);
-    ep.Y_1 = get_value(context.params->get_int("y_1", ep.Y_1), ep.Y_1);
-    ep.Cb_1 = get_value(context.params->get_int("cb_1", ep.Cb_1), ep.Cb_1);
-    ep.Cr_1 = get_value(context.params->get_int("cr_1", ep.Cr_1), ep.Cr_1);
-    ep.Y_2 = get_value(context.params->get_int("y_2", ep.Y_2), ep.Y_2);
-    ep.Cb_2 = get_value(context.params->get_int("cb_2", ep.Cb_2), ep.Cb_2);
-    ep.Cr_2 = get_value(context.params->get_int("cr_2", ep.Cr_2), ep.Cr_2);
-    ep.angle_boost = get_value(context.params->get_double("angle_boost", ep.angle_boost), ep.angle_boost);
-    ep.max_angle = get_value(context.params->get_double("max_angle", ep.max_angle), ep.max_angle);
-    ep.dither_algo = static_cast<DITHER_ALGORITHM>(
-      get_value(
-        context.params->get_int("dither_algo", static_cast<int>(ep.dither_algo)),
-        static_cast<int>(ep.dither_algo)
-      )
-    );
-  }
-
-  ep.Y_1 = ep.Y_1 == -1 ? ep.Y : ep.Y_1;
-  ep.Cb_1 = ep.Cb_1 == -1 ? ep.Cb : ep.Cb_1;
-  ep.Cr_1 = ep.Cr_1 == -1 ? ep.Cr : ep.Cr_1;
-  ep.Y_2 = ep.Y_2 == -1 ? ep.Y : ep.Y_2;
-  ep.Cb_2 = ep.Cb_2 == -1 ? ep.Cb : ep.Cb_2;
-  ep.Cr_2 = ep.Cr_2 == -1 ? ep.Cr : ep.Cr_2;
-
-  // CPU dispatch
-  OPTIMIZATION_MODE opt = [&]() {
-      const int CPUFlags = GetCPUFlags();
-      if (ep.sample_mode >= 5 && ep.sample_mode <= 7) {
-          const int AVX512_REQUIRED_FLAGS = CPUF_AVX512F | CPUF_AVX512BW | CPUF_AVX512DQ | CPUF_AVX512VL | CPUF_AVX512CD;
-          if (((CPUFlags & AVX512_REQUIRED_FLAGS) == AVX512_REQUIRED_FLAGS) && (opt_in == 3 || opt_in < 0))
-              return IMPL_AVX512;
-          if ((CPUFlags & CPUF_AVX2) && (opt_in == 2 || opt_in < 0))
-              return IMPL_AVX2;
-      }
-      if ((CPUFlags & CPUF_SSE4_1) && (opt_in > 0 || opt_in < 0))
-          return IMPL_SSE4;
-      return IMPL_C;
-  }();
-
-  // Perform original parameter validation
+  auto parsed = parsed_result.value();
+  const int bits = ds::bits_per_sample(input_vi.format.sample_format);
   try {
-    INVALID_PARAM_IF(input_vi.format.color_family != ds::ColorFamily::Yuv);
-    INVALID_PARAM_IF(input_vi.width < 16);
-    INVALID_PARAM_IF(input_vi.height < 16);
-    INVALID_PARAM_IF(input_vi.num_frames <= 0);
-
-    int bits = ds::bits_per_sample(input_vi.format.sample_format);
-    INVALID_PARAM_IF(bits < 8 || bits > INTERNAL_BIT_DEPTH);
-    INVALID_PARAM_IF(input_vi.format.sample_format == ds::SampleFormat::Float32);
-
-    if (ep.output_depth < 0)
-      ep.output_depth = bits;
-    if (ep.output_depth == 16)
-        ep.dither_algo = DA_16BIT_INTERLEAVED;
-
-    const int y_threshold_upper_limit = scale ? 65535 : 511;
-    const int cb_threshold_upper_limit = scale ? 65535 : 511;
-    const int cr_threshold_upper_limit = scale ? 65535 : 511;
-    constexpr int dither_upper_limit = 4096;
-
-    CHECK_PARAM(ep.range, 0, 255);
-    CHECK_PARAM(ep.Y, 0, y_threshold_upper_limit);
-    CHECK_PARAM(ep.Cb, 0, cb_threshold_upper_limit);
-    CHECK_PARAM(ep.Cr, 0, cr_threshold_upper_limit);
-    CHECK_PARAM(ep.grainY, 0, dither_upper_limit);
-    CHECK_PARAM(ep.grainC, 0, dither_upper_limit);
-    CHECK_PARAM(ep.sample_mode, 1, 7);
-    CHECK_PARAM(ep.dither_algo, DA_HIGH_NO_DITHERING, (DA_COUNT - 1));
-    CHECK_PARAM(ep.random_algo_ref, 0, (RANDOM_ALGORITHM_COUNT - 1));
-    CHECK_PARAM(ep.random_algo_grain, 0, (RANDOM_ALGORITHM_COUNT - 1));
-    CHECK_PARAM(ep.Y_1, 0, y_threshold_upper_limit);
-    CHECK_PARAM(ep.Cb_1, 0, cb_threshold_upper_limit);
-    CHECK_PARAM(ep.Cr_1, 0, cr_threshold_upper_limit);
-    CHECK_PARAM(ep.Y_2, 0, y_threshold_upper_limit);
-    CHECK_PARAM(ep.Cb_2, 0, cb_threshold_upper_limit);
-    CHECK_PARAM(ep.Cr_2, 0, cr_threshold_upper_limit);
-
-    if (ep.angle_boost < 0.0f)
-        throw std::invalid_argument("invalid parameter angle_boost, must be positive value");
-    if (ep.max_angle < 0.0f || ep.max_angle > 1.0f)
-        throw std::invalid_argument("invalid parameter max_angle, must be between 0.0 and 1.0");
-
-    ep.Y = scale ? ep.Y : ep.Y << 2;
-    ep.Cb = scale ? ep.Cb : ep.Cb << 2;
-    ep.Cr = scale ? ep.Cr : ep.Cr << 2;
-    ep.Y_1 = scale ? ep.Y_1 : ep.Y_1 << 2;
-    ep.Cb_1 = scale ? ep.Cb_1 : ep.Cb_1 << 2;
-    ep.Cr_1 = scale ? ep.Cr_1 : ep.Cr_1 << 2;
-    ep.Y_2 = scale ? ep.Y_2 : ep.Y_2 << 2;
-    ep.Cb_2 = scale ? ep.Cb_2 : ep.Cb_2 << 2;
-    ep.Cr_2 = scale ? ep.Cr_2 : ep.Cr_2 << 2;
-    ep.grainY <<= 2;
-    ep.grainC <<= 2;
-
+    core::resolve_parameter_defaults(parsed.params, bits);
+    core::validate_parameters(parsed.params, input_vi, parsed.scale);
+    core::normalize_parameters(parsed.params, bits, parsed.scale);
   } catch (const std::exception& e) {
     return ds::Result<ds::VideoInitStateResult<State>>::failure(
       ds::Error{ds::ErrorCode::InvalidArgument, std::string("Neo-F3KDB Parameter Validation Error: ") + e.what()}
     );
   }
 
-  ds::VideoOutputInfo output_vi{
-    .width = input_vi.width,
-    .height = input_vi.height,
-    .num_frames = input_vi.num_frames,
-    .format = ds::VideoFormat{
-      .color_family = input_vi.format.color_family,
-      .sample_format = ep.output_depth == 8 ? ds::SampleFormat::UInt8 : ds::SampleFormat::UInt16,
-      .plane_count = input_vi.format.plane_count,
-      .subsampling_w = input_vi.format.subsampling_w,
-      .subsampling_h = input_vi.format.subsampling_h,
-    },
-    .fps = input_vi.fps
-  };
-
-  DSVideoInfo old_vi = make_ds_video_info(input_vi);
-  std::unique_ptr<f3kdb_core_t> engine;
+  std::unique_ptr<core::DebandProcessor> processor;
   try {
-    engine = std::make_unique<f3kdb_core_t>(old_vi, ep, opt);
+    processor = std::make_unique<core::DebandProcessor>(
+      core::DebandProcessorConfig{
+        .params = parsed.params,
+        .input = input_vi,
+        .requested_backend = core::select_backend(parsed.params, parsed.opt)
+      }
+    );
   } catch (const std::exception& e) {
     return ds::Result<ds::VideoInitStateResult<State>>::failure(
       ds::Error{ds::ErrorCode::InternalError, std::string("Neo-F3KDB: memory allocation failed: ") + e.what()}
@@ -257,8 +68,8 @@ ds::Result<ds::VideoInitStateResult<F3KDBFilterCore::State>> F3KDBFilterCore::in
 
   return ds::Result<ds::VideoInitStateResult<State>>::success(
     ds::VideoInitStateResult<State>{
-      .output = output_vi,
-      .state = State(std::move(engine), ep, mt)
+      .output = processor->output_info(),
+      .state = State(std::move(processor), parsed.params, parsed.mt)
     }
   );
 }
@@ -277,25 +88,7 @@ ds::Result<ds::VideoProcessResult> F3KDBFilterCore::process(ds::VideoProcessCont
   }
   const auto src_frame = frame_res.value().frame;
 
-  for (int p = 0; p < src_frame.plane_count; ++p) {
-    const auto& src_plane = src_frame.plane(p);
-    auto& dst_plane = context.dst.plane(p);
-
-    const int src_stride = static_cast<int>(src_plane.stride_bytes);
-    const int dst_stride = static_cast<int>(dst_plane.stride_bytes);
-
-    const unsigned char* src_ptr = reinterpret_cast<const unsigned char*>(src_plane.data);
-    unsigned char* dst_ptr = reinterpret_cast<unsigned char*>(dst_plane.data);
-
-    filter_state.engine->process_plane(
-      context.output_frame,
-      p,
-      dst_ptr,
-      dst_stride,
-      src_ptr,
-      src_stride
-    );
-  }
+  filter_state.processor->process(context.dst, src_frame, context.output_frame);
 
   return ds::Result<ds::VideoProcessResult>::success(ds::VideoProcessResult{});
 }

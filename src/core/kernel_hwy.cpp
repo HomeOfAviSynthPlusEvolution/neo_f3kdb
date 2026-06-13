@@ -1,11 +1,10 @@
-#include "deband_hwy.hpp"
 #include "constants.h"
-#include "deband_scalar_kernels.hpp"
-#include "impl_dispatch.h"
+#include "core/kernel.hpp"
+#include "core/math.hpp"
 #include "pixel_proc_c_high_ordered_dithering.h"
 
 #undef HWY_TARGET_INCLUDE
-#define HWY_TARGET_INCLUDE "deband_hwy.cpp"
+#define HWY_TARGET_INCLUDE "core/kernel_hwy.cpp"
 
 #include "hwy/foreach_target.h"
 #include "hwy/highway.h"
@@ -20,7 +19,7 @@ namespace neo_f3kdb::HWY_NAMESPACE {
 
 namespace hn = hwy::HWY_NAMESPACE;
 
-#include "deband_hwy_kernels-inl.hpp"
+#include "core/kernel_hwy-inl.hpp"
 
 template <int kDitherAlgo>
 int postprocess_scalar_pixel(const process_plane_params& params, int pixel, const std::int16_t* grain_row, int row, int col) {
@@ -84,7 +83,7 @@ void process_plane_templated(const process_plane_params& params) {
         }
 
         for (; col < width; ++col) {
-            int pixel = deband_scalar::process_pixel<kSampleMode, kBlurFirst>(
+            int pixel = neo_f3kdb::core::deband_scalar::process_pixel<kSampleMode, kBlurFirst>(
                 params,
                 src_base,
                 src_row,
@@ -174,9 +173,12 @@ namespace neo_f3kdb {
 
 HWY_EXPORT(ProcessPlaneHWY);
 
-void process_plane_hwy(const process_plane_params& params, process_plane_context* context) {
-    HWY_DYNAMIC_DISPATCH(ProcessPlaneHWY)(params, context);
+namespace core {
+
+void process_plane_highway(const PlaneJob& job) {
+    HWY_DYNAMIC_DISPATCH(ProcessPlaneHWY)(job.params, job.context);
 }
 
+} // namespace core
 } // namespace neo_f3kdb
 #endif

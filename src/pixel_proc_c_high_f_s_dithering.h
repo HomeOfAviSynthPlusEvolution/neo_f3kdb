@@ -4,7 +4,7 @@
 #include <math.h>
 #include <string.h>
 
-#include "impl_dispatch.h"
+#include "core/kernel.hpp"
 
 namespace pixel_proc_high_f_s_dithering {
     

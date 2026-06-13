@@ -26,18 +26,6 @@ typedef enum _RANDOM_ALGORITHM : int {
   RANDOM_ALGORITHM_COUNT
 } RANDOM_ALGORITHM;
 
-typedef enum _OPTIMIZATION_MODE : int {
-  IMPL_AUTO_DETECT = -1,
-  IMPL_C = 0,
-  IMPL_SSE2,
-  IMPL_SSSE3,
-  IMPL_SSE4,
-  IMPL_AVX2,
-  IMPL_AVX512,
-
-  IMPL_COUNT
-} OPTIMIZATION_MODE;
-
 typedef struct _f3kdb_params_t {
   int range {15};
   int Y {64};

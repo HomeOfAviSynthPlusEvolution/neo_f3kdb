@@ -6,8 +6,8 @@
 #include <dualsynth/video_bridge.hpp>
 #include <dualsynth/video_filter.hpp>
 
-#include "core.h"
-#include "f3kdb.h"
+#include "core/parameters.hpp"
+#include "core/processor.hpp"
 #include "version.hpp"
 
 #include <memory>
@@ -21,7 +21,7 @@ struct F3KDBFilterCore {
 
   struct State {
     State() = default;
-    State(std::unique_ptr<f3kdb_core_t> engine, f3kdb_params_t params, bool mt);
+    State(std::unique_ptr<core::DebandProcessor> processor, core::DebandParameters params, bool mt);
     ~State() = default;
 
     State(State&&) noexcept;
@@ -29,8 +29,8 @@ struct F3KDBFilterCore {
     State(const State&) = delete;
     State& operator=(const State&) = delete;
 
-    std::unique_ptr<f3kdb_core_t> engine;
-    f3kdb_params_t params;
+    std::unique_ptr<core::DebandProcessor> processor;
+    core::DebandParameters params;
     bool mt = true;
   };
 

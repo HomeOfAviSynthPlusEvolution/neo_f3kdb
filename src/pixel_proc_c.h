@@ -2,7 +2,7 @@
 
 #include <stdlib.h>
 
-#include "impl_dispatch.h"
+#include "core/kernel.hpp"
 
 #define CALL_IMPL(func, ...) \
 	( mode == DA_HIGH_NO_DITHERING ? pixel_proc_high_no_dithering::func(__VA_ARGS__) : \

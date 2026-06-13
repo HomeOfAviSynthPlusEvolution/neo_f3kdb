@@ -1,7 +1,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cmath>
-#include "core.h"
+#include "core/plane.hpp"
 #include "pixel_proc_c.h"
 #include <limits.h>
 
@@ -400,4 +400,4 @@ void __cdecl process_plane_plainc(const process_plane_params& params, process_pl
 }
 
 #define DECLARE_IMPL_C
-#include "impl_dispatch_decl.h"
+#include "core/kernel_c_dispatch.hpp"

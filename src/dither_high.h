@@ -1,5 +1,5 @@
 
-#include "impl_dispatch.h"
+#include "core/kernel.hpp"
 #include "compiler_compat.h"
 
 #define FS_DITHER_SKIP_PRE_CLAMP

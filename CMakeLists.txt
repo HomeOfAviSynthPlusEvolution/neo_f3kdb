@@ -195,36 +195,37 @@ set(F3KDB_SOURCES
   src/plugin/plugin_entry.cpp
   src/plugin/f3kdb_filter.cpp
   src/plugin/f3kdb_filter.hpp
-  src/bit_utils.h
-  src/compiler_compat.h
   src/constants.h
-  src/core.cpp
-  src/core.h
-  src/cpuid.cpp
-  src/deband_hwy.hpp
-  src/deband_hwy_kernels-inl.hpp
-  src/deband_hwy.cpp
-  src/deband_scalar_kernels.hpp
-  src/dither_high.h
+  src/compiler_compat.h
+  src/core/aligned_buffer.hpp
+  src/core/dither_info.cpp
+  src/core/dither_info.hpp
+  src/core/frame_state.cpp
+  src/core/frame_state.hpp
+  src/core/grain.cpp
+  src/core/grain.hpp
+  src/core/kernel.hpp
+  src/core/kernel_c.cpp
+  src/core/kernel_c_dispatch.hpp
+  src/core/kernel_hwy.cpp
+  src/core/kernel_hwy-inl.hpp
+  src/core/math.hpp
+  src/core/parameters.cpp
+  src/core/parameters.hpp
+  src/core/plane.cpp
+  src/core/plane.hpp
+  src/core/processor.cpp
+  src/core/processor.hpp
+  src/core/random.cpp
+  src/core/random.hpp
   src/f3kdb.h
-  src/f3kdb.hpp
   src/flash3kyuu_deband_impl_c.cpp
-  src/impl_dispatch.cpp
-  src/impl_dispatch.h
-  src/impl_dispatch_decl.h
-  src/neo_f3kdb.hpp
   src/pixel_proc_c.h
   src/pixel_proc_c_16bit.h
   src/pixel_proc_c_high_bit_depth_common.h
   src/pixel_proc_c_high_f_s_dithering.h
   src/pixel_proc_c_high_no_dithering.h
   src/pixel_proc_c_high_ordered_dithering.h
-  src/process_plane_context.cpp
-  src/process_plane_context.h
-  src/random.cpp
-  src/random.h
-  src/sse2neon.h
-  src/sse_utils.h
   src/utils.h
 )
 
@@ -246,52 +247,6 @@ target_include_directories(${LIBRARY_NAME}
 # GNU-style optimization flags
 if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
     target_compile_options(${LIBRARY_NAME} PRIVATE -O3 -funroll-loops)
-endif()
-
-# Only apply SIMD flags if we are on a capable architecture (x86/x86_64).
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|i.86")
-    message(STATUS "x86/x86_64 architecture detected. Configuring SIMD instruction sets.")
-
-    target_sources(${LIBRARY_NAME} PRIVATE
-        "src/flash3kyuu_deband_avx2_base.h"
-        "src/flash3kyuu_deband_avx512_base.h"
-        "src/flash3kyuu_deband_impl_avx2.cpp"
-        "src/flash3kyuu_deband_impl_avx512.cpp"
-        "src/flash3kyuu_deband_impl_sse4.cpp"
-        "src/flash3kyuu_deband_sse_base.h"
-    )
-
-    target_include_directories(${LIBRARY_NAME} PRIVATE "${PROJECT_SOURCE_DIR}/VCL2")
-
-    set_source_files_properties("src/flash3kyuu_deband_impl_sse4.cpp" PROPERTIES COMPILE_OPTIONS
-        "$<$<CXX_COMPILER_ID:MSVC>:/arch:SSE2>$<$<AND:$<CXX_COMPILER_ID:Intel>,$<PLATFORM_ID:Windows>>:/arch:SSE4.1>$<$<NOT:$<OR:$<CXX_COMPILER_ID:MSVC>,$<AND:$<CXX_COMPILER_ID:Intel>,$<PLATFORM_ID:Windows>>>>:-msse4.1>"
-    )
-
-    if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
-        set_source_files_properties("src/flash3kyuu_deband_impl_avx2.cpp" PROPERTIES COMPILE_OPTIONS "/arch:AVX2")
-    elseif(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
-        set_source_files_properties("src/flash3kyuu_deband_impl_avx2.cpp" PROPERTIES COMPILE_OPTIONS "-mavx2;-mfma")
-    endif()
-
-    if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
-        set_source_files_properties("src/flash3kyuu_deband_impl_avx512.cpp" PROPERTIES COMPILE_OPTIONS "/arch:AVX512")
-    elseif(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
-        set_source_files_properties("src/flash3kyuu_deband_impl_avx512.cpp" PROPERTIES COMPILE_OPTIONS "-mavx512f;-mavx512bw;-mavx512dq;-mavx512vl;-mavx512cd;-mfma")
-    endif()
-
-    target_compile_definitions(${LIBRARY_NAME} PRIVATE HAS_SSE4 HAS_AVX2 HAS_AVX512)
-else()
-    message(STATUS "Non-x86 architecture detected (${CMAKE_SYSTEM_PROCESSOR}). Skipping some SIMD-specific source files.")
-
-    target_include_directories(${LIBRARY_NAME} PRIVATE "${PROJECT_SOURCE_DIR}/src/arm")
-    target_sources(${LIBRARY_NAME} PRIVATE "src/flash3kyuu_deband_impl_sse4.cpp")
-    target_compile_definitions(${LIBRARY_NAME} PRIVATE HAS_SSE4 INSTRSET=6)
-
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
-        target_compile_options(${LIBRARY_NAME} PRIVATE -march=armv8-a+simd -fsigned-char)
-    else()
-        target_compile_options(${LIBRARY_NAME} PRIVATE -mfpu=neon -fsigned-char)
-    endif()
 endif()
 
 target_link_libraries(${LIBRARY_NAME} PRIVATE "$<$<OR:$<CXX_COMPILER_ID:Intel>,$<CXX_COMPILER_ID:IntelLLVM>>:libmmds>")
@@ -324,7 +279,7 @@ if(F3KDB_BUILD_TEST_TOOLS)
   enable_testing()
 
   # Register the baseline verification tasks with CTest
-  foreach(backend IN ITEMS purec sse4)
+  foreach(backend IN ITEMS purec highway)
     foreach(tier IN ITEMS smoke compat)
       add_test(
         NAME baseline_${backend}_${tier}
