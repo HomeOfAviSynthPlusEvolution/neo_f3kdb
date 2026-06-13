@@ -253,6 +253,9 @@ void f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_
     params.input_depth = _video_info.Format.BitsPerSample;
     params.output_mode = _params.output_depth <= 8 ? LOW_BIT_DEPTH : HIGH_BIT_DEPTH_INTERLEAVED;
     params.output_depth = _params.output_depth;
+    params.dither_algo = _params.dither_algo;
+    params.blur_first = _params.blur_first;
+    params.sample_mode = _params.sample_mode;
     params.angle_boost = _params.angle_boost;
     params.max_angle = _params.max_angle;
 
@@ -339,6 +342,11 @@ void f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_
                 dst += dst_pitch;
             }
         }
+        return;
+    }
+
+    if (_opt == IMPL_C) {
+        _process_plane_impl(params, context);
         return;
     }
 

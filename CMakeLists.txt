@@ -322,7 +322,7 @@ if(F3KDB_BUILD_TEST_TOOLS)
   enable_testing()
 
   # Register the baseline verification tasks with CTest
-  foreach(backend IN ITEMS purec)
+  foreach(backend IN ITEMS purec sse4)
     foreach(tier IN ITEMS smoke compat)
       add_test(
         NAME baseline_${backend}_${tier}

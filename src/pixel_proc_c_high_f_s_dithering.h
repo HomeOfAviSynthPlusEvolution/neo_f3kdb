@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PIXEL_PROC_C_HIGH_F_S_DITHERING_H
+#define PIXEL_PROC_C_HIGH_F_S_DITHERING_H
 
 #include <math.h>
 #include <string.h>
@@ -132,3 +133,5 @@ namespace pixel_proc_high_f_s_dithering {
 
 
 };
+
+#endif // PIXEL_PROC_C_HIGH_F_S_DITHERING_H

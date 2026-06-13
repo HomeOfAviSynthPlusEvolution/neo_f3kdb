@@ -49,6 +49,9 @@ typedef struct _process_plane_params
     int input_depth;
     PIXEL_MODE output_mode;
     int output_depth;
+    DITHER_ALGORITHM dither_algo;
+    bool blur_first;
+    int sample_mode;
 
     std::uint16_t threshold;
     std::uint16_t threshold1;
