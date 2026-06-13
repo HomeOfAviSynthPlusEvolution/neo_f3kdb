@@ -239,17 +239,11 @@ ds::VideoOutputInfo make_output_info(
   };
 }
 
-bool supports_highway(const DebandParameters& params) {
-  return params.dither_algo != DA_HIGH_FLOYD_STEINBERG_DITHERING &&
-    params.sample_mode >= 1 &&
-    params.sample_mode <= 5;
-}
-
-Backend select_backend(const DebandParameters& params, int opt) {
+Backend select_backend(const DebandParameters&, int opt) {
   if (opt == 0) {
     return Backend::Scalar;
   }
-  return supports_highway(params) ? Backend::Highway : Backend::Scalar;
+  return Backend::Highway;
 }
 
 } // namespace neo_f3kdb::core

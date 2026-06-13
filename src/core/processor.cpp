@@ -46,7 +46,7 @@ void DebandProcessor::process(
       continue;
     }
 
-    if (requested_backend_ == Backend::Highway && supports_highway(job.params)) {
+    if (requested_backend_ == Backend::Highway) {
       process_plane_highway(job);
     } else {
       process_plane_scalar(job);
@@ -148,12 +148,6 @@ void DebandProcessor::copy_plane(const PlaneJob& job) const {
     src += p.src_pitch;
     dst += p.dst_pitch;
   }
-}
-
-bool supports_highway(const process_plane_params& params) {
-  return params.dither_algo != DA_HIGH_FLOYD_STEINBERG_DITHERING &&
-    params.sample_mode >= 1 &&
-    params.sample_mode <= 5;
 }
 
 } // namespace neo_f3kdb::core

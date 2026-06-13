@@ -160,7 +160,22 @@ HWY_EXPORT(ProcessPlaneHWY);
 
 namespace core {
 
+namespace {
+
+bool delegates_to_scalar(const process_plane_params& params) {
+    return params.dither_algo == DA_HIGH_FLOYD_STEINBERG_DITHERING ||
+        params.sample_mode < 1 ||
+        params.sample_mode > 5;
+}
+
+} // namespace
+
 void process_plane_highway(const PlaneJob& job) {
+    if (delegates_to_scalar(job.params)) {
+        process_plane_scalar(job);
+        return;
+    }
+
     HWY_DYNAMIC_DISPATCH(ProcessPlaneHWY)(job.params, job.context);
 }
 

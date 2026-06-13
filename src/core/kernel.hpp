@@ -16,6 +16,4 @@ namespace neo_f3kdb::core {
 void process_plane_scalar(const PlaneJob& job);
 void process_plane_highway(const PlaneJob& job);
 
-[[nodiscard]] bool supports_highway(const process_plane_params& params);
-
 } // namespace neo_f3kdb::core

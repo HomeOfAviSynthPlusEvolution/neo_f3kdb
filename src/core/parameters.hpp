@@ -67,7 +67,6 @@ void validate_parameters(
   const DebandParameters& params
 );
 
-[[nodiscard]] bool supports_highway(const DebandParameters& params);
 [[nodiscard]] Backend select_backend(const DebandParameters& params, int opt);
 
 } // namespace neo_f3kdb::core
