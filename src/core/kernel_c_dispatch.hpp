@@ -78,7 +78,7 @@
               (&impl_func<7, true, __VA_ARGS__>), \
               (&impl_func<7, false, __VA_ARGS__>))
 
-#if defined(NEO_F3KDB_KERNEL_C_IMPORT_DECLARATION) || defined(DECLARE_IMPL_C)
+#if defined(NEO_F3KDB_KERNEL_C_IMPORT_DECLARATION) || defined(NEO_F3KDB_KERNEL_C_DEFINE_TABLES)
 DEFINE_TEMPLATE_IMPL(c_high_no_dithering, process_plane_plainc, DA_HIGH_NO_DITHERING);
 DEFINE_TEMPLATE_IMPL(c_high_ordered_dithering, process_plane_plainc, DA_HIGH_ORDERED_DITHERING);
 DEFINE_TEMPLATE_IMPL(

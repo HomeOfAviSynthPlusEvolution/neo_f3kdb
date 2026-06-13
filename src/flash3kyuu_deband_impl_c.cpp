@@ -399,5 +399,5 @@ void __cdecl process_plane_plainc(const process_plane_params& params, process_pl
     }
 }
 
-#define DECLARE_IMPL_C
+#define NEO_F3KDB_KERNEL_C_DEFINE_TABLES
 #include "core/kernel_c_dispatch.hpp"
