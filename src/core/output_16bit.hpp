@@ -1,5 +1,7 @@
 #include <assert.h>
 
+#include "core/constants.hpp"
+
 namespace pixel_proc_16bit {
     
     static inline void init_context(char context_buffer[CONTEXT_BUFFER_SIZE], int frame_width, int output_depth)

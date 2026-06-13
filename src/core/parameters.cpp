@@ -1,6 +1,6 @@
 #include "core/parameters.hpp"
 
-#include "constants.h"
+#include "core/constants.hpp"
 
 #include <dualsynth/format.hpp>
 

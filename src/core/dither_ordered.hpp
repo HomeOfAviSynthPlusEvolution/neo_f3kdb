@@ -3,6 +3,7 @@
 #ifndef PIXEL_PROC_C_HIGH_ORDERED_DITHERING_H
 #define PIXEL_PROC_C_HIGH_ORDERED_DITHERING_H
 
+#include "core/constants.hpp"
 
 namespace pixel_proc_high_ordered_dithering {
 

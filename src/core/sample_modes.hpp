@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cstdlib>
 
-namespace neo_f3kdb::core::deband_scalar {
+namespace neo_f3kdb::core::sample_modes {
 
 template <class PixelIn>
 inline int upsample(PixelIn pixel, int input_depth) {
@@ -220,4 +220,4 @@ int process_pixel(
   }
 }
 
-} // namespace neo_f3kdb::core::deband_scalar
+} // namespace neo_f3kdb::core::sample_modes

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "f3kdb.h"
+#include "core/kernel_types.hpp"
 
 #include <dualsynth/param.hpp>
 #include <dualsynth/video_filter.hpp>

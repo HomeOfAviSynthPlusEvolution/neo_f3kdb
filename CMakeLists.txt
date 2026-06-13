@@ -195,9 +195,9 @@ set(F3KDB_SOURCES
   src/plugin/plugin_entry.cpp
   src/plugin/f3kdb_filter.cpp
   src/plugin/f3kdb_filter.hpp
-  src/constants.h
   src/compiler_compat.h
   src/core/aligned_buffer.hpp
+  src/core/constants.hpp
   src/core/dither_floyd_steinberg.hpp
   src/core/dither_info.cpp
   src/core/dither_info.hpp
@@ -219,7 +219,8 @@ set(F3KDB_SOURCES
   src/core/kernel_hwy_modes-inl.hpp
   src/core/kernel_hwy_reference-inl.hpp
   src/core/kernel_hwy_store-inl.hpp
-  src/core/math.hpp
+  src/core/kernel_types.hpp
+  src/core/math_utils.hpp
   src/core/output_16bit.hpp
   src/core/parameters.cpp
   src/core/parameters.hpp
@@ -231,8 +232,7 @@ set(F3KDB_SOURCES
   src/core/processor.hpp
   src/core/random.cpp
   src/core/random.hpp
-  src/f3kdb.h
-  src/utils.h
+  src/core/sample_modes.hpp
 )
 
 if(WIN32)

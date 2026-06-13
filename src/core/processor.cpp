@@ -1,6 +1,6 @@
 #include "core/processor.hpp"
 
-#include "constants.h"
+#include "core/constants.hpp"
 #include "core/kernel.hpp"
 
 #include <cstdlib>

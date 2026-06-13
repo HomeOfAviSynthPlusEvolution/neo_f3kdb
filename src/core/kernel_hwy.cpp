@@ -1,6 +1,6 @@
-#include "constants.h"
+#include "core/constants.hpp"
 #include "core/kernel.hpp"
-#include "core/math.hpp"
+#include "core/sample_modes.hpp"
 #include "core/dither_ordered.hpp"
 
 #undef HWY_TARGET_INCLUDE
@@ -68,7 +68,7 @@ void process_plane_templated(const process_plane_params& params) {
         }
 
         for (; col < width; ++col) {
-            int pixel = neo_f3kdb::core::deband_scalar::process_pixel<kSampleMode, kBlurFirst>(
+            int pixel = neo_f3kdb::core::sample_modes::process_pixel<kSampleMode, kBlurFirst>(
                 params,
                 src_base,
                 src_row,

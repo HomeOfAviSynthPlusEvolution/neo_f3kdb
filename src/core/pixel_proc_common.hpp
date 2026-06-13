@@ -1,5 +1,5 @@
-#include "utils.h"
-#include "constants.h"
+#include "core/math_utils.hpp"
+#include "core/constants.hpp"
 
     static inline int upsample(void* context, unsigned char pixel)
     {
@@ -32,4 +32,3 @@
         }
         return (avg1 + avg2 + 1) >> 1;
     }
-

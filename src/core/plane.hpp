@@ -1,7 +1,7 @@
 #pragma once
 
 #include "compiler_compat.h"
-#include "f3kdb.h"
+#include "core/kernel_types.hpp"
 
 #include <cstdint>
 #include <span>
