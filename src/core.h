@@ -1,6 +1,20 @@
 #pragma once
 
-#include <ds_common.hpp>
+// Lightweight replacement for old dualsynth1 headers to avoid conflict with dualsynth2
+struct DSFormat {
+  bool IsFamilyYUV {true};
+  int SSW {0};
+  int SSH {0};
+  int BitsPerSample {8};
+  int Planes {3};
+};
+
+struct DSVideoInfo {
+  DSFormat Format;
+  int Width {0};
+  int Height {0};
+  int Frames {0};
+};
 
 #include "f3kdb.h"
 #include "process_plane_context.h"
