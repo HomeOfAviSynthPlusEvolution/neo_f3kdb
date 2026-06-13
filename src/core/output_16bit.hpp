@@ -30,7 +30,7 @@ namespace pixel_proc_16bit {
 
     #define HAS_DOWNSAMPLE
 
-    #include "pixel_proc_c_high_bit_depth_common.h"
+    #include "core/pixel_proc_common.hpp"
 
     static inline int downsample(void* context, int pixel, int row, int column, int pixel_min, int pixel_max, int output_depth)
     {

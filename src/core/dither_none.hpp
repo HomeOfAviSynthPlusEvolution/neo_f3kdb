@@ -27,6 +27,6 @@ namespace pixel_proc_high_no_dithering {
 		return pixel;
 	}
 
-	#include "pixel_proc_c_high_bit_depth_common.h"
+	#include "core/pixel_proc_common.hpp"
 
 };

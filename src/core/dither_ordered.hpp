@@ -58,7 +58,7 @@ namespace pixel_proc_high_ordered_dithering {
         return pixel;
     }
 
-    #include "pixel_proc_c_high_bit_depth_common.h"
+    #include "core/pixel_proc_common.hpp"
 };
 
 #endif // PIXEL_PROC_C_HIGH_ORDERED_DITHERING_H

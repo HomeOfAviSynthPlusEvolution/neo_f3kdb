@@ -198,8 +198,11 @@ set(F3KDB_SOURCES
   src/constants.h
   src/compiler_compat.h
   src/core/aligned_buffer.hpp
+  src/core/dither_floyd_steinberg.hpp
   src/core/dither_info.cpp
   src/core/dither_info.hpp
+  src/core/dither_none.hpp
+  src/core/dither_ordered.hpp
   src/core/frame_state.cpp
   src/core/frame_state.hpp
   src/core/grain.cpp
@@ -217,8 +220,11 @@ set(F3KDB_SOURCES
   src/core/kernel_hwy_reference-inl.hpp
   src/core/kernel_hwy_store-inl.hpp
   src/core/math.hpp
+  src/core/output_16bit.hpp
   src/core/parameters.cpp
   src/core/parameters.hpp
+  src/core/pixel_proc.hpp
+  src/core/pixel_proc_common.hpp
   src/core/plane.cpp
   src/core/plane.hpp
   src/core/processor.cpp
@@ -226,12 +232,6 @@ set(F3KDB_SOURCES
   src/core/random.cpp
   src/core/random.hpp
   src/f3kdb.h
-  src/pixel_proc_c.h
-  src/pixel_proc_c_16bit.h
-  src/pixel_proc_c_high_bit_depth_common.h
-  src/pixel_proc_c_high_f_s_dithering.h
-  src/pixel_proc_c_high_no_dithering.h
-  src/pixel_proc_c_high_ordered_dithering.h
   src/utils.h
 )
 

@@ -1,7 +1,7 @@
 #include "constants.h"
 #include "core/kernel.hpp"
 #include "core/math.hpp"
-#include "pixel_proc_c_high_ordered_dithering.h"
+#include "core/dither_ordered.hpp"
 
 #undef HWY_TARGET_INCLUDE
 #define HWY_TARGET_INCLUDE "core/kernel_hwy.cpp"

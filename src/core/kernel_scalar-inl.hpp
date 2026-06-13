@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <cmath>
 #include "core/plane.hpp"
-#include "pixel_proc_c.h"
+#include "core/pixel_proc.hpp"
 #include <limits.h>
 
 static inline bool _is_above_threshold(int threshold, int diff) {

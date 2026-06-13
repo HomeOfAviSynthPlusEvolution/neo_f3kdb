@@ -96,7 +96,7 @@ namespace pixel_proc_high_f_s_dithering {
 
     static __forceinline int dither(void* context, int pixel, int row, int column);
 
-    #include "pixel_proc_c_high_bit_depth_common.h"
+    #include "core/pixel_proc_common.hpp"
 
     static const int PIXEL_MAX = ( ( 1 << (INTERNAL_BIT_DEPTH) ) - 1 );
     static const int PIXEL_MIN = 0;

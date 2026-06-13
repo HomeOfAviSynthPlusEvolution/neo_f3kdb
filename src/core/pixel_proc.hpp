@@ -12,11 +12,11 @@
 
 #define CHECK_MODE() if (mode < 0 || mode >= DA_COUNT) abort()
 
-#include "pixel_proc_c_high_no_dithering.h"
-#include "pixel_proc_c_high_ordered_dithering.h"
-#include "pixel_proc_c_high_f_s_dithering.h"
+#include "core/dither_none.hpp"
+#include "core/dither_ordered.hpp"
+#include "core/dither_floyd_steinberg.hpp"
 
-#include "pixel_proc_c_16bit.h"
+#include "core/output_16bit.hpp"
 
 template <int mode>
 static inline void pixel_proc_init_context(char context_buffer[CONTEXT_BUFFER_SIZE], int frame_width, int output_depth)
