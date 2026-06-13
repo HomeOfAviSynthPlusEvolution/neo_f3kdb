@@ -130,6 +130,30 @@
         "preset": "depth",
         "output_depth": 16
       }
+    },
+    {
+      "id": "f3kdb_real_mp4_dynamic_grain",
+      "tier": "smoke",
+      "filter": "Deband",
+      "source": {
+        "id": "mp4_yuv420p8_10f_bestsource",
+        "type": "bestsource",
+        "path": "../sources/14946398.mp4"
+      },
+      "frames": [1, 3, 5],
+      "params": {
+        "range": 15,
+        "y": 64,
+        "cb": 64,
+        "cr": 64,
+        "grainy": 64,
+        "grainc": 32,
+        "dynamic_grain": true,
+        "sample_mode": 2,
+        "seed": 42,
+        "blur_first": true,
+        "dither_algo": 3
+      }
     }
   ]
 }
