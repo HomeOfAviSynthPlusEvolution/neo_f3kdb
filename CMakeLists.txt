@@ -201,6 +201,8 @@ set(F3KDB_SOURCES
   src/core.cpp
   src/core.h
   src/cpuid.cpp
+  src/deband_hwy.hpp
+  src/deband_hwy.cpp
   src/dither_high.h
   src/f3kdb.h
   src/f3kdb.hpp

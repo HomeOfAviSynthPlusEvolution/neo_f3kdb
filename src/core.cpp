@@ -7,6 +7,7 @@
 #include "constants.h"
 #include "random.h"
 #include "impl_dispatch.h"
+#include "deband_hwy.hpp"
 
 #ifdef _WIN32
 #include <intrin.h>
@@ -341,5 +342,5 @@ void f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_
         return;
     }
 
-    _process_plane_impl(params, context);
+    neo_f3kdb::process_plane_hwy(params, context, _process_plane_impl);
 }
