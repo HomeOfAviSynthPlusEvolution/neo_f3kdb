@@ -21,21 +21,6 @@ namespace hn = hwy::HWY_NAMESPACE;
 
 #include "core/kernel_hwy-inl.hpp"
 
-template <int kDitherAlgo>
-int postprocess_scalar_pixel(const process_plane_params& params, int pixel, const std::int16_t* grain_row, int row, int col) {
-    pixel += static_cast<int>(grain_row[col]);
-
-    if constexpr (kDitherAlgo == DA_HIGH_NO_DITHERING) {
-        return std::clamp(pixel, params.pixel_min, params.pixel_max) >> (16 - params.output_depth);
-    } else if constexpr (kDitherAlgo == DA_HIGH_ORDERED_DITHERING) {
-        pixel += pixel_proc_high_ordered_dithering::THRESHOLD_MAP[row & 15][col & 15] >> (params.output_depth - 8);
-        return std::clamp(pixel, params.pixel_min, params.pixel_max) >> (16 - params.output_depth);
-    } else {
-        static_assert(kDitherAlgo == DA_16BIT_INTERLEAVED);
-        return std::clamp(pixel, params.pixel_min, params.pixel_max);
-    }
-}
-
 template <int kSampleMode, bool kBlurFirst, int kDitherAlgo, class PixelIn, class PixelOut>
 void process_plane_templated(const process_plane_params& params) {
     static_assert(kSampleMode >= 1 && kSampleMode <= 5);
@@ -91,7 +76,7 @@ void process_plane_templated(const process_plane_params& params) {
                 row,
                 col
             );
-            pixel = postprocess_scalar_pixel<kDitherAlgo>(params, pixel, grain_row, row, col);
+            pixel = deband_hwy_detail::postprocess_scalar_pixel<kDitherAlgo>(params, pixel, grain_row, row, col);
             dst_row[col] = static_cast<PixelOut>(pixel);
         }
     }

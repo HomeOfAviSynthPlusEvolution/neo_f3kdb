@@ -211,6 +211,11 @@ set(F3KDB_SOURCES
   src/core/kernel_scalar_inst.cpp
   src/core/kernel_hwy.cpp
   src/core/kernel_hwy-inl.hpp
+  src/core/kernel_hwy_block-inl.hpp
+  src/core/kernel_hwy_dither-inl.hpp
+  src/core/kernel_hwy_modes-inl.hpp
+  src/core/kernel_hwy_reference-inl.hpp
+  src/core/kernel_hwy_store-inl.hpp
   src/core/math.hpp
   src/core/parameters.cpp
   src/core/parameters.hpp
