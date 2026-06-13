@@ -14,24 +14,15 @@
 
 void f3kdb_core_t::destroy_frame_luts(void)
 {
-    _aligned_free(_y_info);
-    _aligned_free(_cb_info);
-    _aligned_free(_cr_info);
+    _y_info.reset(0);
+    _cb_info.reset(0);
+    _cr_info.reset(0);
     
-    _y_info = NULL;
-    _cb_info = NULL;
-    _cr_info = NULL;
+    _grain_buffer_y.reset(0);
+    _grain_buffer_c.reset(0);
     
-    _aligned_free(_grain_buffer_y);
-    _aligned_free(_grain_buffer_c);
+    _grain_buffer_offsets.clear();
     
-    _grain_buffer_y = NULL;
-    _grain_buffer_c = NULL;
-
-    free(_grain_buffer_offsets);
-    _grain_buffer_offsets = NULL;
-    
-    // contexts are likely to be dependent on lut, so they must also be destroyed
     destroy_context(&_y_context);
     destroy_context(&_cb_context);
     destroy_context(&_cr_context);
@@ -62,12 +53,12 @@ static int get_frame_lut_stride(int width_in_pixels)
     return (((width - 1) | (FRAME_LUT_ALIGNMENT - 1)) + 1);
 }
 
-static short* generate_grain_buffer(size_t item_count, RANDOM_ALGORITHM algo, int& seed, double param, int range)
+static AlignedBuffer<std::int16_t, 128> generate_grain_buffer(size_t item_count, RANDOM_ALGORITHM algo, int& seed, double param, int range)
 {
-    short* buffer = (short*)_aligned_malloc(item_count * sizeof(short), FRAME_LUT_ALIGNMENT);
+    AlignedBuffer<std::int16_t, 128> buffer(item_count);
     for (size_t i = 0; i < item_count; i++)
     {
-        *(buffer + i) = random(algo, seed, range, param);
+        buffer[i] = random(algo, seed, range, param);
     }
     return buffer;
 }
@@ -87,20 +78,14 @@ void f3kdb_core_t::init_frame_luts(void)
     int y_stride;
     y_stride = get_frame_lut_stride(width_in_pixels);
 
-    int y_size = sizeof(pixel_dither_info) * y_stride * height_in_pixels;
-    _y_info = (pixel_dither_info*)_aligned_malloc(y_size, FRAME_LUT_ALIGNMENT);
-
-    // ensure unused items are also initialized
-    memset(_y_info, 0, y_size);
+    int y_size = y_stride * height_in_pixels;
+    _y_info.reset(y_size);
 
     int c_stride;
     c_stride = get_frame_lut_stride(width_in_pixels >> _video_info.Format.SSW);
-    int c_size = sizeof(pixel_dither_info) * c_stride * (height_in_pixels >> _video_info.Format.SSH);
-    _cb_info = (pixel_dither_info*)_aligned_malloc(c_size, FRAME_LUT_ALIGNMENT);
-    _cr_info = (pixel_dither_info*)_aligned_malloc(c_size, FRAME_LUT_ALIGNMENT);
-
-    memset(_cb_info, 0, c_size);
-    memset(_cr_info, 0, c_size);
+    int c_size = c_stride * (height_in_pixels >> _video_info.Format.SSH);
+    _cb_info.reset(c_size);
+    _cr_info.reset(c_size);
 
     pixel_dither_info *y_info_ptr, *cb_info_ptr, *cr_info_ptr;
 
@@ -109,9 +94,9 @@ void f3kdb_core_t::init_frame_luts(void)
 
     for (int y = 0; y < height_in_pixels; y++)
     {
-        y_info_ptr = _y_info + y * y_stride;
-        cb_info_ptr = _cb_info + (y >> height_subsamp) * c_stride;
-        cr_info_ptr = _cr_info + (y >> height_subsamp) * c_stride;
+        y_info_ptr = _y_info.data() + y * y_stride;
+        cb_info_ptr = _cb_info.data() + (y >> height_subsamp) * c_stride;
+        cr_info_ptr = _cr_info.data() + (y >> height_subsamp) * c_stride;
 
         for (int x = 0; x < width_in_pixels; x++)
         {
@@ -206,7 +191,7 @@ void f3kdb_core_t::init_frame_luts(void)
     if (_params.dynamic_grain)
     {
         // Pre-generate offset here so that result is deterministic even if we request frame in different order
-        _grain_buffer_offsets = (int*)malloc(sizeof(int) * _video_info.Frames);
+        _grain_buffer_offsets.resize(_video_info.Frames);
         for (int i = 0; i < _video_info.Frames; i++)
         {
             int offset = item_count + random(RANDOM_ALGORITHM_UNIFORM, seed, item_count, DEFAULT_RANDOM_PARAM);
@@ -221,12 +206,6 @@ void f3kdb_core_t::init_frame_luts(void)
 
 f3kdb_core_t::f3kdb_core_t(DSVideoInfo vi, const f3kdb_params_t params, OPTIMIZATION_MODE opt) :
     _process_plane_impl(NULL),
-    _y_info(NULL),
-    _cb_info(NULL),
-    _cr_info(NULL),
-    _grain_buffer_y(NULL),
-    _grain_buffer_c(NULL),
-    _grain_buffer_offsets(NULL),
     _video_info(vi),
     _opt(opt),
     _params(params)
@@ -294,35 +273,35 @@ void f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_
     switch (plane)
     {
     case 0:
-        params.info_ptr_base = _y_info;
+        params.info_ptr_base = _y_info.data();
         params.threshold = _params.Y;
         params.threshold1 = _params.Y_1;
         params.threshold2 = _params.Y_2;
         params.pixel_max = _params.keep_tv_range ? TV_RANGE_Y_MAX : FULL_RANGE_Y_MAX;
         params.pixel_min = _params.keep_tv_range ? TV_RANGE_Y_MIN : FULL_RANGE_Y_MIN;
-        params.grain_buffer = _grain_buffer_y;
+        params.grain_buffer = _grain_buffer_y.data();
         grain_setting = _params.grainY;
         context = &_y_context;
         break;
     case 1:
-        params.info_ptr_base = _cb_info;
+        params.info_ptr_base = _cb_info.data();
         params.threshold = _params.Cb;
         params.threshold1 = _params.Cb_1;
         params.threshold2 = _params.Cb_2;
         params.pixel_max = _params.keep_tv_range ? TV_RANGE_C_MAX : FULL_RANGE_C_MAX;
         params.pixel_min = _params.keep_tv_range ? TV_RANGE_C_MIN : FULL_RANGE_C_MIN;
-        params.grain_buffer = _grain_buffer_c;
+        params.grain_buffer = _grain_buffer_c.data();
         grain_setting = _params.grainC;
         context = &_cb_context;
         break;
     case 2:
-        params.info_ptr_base = _cr_info;
+        params.info_ptr_base = _cr_info.data();
         params.threshold = _params.Cr;
         params.threshold1 = _params.Cr_1;
         params.threshold2 = _params.Cr_2;
         params.pixel_max = _params.keep_tv_range ? TV_RANGE_C_MAX : FULL_RANGE_C_MAX;
         params.pixel_min = _params.keep_tv_range ? TV_RANGE_C_MIN : FULL_RANGE_C_MIN;
-        params.grain_buffer = _grain_buffer_c;
+        params.grain_buffer = _grain_buffer_c.data();
         grain_setting = _params.grainC;
         context = &_cr_context;
         break;
@@ -330,7 +309,7 @@ void f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_
         abort();
     }
     
-    if (_grain_buffer_offsets)
+    if (!_grain_buffer_offsets.empty())
     {
         params.grain_buffer += _grain_buffer_offsets[frame_index % _video_info.Frames];
     }

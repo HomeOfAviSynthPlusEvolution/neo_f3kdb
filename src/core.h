@@ -1,5 +1,11 @@
 #pragma once
 
+#include "aligned_buffer.hpp"
+#include <cstdint>
+#include <vector>
+
+using neo_f3kdb::AlignedBuffer;
+
 // Lightweight replacement for old dualsynth1 headers to avoid conflict with dualsynth2
 struct DSFormat {
   bool IsFamilyYUV {true};
@@ -21,9 +27,9 @@ struct DSVideoInfo {
 #include "compiler_compat.h"
 
 typedef struct _pixel_dither_info {
-    alignas(4) signed char ref1;
-    signed char ref2;
-    signed short change;
+    alignas(4) std::int8_t ref1;
+    std::int8_t ref2;
+    std::int16_t change;
 } pixel_dither_info;
 
 static_assert(sizeof(pixel_dither_info) == 4, "Something wrong in pixel_dither_info");
@@ -44,15 +50,15 @@ typedef struct _process_plane_params
     PIXEL_MODE output_mode;
     int output_depth;
 
-    unsigned short threshold;
-    unsigned short threshold1;
-    unsigned short threshold2;
+    std::uint16_t threshold;
+    std::uint16_t threshold1;
+    std::uint16_t threshold2;
     float angle_boost;
     float max_angle;
     pixel_dither_info *info_ptr_base;
     int info_stride;
     
-    short* grain_buffer;
+    std::int16_t* grain_buffer;
     int grain_buffer_stride;
 
     int plane;
@@ -84,18 +90,18 @@ class f3kdb_core_t {
 private:
     process_plane_impl_t _process_plane_impl;
         
-    pixel_dither_info *_y_info;
-    pixel_dither_info *_cb_info;
-    pixel_dither_info *_cr_info;
+    AlignedBuffer<pixel_dither_info, 128> _y_info;
+    AlignedBuffer<pixel_dither_info, 128> _cb_info;
+    AlignedBuffer<pixel_dither_info, 128> _cr_info;
     
     process_plane_context _y_context;
     process_plane_context _cb_context;
     process_plane_context _cr_context;
     
-    short* _grain_buffer_y;
-    short* _grain_buffer_c;
+    AlignedBuffer<std::int16_t, 128> _grain_buffer_y;
+    AlignedBuffer<std::int16_t, 128> _grain_buffer_c;
 
-    int* _grain_buffer_offsets;
+    std::vector<std::int32_t> _grain_buffer_offsets;
 
     DSVideoInfo _video_info;
     f3kdb_params_t _params;
