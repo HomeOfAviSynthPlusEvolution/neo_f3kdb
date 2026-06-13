@@ -1,0 +1,689 @@
+{
+  "results": [
+    {
+      "backend": "purec",
+      "case": "f3kdb_compat_separate_thresholds",
+      "frame": 1,
+      "host": "vs",
+      "metadata": {
+        "format": {
+          "bits_per_sample": 8,
+          "bytes_per_sample": 1,
+          "color_family": 3,
+          "id": 805830913,
+          "name": "YUV420P8",
+          "num_planes": 3,
+          "sample_type": 0,
+          "subsampling_h": 1,
+          "subsampling_w": 1
+        },
+        "frames": 5,
+        "height": 128,
+        "planes": [
+          {
+            "height": 128,
+            "name": "Y",
+            "row_bytes": 256,
+            "stride": 256
+          },
+          {
+            "height": 64,
+            "name": "U",
+            "row_bytes": 128,
+            "stride": 128
+          },
+          {
+            "height": 64,
+            "name": "V",
+            "row_bytes": 128,
+            "stride": 128
+          }
+        ],
+        "width": 256
+      },
+      "params": {
+        "blur_first": true,
+        "cb": 64,
+        "cb_1": 48,
+        "cb_2": 80,
+        "cr": 64,
+        "cr_1": 48,
+        "cr_2": 80,
+        "dither_algo": 3,
+        "range": 15,
+        "sample_mode": 2,
+        "seed": 42,
+        "y": 64,
+        "y_1": 48,
+        "y_2": 80
+      },
+      "sha256": "ff80bdc0c60b7e5077704a89f78d221a42cf3bdb5481b5b0acb46127a9d1fc1c",
+      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "tier": "compat"
+    },
+    {
+      "backend": "purec",
+      "case": "f3kdb_compat_separate_thresholds",
+      "frame": 3,
+      "host": "vs",
+      "metadata": {
+        "format": {
+          "bits_per_sample": 8,
+          "bytes_per_sample": 1,
+          "color_family": 3,
+          "id": 805830913,
+          "name": "YUV420P8",
+          "num_planes": 3,
+          "sample_type": 0,
+          "subsampling_h": 1,
+          "subsampling_w": 1
+        },
+        "frames": 5,
+        "height": 128,
+        "planes": [
+          {
+            "height": 128,
+            "name": "Y",
+            "row_bytes": 256,
+            "stride": 256
+          },
+          {
+            "height": 64,
+            "name": "U",
+            "row_bytes": 128,
+            "stride": 128
+          },
+          {
+            "height": 64,
+            "name": "V",
+            "row_bytes": 128,
+            "stride": 128
+          }
+        ],
+        "width": 256
+      },
+      "params": {
+        "blur_first": true,
+        "cb": 64,
+        "cb_1": 48,
+        "cb_2": 80,
+        "cr": 64,
+        "cr_1": 48,
+        "cr_2": 80,
+        "dither_algo": 3,
+        "range": 15,
+        "sample_mode": 2,
+        "seed": 42,
+        "y": 64,
+        "y_1": 48,
+        "y_2": 80
+      },
+      "sha256": "ff80bdc0c60b7e5077704a89f78d221a42cf3bdb5481b5b0acb46127a9d1fc1c",
+      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "tier": "compat"
+    },
+    {
+      "backend": "purec",
+      "case": "f3kdb_compat_separate_thresholds",
+      "frame": 1,
+      "host": "avs",
+      "metadata": {
+        "bits_per_sample": 8,
+        "bytes_per_sample": 1,
+        "frames": 5,
+        "height": 128,
+        "pixel_type": -1610612728,
+        "planes": [
+          {
+            "height": 128,
+            "name": "Y",
+            "row_bytes": 256,
+            "stride": 256
+          },
+          {
+            "height": 64,
+            "name": "U",
+            "row_bytes": 128,
+            "stride": 128
+          },
+          {
+            "height": 64,
+            "name": "V",
+            "row_bytes": 128,
+            "stride": 128
+          }
+        ],
+        "width": 256
+      },
+      "params": {
+        "blur_first": true,
+        "cb": 64,
+        "cb_1": 48,
+        "cb_2": 80,
+        "cr": 64,
+        "cr_1": 48,
+        "cr_2": 80,
+        "dither_algo": 3,
+        "range": 15,
+        "sample_mode": 2,
+        "seed": 42,
+        "y": 64,
+        "y_1": 48,
+        "y_2": 80
+      },
+      "sha256": "ff80bdc0c60b7e5077704a89f78d221a42cf3bdb5481b5b0acb46127a9d1fc1c",
+      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "tier": "compat"
+    },
+    {
+      "backend": "purec",
+      "case": "f3kdb_compat_separate_thresholds",
+      "frame": 3,
+      "host": "avs",
+      "metadata": {
+        "bits_per_sample": 8,
+        "bytes_per_sample": 1,
+        "frames": 5,
+        "height": 128,
+        "pixel_type": -1610612728,
+        "planes": [
+          {
+            "height": 128,
+            "name": "Y",
+            "row_bytes": 256,
+            "stride": 256
+          },
+          {
+            "height": 64,
+            "name": "U",
+            "row_bytes": 128,
+            "stride": 128
+          },
+          {
+            "height": 64,
+            "name": "V",
+            "row_bytes": 128,
+            "stride": 128
+          }
+        ],
+        "width": 256
+      },
+      "params": {
+        "blur_first": true,
+        "cb": 64,
+        "cb_1": 48,
+        "cb_2": 80,
+        "cr": 64,
+        "cr_1": 48,
+        "cr_2": 80,
+        "dither_algo": 3,
+        "range": 15,
+        "sample_mode": 2,
+        "seed": 42,
+        "y": 64,
+        "y_1": 48,
+        "y_2": 80
+      },
+      "sha256": "ff80bdc0c60b7e5077704a89f78d221a42cf3bdb5481b5b0acb46127a9d1fc1c",
+      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "tier": "compat"
+    },
+    {
+      "backend": "purec",
+      "case": "f3kdb_compat_gaussian_random",
+      "frame": 1,
+      "host": "vs",
+      "metadata": {
+        "format": {
+          "bits_per_sample": 8,
+          "bytes_per_sample": 1,
+          "color_family": 3,
+          "id": 805830913,
+          "name": "YUV420P8",
+          "num_planes": 3,
+          "sample_type": 0,
+          "subsampling_h": 1,
+          "subsampling_w": 1
+        },
+        "frames": 5,
+        "height": 128,
+        "planes": [
+          {
+            "height": 128,
+            "name": "Y",
+            "row_bytes": 256,
+            "stride": 256
+          },
+          {
+            "height": 64,
+            "name": "U",
+            "row_bytes": 128,
+            "stride": 128
+          },
+          {
+            "height": 64,
+            "name": "V",
+            "row_bytes": 128,
+            "stride": 128
+          }
+        ],
+        "width": 256
+      },
+      "params": {
+        "blur_first": true,
+        "cb": 64,
+        "cr": 64,
+        "dither_algo": 3,
+        "grainc": 16,
+        "grainy": 32,
+        "random_algo_grain": 2,
+        "random_algo_ref": 2,
+        "random_param_grain": 1.5,
+        "random_param_ref": 1.5,
+        "range": 15,
+        "sample_mode": 2,
+        "seed": 42,
+        "y": 64
+      },
+      "sha256": "d74ca0ee02a56e8982c4324515b6a813c6d32fdfb241e37289bf893b44e8a76c",
+      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "tier": "compat"
+    },
+    {
+      "backend": "purec",
+      "case": "f3kdb_compat_gaussian_random",
+      "frame": 3,
+      "host": "vs",
+      "metadata": {
+        "format": {
+          "bits_per_sample": 8,
+          "bytes_per_sample": 1,
+          "color_family": 3,
+          "id": 805830913,
+          "name": "YUV420P8",
+          "num_planes": 3,
+          "sample_type": 0,
+          "subsampling_h": 1,
+          "subsampling_w": 1
+        },
+        "frames": 5,
+        "height": 128,
+        "planes": [
+          {
+            "height": 128,
+            "name": "Y",
+            "row_bytes": 256,
+            "stride": 256
+          },
+          {
+            "height": 64,
+            "name": "U",
+            "row_bytes": 128,
+            "stride": 128
+          },
+          {
+            "height": 64,
+            "name": "V",
+            "row_bytes": 128,
+            "stride": 128
+          }
+        ],
+        "width": 256
+      },
+      "params": {
+        "blur_first": true,
+        "cb": 64,
+        "cr": 64,
+        "dither_algo": 3,
+        "grainc": 16,
+        "grainy": 32,
+        "random_algo_grain": 2,
+        "random_algo_ref": 2,
+        "random_param_grain": 1.5,
+        "random_param_ref": 1.5,
+        "range": 15,
+        "sample_mode": 2,
+        "seed": 42,
+        "y": 64
+      },
+      "sha256": "d74ca0ee02a56e8982c4324515b6a813c6d32fdfb241e37289bf893b44e8a76c",
+      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "tier": "compat"
+    },
+    {
+      "backend": "purec",
+      "case": "f3kdb_compat_gaussian_random",
+      "frame": 1,
+      "host": "avs",
+      "metadata": {
+        "bits_per_sample": 8,
+        "bytes_per_sample": 1,
+        "frames": 5,
+        "height": 128,
+        "pixel_type": -1610612728,
+        "planes": [
+          {
+            "height": 128,
+            "name": "Y",
+            "row_bytes": 256,
+            "stride": 256
+          },
+          {
+            "height": 64,
+            "name": "U",
+            "row_bytes": 128,
+            "stride": 128
+          },
+          {
+            "height": 64,
+            "name": "V",
+            "row_bytes": 128,
+            "stride": 128
+          }
+        ],
+        "width": 256
+      },
+      "params": {
+        "blur_first": true,
+        "cb": 64,
+        "cr": 64,
+        "dither_algo": 3,
+        "grainc": 16,
+        "grainy": 32,
+        "random_algo_grain": 2,
+        "random_algo_ref": 2,
+        "random_param_grain": 1.5,
+        "random_param_ref": 1.5,
+        "range": 15,
+        "sample_mode": 2,
+        "seed": 42,
+        "y": 64
+      },
+      "sha256": "d74ca0ee02a56e8982c4324515b6a813c6d32fdfb241e37289bf893b44e8a76c",
+      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "tier": "compat"
+    },
+    {
+      "backend": "purec",
+      "case": "f3kdb_compat_gaussian_random",
+      "frame": 3,
+      "host": "avs",
+      "metadata": {
+        "bits_per_sample": 8,
+        "bytes_per_sample": 1,
+        "frames": 5,
+        "height": 128,
+        "pixel_type": -1610612728,
+        "planes": [
+          {
+            "height": 128,
+            "name": "Y",
+            "row_bytes": 256,
+            "stride": 256
+          },
+          {
+            "height": 64,
+            "name": "U",
+            "row_bytes": 128,
+            "stride": 128
+          },
+          {
+            "height": 64,
+            "name": "V",
+            "row_bytes": 128,
+            "stride": 128
+          }
+        ],
+        "width": 256
+      },
+      "params": {
+        "blur_first": true,
+        "cb": 64,
+        "cr": 64,
+        "dither_algo": 3,
+        "grainc": 16,
+        "grainy": 32,
+        "random_algo_grain": 2,
+        "random_algo_ref": 2,
+        "random_param_grain": 1.5,
+        "random_param_ref": 1.5,
+        "range": 15,
+        "sample_mode": 2,
+        "seed": 42,
+        "y": 64
+      },
+      "sha256": "d74ca0ee02a56e8982c4324515b6a813c6d32fdfb241e37289bf893b44e8a76c",
+      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "tier": "compat"
+    },
+    {
+      "backend": "purec",
+      "case": "f3kdb_compat_old_random",
+      "frame": 1,
+      "host": "vs",
+      "metadata": {
+        "format": {
+          "bits_per_sample": 8,
+          "bytes_per_sample": 1,
+          "color_family": 3,
+          "id": 805830913,
+          "name": "YUV420P8",
+          "num_planes": 3,
+          "sample_type": 0,
+          "subsampling_h": 1,
+          "subsampling_w": 1
+        },
+        "frames": 5,
+        "height": 128,
+        "planes": [
+          {
+            "height": 128,
+            "name": "Y",
+            "row_bytes": 256,
+            "stride": 256
+          },
+          {
+            "height": 64,
+            "name": "U",
+            "row_bytes": 128,
+            "stride": 128
+          },
+          {
+            "height": 64,
+            "name": "V",
+            "row_bytes": 128,
+            "stride": 128
+          }
+        ],
+        "width": 256
+      },
+      "params": {
+        "blur_first": true,
+        "cb": 64,
+        "cr": 64,
+        "dither_algo": 3,
+        "grainc": 16,
+        "grainy": 32,
+        "random_algo_grain": 0,
+        "random_algo_ref": 0,
+        "random_param_grain": 1.0,
+        "random_param_ref": 1.0,
+        "range": 15,
+        "sample_mode": 2,
+        "seed": 42,
+        "y": 64
+      },
+      "sha256": "43a0ed6b5f2c89f06bb6eb8d90b5a810df172e2499d9089e9a128d19ce4bb7c9",
+      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "tier": "compat"
+    },
+    {
+      "backend": "purec",
+      "case": "f3kdb_compat_old_random",
+      "frame": 3,
+      "host": "vs",
+      "metadata": {
+        "format": {
+          "bits_per_sample": 8,
+          "bytes_per_sample": 1,
+          "color_family": 3,
+          "id": 805830913,
+          "name": "YUV420P8",
+          "num_planes": 3,
+          "sample_type": 0,
+          "subsampling_h": 1,
+          "subsampling_w": 1
+        },
+        "frames": 5,
+        "height": 128,
+        "planes": [
+          {
+            "height": 128,
+            "name": "Y",
+            "row_bytes": 256,
+            "stride": 256
+          },
+          {
+            "height": 64,
+            "name": "U",
+            "row_bytes": 128,
+            "stride": 128
+          },
+          {
+            "height": 64,
+            "name": "V",
+            "row_bytes": 128,
+            "stride": 128
+          }
+        ],
+        "width": 256
+      },
+      "params": {
+        "blur_first": true,
+        "cb": 64,
+        "cr": 64,
+        "dither_algo": 3,
+        "grainc": 16,
+        "grainy": 32,
+        "random_algo_grain": 0,
+        "random_algo_ref": 0,
+        "random_param_grain": 1.0,
+        "random_param_ref": 1.0,
+        "range": 15,
+        "sample_mode": 2,
+        "seed": 42,
+        "y": 64
+      },
+      "sha256": "43a0ed6b5f2c89f06bb6eb8d90b5a810df172e2499d9089e9a128d19ce4bb7c9",
+      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "tier": "compat"
+    },
+    {
+      "backend": "purec",
+      "case": "f3kdb_compat_old_random",
+      "frame": 1,
+      "host": "avs",
+      "metadata": {
+        "bits_per_sample": 8,
+        "bytes_per_sample": 1,
+        "frames": 5,
+        "height": 128,
+        "pixel_type": -1610612728,
+        "planes": [
+          {
+            "height": 128,
+            "name": "Y",
+            "row_bytes": 256,
+            "stride": 256
+          },
+          {
+            "height": 64,
+            "name": "U",
+            "row_bytes": 128,
+            "stride": 128
+          },
+          {
+            "height": 64,
+            "name": "V",
+            "row_bytes": 128,
+            "stride": 128
+          }
+        ],
+        "width": 256
+      },
+      "params": {
+        "blur_first": true,
+        "cb": 64,
+        "cr": 64,
+        "dither_algo": 3,
+        "grainc": 16,
+        "grainy": 32,
+        "random_algo_grain": 0,
+        "random_algo_ref": 0,
+        "random_param_grain": 1.0,
+        "random_param_ref": 1.0,
+        "range": 15,
+        "sample_mode": 2,
+        "seed": 42,
+        "y": 64
+      },
+      "sha256": "43a0ed6b5f2c89f06bb6eb8d90b5a810df172e2499d9089e9a128d19ce4bb7c9",
+      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "tier": "compat"
+    },
+    {
+      "backend": "purec",
+      "case": "f3kdb_compat_old_random",
+      "frame": 3,
+      "host": "avs",
+      "metadata": {
+        "bits_per_sample": 8,
+        "bytes_per_sample": 1,
+        "frames": 5,
+        "height": 128,
+        "pixel_type": -1610612728,
+        "planes": [
+          {
+            "height": 128,
+            "name": "Y",
+            "row_bytes": 256,
+            "stride": 256
+          },
+          {
+            "height": 64,
+            "name": "U",
+            "row_bytes": 128,
+            "stride": 128
+          },
+          {
+            "height": 64,
+            "name": "V",
+            "row_bytes": 128,
+            "stride": 128
+          }
+        ],
+        "width": 256
+      },
+      "params": {
+        "blur_first": true,
+        "cb": 64,
+        "cr": 64,
+        "dither_algo": 3,
+        "grainc": 16,
+        "grainy": 32,
+        "random_algo_grain": 0,
+        "random_algo_ref": 0,
+        "random_param_grain": 1.0,
+        "random_param_ref": 1.0,
+        "range": 15,
+        "sample_mode": 2,
+        "seed": 42,
+        "y": 64
+      },
+      "sha256": "43a0ed6b5f2c89f06bb6eb8d90b5a810df172e2499d9089e9a128d19ce4bb7c9",
+      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "tier": "compat"
+    }
+  ],
+  "schema": 2
+}
