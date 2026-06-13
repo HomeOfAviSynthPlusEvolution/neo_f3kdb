@@ -91,7 +91,7 @@ public:
 #else
       const char* error = dlerror();
       throw std::runtime_error(
-        "failed to load symbol " + name + ": " +
+        std::string{"failed to load symbol "} + name + ": " +
         (error != nullptr ? error : "unknown dlsym error")
       );
 #endif

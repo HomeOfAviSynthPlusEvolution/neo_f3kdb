@@ -5,12 +5,9 @@
       "tier": "compat",
       "filter": "Deband",
       "source": {
-        "id": "synthetic_gradient_yuv420p8_256x128_5f",
-        "type": "synthetic_gradient",
-        "width": 256,
-        "height": 128,
-        "length": 5,
-        "format": "YUV420P8"
+        "id": "mp4_yuv420p8_10f_bestsource",
+        "type": "bestsource",
+        "path": "../sources/14946398.mp4"
       },
       "frames": [1, 3],
       "params": {
@@ -35,12 +32,9 @@
       "tier": "compat",
       "filter": "Deband",
       "source": {
-        "id": "synthetic_gradient_yuv420p8_256x128_5f",
-        "type": "synthetic_gradient",
-        "width": 256,
-        "height": 128,
-        "length": 5,
-        "format": "YUV420P8"
+        "id": "mp4_yuv420p8_10f_bestsource",
+        "type": "bestsource",
+        "path": "../sources/14946398.mp4"
       },
       "frames": [1, 3],
       "params": {
@@ -65,12 +59,9 @@
       "tier": "compat",
       "filter": "Deband",
       "source": {
-        "id": "synthetic_gradient_yuv420p8_256x128_5f",
-        "type": "synthetic_gradient",
-        "width": 256,
-        "height": 128,
-        "length": 5,
-        "format": "YUV420P8"
+        "id": "mp4_yuv420p8_10f_bestsource",
+        "type": "bestsource",
+        "path": "../sources/14946398.mp4"
       },
       "frames": [1, 3],
       "params": {

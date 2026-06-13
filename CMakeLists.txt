@@ -318,7 +318,7 @@ if(F3KDB_BUILD_TEST_TOOLS)
   endif()
 
   enable_testing()
-  
+
   # Register the baseline verification tasks with CTest
   foreach(backend IN ITEMS purec)
     foreach(tier IN ITEMS smoke compat)

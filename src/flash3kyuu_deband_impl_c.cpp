@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstdint>
 #include <cmath>
 #include "core.h"
 #include "pixel_proc_c.h"

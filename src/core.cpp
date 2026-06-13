@@ -217,10 +217,6 @@ void f3kdb_core_t::init_frame_luts(void)
             _grain_buffer_offsets[i] = offset;
         }
     }
-    printf("Neo-F3KDB Luts: _y_info[0..4] =\n");
-    for (int idx = 0; idx < 5; ++idx) {
-        printf("  [%d] ref1=%d, ref2=%d, change=%d\n", idx, _y_info[idx].ref1, _y_info[idx].ref2, _y_info[idx].change);
-    }
 }
 
 f3kdb_core_t::f3kdb_core_t(DSVideoInfo vi, const f3kdb_params_t params, OPTIMIZATION_MODE opt) :
@@ -259,7 +255,6 @@ void f3kdb_core_t::init(void)
 
     const process_plane_impl_t* impl_table = process_plane_impls[_params.dither_algo][(int)_opt];
     _process_plane_impl = impl_table[select_impl_index(_params.sample_mode, _params.blur_first)];
-    printf("f3kdb_core_t::init: dither_algo=%d, opt=%d, impl_index=%d, impl=%p\n", _params.dither_algo, (int)_opt, select_impl_index(_params.sample_mode, _params.blur_first), (void*)_process_plane_impl);
 }
 
 void f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_frame_ptr, int dst_pitch, const unsigned char* src_frame_ptr, int src_pitch)
@@ -367,6 +362,5 @@ void f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_
         return;
     }
 
-    init_context(context);
     _process_plane_impl(params, context);
 }

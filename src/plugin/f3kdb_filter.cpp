@@ -79,32 +79,6 @@ ds::Result<ds::VideoInitStateResult<F3KDBFilterCore::State>> F3KDBFilterCore::in
     scale = get_value(context.params->get_bool("scale", false), false);
     mt = get_value(context.params->get_bool("mt", true), true);
     opt_in = get_value(context.params->get_int("opt", -1), -1);
-
-    ep.range = get_value(context.params->get_int("range", 15), 15);
-    ep.Y = get_value(context.params->get_int("y", 64), 64);
-    ep.Cb = get_value(context.params->get_int("cb", 64), 64);
-    ep.Cr = get_value(context.params->get_int("cr", 64), 64);
-    ep.grainY = get_value(context.params->get_int("grainy", 64), 64);
-    ep.grainC = get_value(context.params->get_int("grainc", 64), 64);
-    ep.sample_mode = get_value(context.params->get_int("sample_mode", 2), 2);
-    ep.seed = get_value(context.params->get_int("seed", 0), 0);
-    ep.blur_first = get_value(context.params->get_bool("blur_first", true), true);
-    ep.dynamic_grain = get_value(context.params->get_bool("dynamic_grain", false), false);
-    ep.keep_tv_range = get_value(context.params->get_bool("keep_tv_range", false), false);
-    ep.output_depth = get_value(context.params->get_int("output_depth", -1), -1);
-    ep.random_algo_ref = static_cast<RANDOM_ALGORITHM>(get_value(context.params->get_int("random_algo_ref", 1), 1));
-    ep.random_algo_grain = static_cast<RANDOM_ALGORITHM>(get_value(context.params->get_int("random_algo_grain", 1), 1));
-    ep.random_param_ref = get_value(context.params->get_double("random_param_ref", 1.0), 1.0);
-    ep.random_param_grain = get_value(context.params->get_double("random_param_grain", 1.0), 1.0);
-    ep.Y_1 = get_value(context.params->get_int("y_1", -1), -1);
-    ep.Cb_1 = get_value(context.params->get_int("cb_1", -1), -1);
-    ep.Cr_1 = get_value(context.params->get_int("cr_1", -1), -1);
-    ep.Y_2 = get_value(context.params->get_int("y_2", -1), -1);
-    ep.Cb_2 = get_value(context.params->get_int("cb_2", -1), -1);
-    ep.Cr_2 = get_value(context.params->get_int("cr_2", -1), -1);
-    ep.angle_boost = get_value(context.params->get_double("angle_boost", 1.5), 1.5);
-    ep.max_angle = get_value(context.params->get_double("max_angle", 0.15), 0.15);
-    ep.dither_algo = static_cast<DITHER_ALGORITHM>(get_value(context.params->get_int("dither_algo", 3), 3));
   }
 
   if (!preset.empty()) {
@@ -129,6 +103,49 @@ ds::Result<ds::VideoInitStateResult<F3KDBFilterCore::State>> F3KDBFilterCore::in
       else if (piss1 == "chroma")
         ep.Y = ep.grainY = 0;
     }
+  }
+
+  if (context.params) {
+    ep.range = get_value(context.params->get_int("range", ep.range), ep.range);
+    ep.Y = get_value(context.params->get_int("y", ep.Y), ep.Y);
+    ep.Cb = get_value(context.params->get_int("cb", ep.Cb), ep.Cb);
+    ep.Cr = get_value(context.params->get_int("cr", ep.Cr), ep.Cr);
+    ep.grainY = get_value(context.params->get_int("grainy", ep.grainY), ep.grainY);
+    ep.grainC = get_value(context.params->get_int("grainc", ep.grainC), ep.grainC);
+    ep.sample_mode = get_value(context.params->get_int("sample_mode", ep.sample_mode), ep.sample_mode);
+    ep.seed = get_value(context.params->get_int("seed", ep.seed), ep.seed);
+    ep.blur_first = get_value(context.params->get_bool("blur_first", ep.blur_first), ep.blur_first);
+    ep.dynamic_grain = get_value(context.params->get_bool("dynamic_grain", ep.dynamic_grain), ep.dynamic_grain);
+    ep.keep_tv_range = get_value(context.params->get_bool("keep_tv_range", ep.keep_tv_range), ep.keep_tv_range);
+    ep.output_depth = get_value(context.params->get_int("output_depth", ep.output_depth), ep.output_depth);
+    ep.random_algo_ref = static_cast<RANDOM_ALGORITHM>(
+      get_value(
+        context.params->get_int("random_algo_ref", static_cast<int>(ep.random_algo_ref)),
+        static_cast<int>(ep.random_algo_ref)
+      )
+    );
+    ep.random_algo_grain = static_cast<RANDOM_ALGORITHM>(
+      get_value(
+        context.params->get_int("random_algo_grain", static_cast<int>(ep.random_algo_grain)),
+        static_cast<int>(ep.random_algo_grain)
+      )
+    );
+    ep.random_param_ref = get_value(context.params->get_double("random_param_ref", ep.random_param_ref), ep.random_param_ref);
+    ep.random_param_grain = get_value(context.params->get_double("random_param_grain", ep.random_param_grain), ep.random_param_grain);
+    ep.Y_1 = get_value(context.params->get_int("y_1", ep.Y_1), ep.Y_1);
+    ep.Cb_1 = get_value(context.params->get_int("cb_1", ep.Cb_1), ep.Cb_1);
+    ep.Cr_1 = get_value(context.params->get_int("cr_1", ep.Cr_1), ep.Cr_1);
+    ep.Y_2 = get_value(context.params->get_int("y_2", ep.Y_2), ep.Y_2);
+    ep.Cb_2 = get_value(context.params->get_int("cb_2", ep.Cb_2), ep.Cb_2);
+    ep.Cr_2 = get_value(context.params->get_int("cr_2", ep.Cr_2), ep.Cr_2);
+    ep.angle_boost = get_value(context.params->get_double("angle_boost", ep.angle_boost), ep.angle_boost);
+    ep.max_angle = get_value(context.params->get_double("max_angle", ep.max_angle), ep.max_angle);
+    ep.dither_algo = static_cast<DITHER_ALGORITHM>(
+      get_value(
+        context.params->get_int("dither_algo", static_cast<int>(ep.dither_algo)),
+        static_cast<int>(ep.dither_algo)
+      )
+    );
   }
 
   ep.Y_1 = ep.Y_1 == -1 ? ep.Y : ep.Y_1;
@@ -159,7 +176,7 @@ ds::Result<ds::VideoInitStateResult<F3KDBFilterCore::State>> F3KDBFilterCore::in
     INVALID_PARAM_IF(input_vi.width < 16);
     INVALID_PARAM_IF(input_vi.height < 16);
     INVALID_PARAM_IF(input_vi.num_frames <= 0);
-    
+
     int bits = ds::bits_per_sample(input_vi.format.sample_format);
     INVALID_PARAM_IF(bits < 8 || bits > INTERNAL_BIT_DEPTH);
     INVALID_PARAM_IF(input_vi.format.sample_format == ds::SampleFormat::Float32);
@@ -229,9 +246,6 @@ ds::Result<ds::VideoInitStateResult<F3KDBFilterCore::State>> F3KDBFilterCore::in
   };
 
   DSVideoInfo old_vi = make_ds_video_info(input_vi);
-  printf("Neo-F3KDB Init: range=%d, Y=%d, Cb=%d, Cr=%d, sample_mode=%d, opt=%d, dither_algo=%d, blur_first=%d, width=%d, height=%d, frames=%d, ssw=%d, ssh=%d\n",
-         ep.range, ep.Y, ep.Cb, ep.Cr, ep.sample_mode, static_cast<int>(opt), static_cast<int>(ep.dither_algo), ep.blur_first,
-         old_vi.Width, old_vi.Height, old_vi.Frames, old_vi.Format.SSW, old_vi.Format.SSH);
   std::unique_ptr<f3kdb_core_t> engine;
   try {
     engine = std::make_unique<f3kdb_core_t>(old_vi, ep, opt);
@@ -287,7 +301,7 @@ ds::Result<ds::VideoProcessResult> F3KDBFilterCore::process(ds::VideoProcessCont
 }
 
 bool F3KDBBridge::accepts_video_format(ds::VideoFormat format) {
-  return format.color_family == ds::ColorFamily::Yuv && 
+  return format.color_family == ds::ColorFamily::Yuv &&
          (format.sample_format == ds::SampleFormat::UInt8 || format.sample_format == ds::SampleFormat::UInt16);
 }
 

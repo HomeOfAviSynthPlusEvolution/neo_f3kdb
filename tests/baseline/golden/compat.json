@@ -17,29 +17,29 @@
           "subsampling_h": 1,
           "subsampling_w": 1
         },
-        "frames": 5,
-        "height": 128,
+        "frames": 10,
+        "height": 720,
         "planes": [
           {
-            "height": 128,
+            "height": 720,
             "name": "Y",
-            "row_bytes": 256,
-            "stride": 256
+            "row_bytes": 1280,
+            "stride": 1280
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "U",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "V",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           }
         ],
-        "width": 256
+        "width": 1280
       },
       "params": {
         "blur_first": true,
@@ -57,8 +57,8 @@
         "y_1": 48,
         "y_2": 80
       },
-      "sha256": "ff80bdc0c60b7e5077704a89f78d221a42cf3bdb5481b5b0acb46127a9d1fc1c",
-      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "sha256": "39e6576a40d7df30a4f49db7c5eb3b465cd0eeab15cd4046ac7d9c55b995f4db",
+      "source": "mp4_yuv420p8_10f_bestsource",
       "tier": "compat"
     },
     {
@@ -78,29 +78,29 @@
           "subsampling_h": 1,
           "subsampling_w": 1
         },
-        "frames": 5,
-        "height": 128,
+        "frames": 10,
+        "height": 720,
         "planes": [
           {
-            "height": 128,
+            "height": 720,
             "name": "Y",
-            "row_bytes": 256,
-            "stride": 256
+            "row_bytes": 1280,
+            "stride": 1280
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "U",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "V",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           }
         ],
-        "width": 256
+        "width": 1280
       },
       "params": {
         "blur_first": true,
@@ -118,8 +118,8 @@
         "y_1": 48,
         "y_2": 80
       },
-      "sha256": "ff80bdc0c60b7e5077704a89f78d221a42cf3bdb5481b5b0acb46127a9d1fc1c",
-      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "sha256": "17925db53d31fded9833de122d9a51095c22c3a7111da750c5351ff2fdec1877",
+      "source": "mp4_yuv420p8_10f_bestsource",
       "tier": "compat"
     },
     {
@@ -130,30 +130,30 @@
       "metadata": {
         "bits_per_sample": 8,
         "bytes_per_sample": 1,
-        "frames": 5,
-        "height": 128,
+        "frames": 10,
+        "height": 720,
         "pixel_type": -1610612728,
         "planes": [
           {
-            "height": 128,
+            "height": 720,
             "name": "Y",
-            "row_bytes": 256,
-            "stride": 256
+            "row_bytes": 1280,
+            "stride": 1280
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "U",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "V",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           }
         ],
-        "width": 256
+        "width": 1280
       },
       "params": {
         "blur_first": true,
@@ -171,8 +171,8 @@
         "y_1": 48,
         "y_2": 80
       },
-      "sha256": "ff80bdc0c60b7e5077704a89f78d221a42cf3bdb5481b5b0acb46127a9d1fc1c",
-      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "sha256": "39e6576a40d7df30a4f49db7c5eb3b465cd0eeab15cd4046ac7d9c55b995f4db",
+      "source": "mp4_yuv420p8_10f_bestsource",
       "tier": "compat"
     },
     {
@@ -183,30 +183,30 @@
       "metadata": {
         "bits_per_sample": 8,
         "bytes_per_sample": 1,
-        "frames": 5,
-        "height": 128,
+        "frames": 10,
+        "height": 720,
         "pixel_type": -1610612728,
         "planes": [
           {
-            "height": 128,
+            "height": 720,
             "name": "Y",
-            "row_bytes": 256,
-            "stride": 256
+            "row_bytes": 1280,
+            "stride": 1280
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "U",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "V",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           }
         ],
-        "width": 256
+        "width": 1280
       },
       "params": {
         "blur_first": true,
@@ -224,8 +224,8 @@
         "y_1": 48,
         "y_2": 80
       },
-      "sha256": "ff80bdc0c60b7e5077704a89f78d221a42cf3bdb5481b5b0acb46127a9d1fc1c",
-      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "sha256": "17925db53d31fded9833de122d9a51095c22c3a7111da750c5351ff2fdec1877",
+      "source": "mp4_yuv420p8_10f_bestsource",
       "tier": "compat"
     },
     {
@@ -245,29 +245,29 @@
           "subsampling_h": 1,
           "subsampling_w": 1
         },
-        "frames": 5,
-        "height": 128,
+        "frames": 10,
+        "height": 720,
         "planes": [
           {
-            "height": 128,
+            "height": 720,
             "name": "Y",
-            "row_bytes": 256,
-            "stride": 256
+            "row_bytes": 1280,
+            "stride": 1280
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "U",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "V",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           }
         ],
-        "width": 256
+        "width": 1280
       },
       "params": {
         "blur_first": true,
@@ -285,8 +285,8 @@
         "seed": 42,
         "y": 64
       },
-      "sha256": "d74ca0ee02a56e8982c4324515b6a813c6d32fdfb241e37289bf893b44e8a76c",
-      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "sha256": "2b06c11059d104ba020c6f4423af068af0adb58c791ed07f777b08e9f6f328c9",
+      "source": "mp4_yuv420p8_10f_bestsource",
       "tier": "compat"
     },
     {
@@ -306,29 +306,29 @@
           "subsampling_h": 1,
           "subsampling_w": 1
         },
-        "frames": 5,
-        "height": 128,
+        "frames": 10,
+        "height": 720,
         "planes": [
           {
-            "height": 128,
+            "height": 720,
             "name": "Y",
-            "row_bytes": 256,
-            "stride": 256
+            "row_bytes": 1280,
+            "stride": 1280
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "U",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "V",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           }
         ],
-        "width": 256
+        "width": 1280
       },
       "params": {
         "blur_first": true,
@@ -346,8 +346,8 @@
         "seed": 42,
         "y": 64
       },
-      "sha256": "d74ca0ee02a56e8982c4324515b6a813c6d32fdfb241e37289bf893b44e8a76c",
-      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "sha256": "a7a03ee1e2ab228c943143e62cebc397a39f5e4da27206155b09acc08d07f41c",
+      "source": "mp4_yuv420p8_10f_bestsource",
       "tier": "compat"
     },
     {
@@ -358,30 +358,30 @@
       "metadata": {
         "bits_per_sample": 8,
         "bytes_per_sample": 1,
-        "frames": 5,
-        "height": 128,
+        "frames": 10,
+        "height": 720,
         "pixel_type": -1610612728,
         "planes": [
           {
-            "height": 128,
+            "height": 720,
             "name": "Y",
-            "row_bytes": 256,
-            "stride": 256
+            "row_bytes": 1280,
+            "stride": 1280
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "U",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "V",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           }
         ],
-        "width": 256
+        "width": 1280
       },
       "params": {
         "blur_first": true,
@@ -399,8 +399,8 @@
         "seed": 42,
         "y": 64
       },
-      "sha256": "d74ca0ee02a56e8982c4324515b6a813c6d32fdfb241e37289bf893b44e8a76c",
-      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "sha256": "2b06c11059d104ba020c6f4423af068af0adb58c791ed07f777b08e9f6f328c9",
+      "source": "mp4_yuv420p8_10f_bestsource",
       "tier": "compat"
     },
     {
@@ -411,30 +411,30 @@
       "metadata": {
         "bits_per_sample": 8,
         "bytes_per_sample": 1,
-        "frames": 5,
-        "height": 128,
+        "frames": 10,
+        "height": 720,
         "pixel_type": -1610612728,
         "planes": [
           {
-            "height": 128,
+            "height": 720,
             "name": "Y",
-            "row_bytes": 256,
-            "stride": 256
+            "row_bytes": 1280,
+            "stride": 1280
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "U",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "V",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           }
         ],
-        "width": 256
+        "width": 1280
       },
       "params": {
         "blur_first": true,
@@ -452,8 +452,8 @@
         "seed": 42,
         "y": 64
       },
-      "sha256": "d74ca0ee02a56e8982c4324515b6a813c6d32fdfb241e37289bf893b44e8a76c",
-      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "sha256": "a7a03ee1e2ab228c943143e62cebc397a39f5e4da27206155b09acc08d07f41c",
+      "source": "mp4_yuv420p8_10f_bestsource",
       "tier": "compat"
     },
     {
@@ -473,29 +473,29 @@
           "subsampling_h": 1,
           "subsampling_w": 1
         },
-        "frames": 5,
-        "height": 128,
+        "frames": 10,
+        "height": 720,
         "planes": [
           {
-            "height": 128,
+            "height": 720,
             "name": "Y",
-            "row_bytes": 256,
-            "stride": 256
+            "row_bytes": 1280,
+            "stride": 1280
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "U",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "V",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           }
         ],
-        "width": 256
+        "width": 1280
       },
       "params": {
         "blur_first": true,
@@ -513,8 +513,8 @@
         "seed": 42,
         "y": 64
       },
-      "sha256": "43a0ed6b5f2c89f06bb6eb8d90b5a810df172e2499d9089e9a128d19ce4bb7c9",
-      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "sha256": "78acb84360f47fbf01ccbb3da5699ab01cd6e8c22b791f46c1773caea69b1a2f",
+      "source": "mp4_yuv420p8_10f_bestsource",
       "tier": "compat"
     },
     {
@@ -534,29 +534,29 @@
           "subsampling_h": 1,
           "subsampling_w": 1
         },
-        "frames": 5,
-        "height": 128,
+        "frames": 10,
+        "height": 720,
         "planes": [
           {
-            "height": 128,
+            "height": 720,
             "name": "Y",
-            "row_bytes": 256,
-            "stride": 256
+            "row_bytes": 1280,
+            "stride": 1280
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "U",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "V",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           }
         ],
-        "width": 256
+        "width": 1280
       },
       "params": {
         "blur_first": true,
@@ -574,8 +574,8 @@
         "seed": 42,
         "y": 64
       },
-      "sha256": "43a0ed6b5f2c89f06bb6eb8d90b5a810df172e2499d9089e9a128d19ce4bb7c9",
-      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "sha256": "d45f9c3504ffc7c4a01bf8c4ab48db75549cdb3664ad70a91e2228f44b476117",
+      "source": "mp4_yuv420p8_10f_bestsource",
       "tier": "compat"
     },
     {
@@ -586,30 +586,30 @@
       "metadata": {
         "bits_per_sample": 8,
         "bytes_per_sample": 1,
-        "frames": 5,
-        "height": 128,
+        "frames": 10,
+        "height": 720,
         "pixel_type": -1610612728,
         "planes": [
           {
-            "height": 128,
+            "height": 720,
             "name": "Y",
-            "row_bytes": 256,
-            "stride": 256
+            "row_bytes": 1280,
+            "stride": 1280
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "U",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "V",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           }
         ],
-        "width": 256
+        "width": 1280
       },
       "params": {
         "blur_first": true,
@@ -627,8 +627,8 @@
         "seed": 42,
         "y": 64
       },
-      "sha256": "43a0ed6b5f2c89f06bb6eb8d90b5a810df172e2499d9089e9a128d19ce4bb7c9",
-      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "sha256": "78acb84360f47fbf01ccbb3da5699ab01cd6e8c22b791f46c1773caea69b1a2f",
+      "source": "mp4_yuv420p8_10f_bestsource",
       "tier": "compat"
     },
     {
@@ -639,30 +639,30 @@
       "metadata": {
         "bits_per_sample": 8,
         "bytes_per_sample": 1,
-        "frames": 5,
-        "height": 128,
+        "frames": 10,
+        "height": 720,
         "pixel_type": -1610612728,
         "planes": [
           {
-            "height": 128,
+            "height": 720,
             "name": "Y",
-            "row_bytes": 256,
-            "stride": 256
+            "row_bytes": 1280,
+            "stride": 1280
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "U",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           },
           {
-            "height": 64,
+            "height": 360,
             "name": "V",
-            "row_bytes": 128,
-            "stride": 128
+            "row_bytes": 640,
+            "stride": 640
           }
         ],
-        "width": 256
+        "width": 1280
       },
       "params": {
         "blur_first": true,
@@ -680,8 +680,8 @@
         "seed": 42,
         "y": 64
       },
-      "sha256": "43a0ed6b5f2c89f06bb6eb8d90b5a810df172e2499d9089e9a128d19ce4bb7c9",
-      "source": "synthetic_gradient_yuv420p8_256x128_5f",
+      "sha256": "d45f9c3504ffc7c4a01bf8c4ab48db75549cdb3664ad70a91e2228f44b476117",
+      "source": "mp4_yuv420p8_10f_bestsource",
       "tier": "compat"
     }
   ],
