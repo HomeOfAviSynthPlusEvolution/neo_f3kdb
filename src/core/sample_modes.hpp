@@ -1,8 +1,10 @@
 #pragma once
 
+#include "core/constants.hpp"
 #include "core/plane.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 
 namespace neo_f3kdb::core::sample_modes {
@@ -27,6 +29,61 @@ inline int avg4(int pixel1, int pixel2, int pixel3, int pixel4) {
 
 inline bool over_threshold(int threshold, int diff) {
   return std::abs(diff) >= threshold;
+}
+
+inline float saturate(float value) {
+  return std::clamp(value, 0.0f, 1.0f);
+}
+
+inline float calculate_ratio_term(float diff, float threshold) {
+  if (threshold < 1e-5f) {
+    return std::abs(diff) < 1e-5f ? 1.0f : -1e6f;
+  }
+  return 1.0f - std::abs(diff) / threshold;
+}
+
+template <class PixelIn>
+inline float read_upsampled_pixel(
+  const process_plane_params& params,
+  const PixelIn* src_base,
+  int src_stride,
+  int row,
+  int col
+) {
+  row = std::clamp(row, 0, params.plane_height_in_pixels - 1);
+  col = std::clamp(col, 0, params.plane_width_in_pixels - 1);
+  return static_cast<float>(upsample(src_base[row * src_stride + col], params.input_depth));
+}
+
+template <class PixelIn>
+float calculate_gradient_angle(
+  const process_plane_params& params,
+  const PixelIn* src_base,
+  int src_stride,
+  int current_x,
+  int current_y,
+  int read_distance = 20
+) {
+  const float p00 = read_upsampled_pixel(params, src_base, src_stride, current_y - read_distance, current_x - read_distance);
+  const float p10 = read_upsampled_pixel(params, src_base, src_stride, current_y - read_distance, current_x);
+  const float p20 = read_upsampled_pixel(params, src_base, src_stride, current_y - read_distance, current_x + read_distance);
+  const float p01 = read_upsampled_pixel(params, src_base, src_stride, current_y, current_x - read_distance);
+  const float p21 = read_upsampled_pixel(params, src_base, src_stride, current_y, current_x + read_distance);
+  const float p02 = read_upsampled_pixel(params, src_base, src_stride, current_y + read_distance, current_x - read_distance);
+  const float p12 = read_upsampled_pixel(params, src_base, src_stride, current_y + read_distance, current_x);
+  const float p22 = read_upsampled_pixel(params, src_base, src_stride, current_y + read_distance, current_x + read_distance);
+
+  const float gx = (p20 + 2.0f * p21 + p22) - (p00 + 2.0f * p01 + p02);
+  const float gy = (p00 + 2.0f * p10 + p20) - (p02 + 2.0f * p12 + p22);
+  const float scaled_epsilon_for_gx =
+    0.01f * (static_cast<float>(1 << (INTERNAL_BIT_DEPTH - params.input_depth)) * 3.0f);
+
+  if (std::abs(gx) < scaled_epsilon_for_gx) {
+    return 1.0f;
+  }
+
+  constexpr float kPi = 3.14159265358979323846f;
+  return std::atan(gy / gx) / kPi + 0.5f;
 }
 
 template <bool kBlurFirst>
@@ -108,6 +165,71 @@ inline int process_mode5(
     over_threshold(threshold2, mid_dif1) ||
     over_threshold(threshold2, mid_dif2);
   return use_src ? src_px : avg;
+}
+
+inline int process_mode6(
+  int src_px,
+  float ref_h1,
+  float ref_h2,
+  float ref_w1,
+  float ref_w2,
+  float threshold,
+  float threshold1,
+  float threshold2
+) {
+  const float org_pix = static_cast<float>(src_px);
+  const float avg_refs = (ref_h1 + ref_h2 + ref_w1 + ref_w2) * 0.25f;
+  const float avg_dif = std::abs(avg_refs - org_pix);
+  const float max_dif = std::max({
+    std::abs(ref_h1 - org_pix),
+    std::abs(ref_h2 - org_pix),
+    std::abs(ref_w1 - org_pix),
+    std::abs(ref_w2 - org_pix)
+  });
+  const float mid_dif_v = std::abs(ref_h1 + ref_h2 - 2.0f * org_pix);
+  const float mid_dif_h = std::abs(ref_w1 + ref_w2 - 2.0f * org_pix);
+
+  const float factor = std::pow(
+    saturate(3.0f * calculate_ratio_term(avg_dif, threshold)) *
+      saturate(3.0f * calculate_ratio_term(max_dif, threshold1)) *
+      saturate(3.0f * calculate_ratio_term(mid_dif_v, threshold2)) *
+      saturate(3.0f * calculate_ratio_term(mid_dif_h, threshold2)),
+    0.1f
+  );
+
+  return static_cast<int>((org_pix + (avg_refs - org_pix) * factor) + 0.5f);
+}
+
+inline int process_mode7(
+  const process_plane_params& params,
+  int src_px,
+  float ref_h1,
+  float ref_h2,
+  float ref_w1,
+  float ref_w2,
+  float angle_org,
+  float angle_ref_h1,
+  float angle_ref_h2,
+  float angle_ref_w1,
+  float angle_ref_w2
+) {
+  float max_angle_diff = 0.0f;
+  max_angle_diff = std::max(max_angle_diff, std::abs(angle_ref_h1 - angle_org));
+  max_angle_diff = std::max(max_angle_diff, std::abs(angle_ref_h2 - angle_org));
+  max_angle_diff = std::max(max_angle_diff, std::abs(angle_ref_w1 - angle_org));
+  max_angle_diff = std::max(max_angle_diff, std::abs(angle_ref_w2 - angle_org));
+
+  float threshold = static_cast<float>(params.threshold);
+  float threshold1 = static_cast<float>(params.threshold1);
+  float threshold2 = static_cast<float>(params.threshold2);
+
+  if (max_angle_diff <= params.max_angle) {
+    threshold *= params.angle_boost;
+    threshold1 *= params.angle_boost;
+    threshold2 *= params.angle_boost;
+  }
+
+  return process_mode6(src_px, ref_h1, ref_h2, ref_w1, ref_w2, threshold, threshold1, threshold2);
 }
 
 template <int kSampleMode, bool kBlurFirst, class PixelIn>
@@ -215,8 +337,47 @@ int process_pixel(
       params.threshold1,
       params.threshold2
     );
+  } else if constexpr (kSampleMode == 6 || kSampleMode == 7) {
+    const int ref_y = info.ref1 >> height_subsamp;
+    const int ref_x = info.ref1 >> width_subsamp;
+    const float ref_h1 = read_upsampled_pixel(params, src_base, src_stride, row + ref_y, col);
+    const float ref_h2 = read_upsampled_pixel(params, src_base, src_stride, row - ref_y, col);
+    const float ref_w1 = read_upsampled_pixel(params, src_base, src_stride, row, col + ref_x);
+    const float ref_w2 = read_upsampled_pixel(params, src_base, src_stride, row, col - ref_x);
+
+    if constexpr (kSampleMode == 6) {
+      return process_mode6(
+        src_px,
+        ref_h1,
+        ref_h2,
+        ref_w1,
+        ref_w2,
+        static_cast<float>(params.threshold),
+        static_cast<float>(params.threshold1),
+        static_cast<float>(params.threshold2)
+      );
+    } else {
+      const float angle_org = calculate_gradient_angle(params, src_base, src_stride, col, row);
+      const float angle_ref_h1 = calculate_gradient_angle(params, src_base, src_stride, col, row + ref_y);
+      const float angle_ref_h2 = calculate_gradient_angle(params, src_base, src_stride, col, row - ref_y);
+      const float angle_ref_w1 = calculate_gradient_angle(params, src_base, src_stride, col + ref_x, row);
+      const float angle_ref_w2 = calculate_gradient_angle(params, src_base, src_stride, col - ref_x, row);
+      return process_mode7(
+        params,
+        src_px,
+        ref_h1,
+        ref_h2,
+        ref_w1,
+        ref_w2,
+        angle_org,
+        angle_ref_h1,
+        angle_ref_h2,
+        angle_ref_w1,
+        angle_ref_w2
+      );
+    }
   } else {
-    static_assert(kSampleMode >= 1 && kSampleMode <= 5);
+    static_assert(kSampleMode >= 1 && kSampleMode <= 7);
   }
 }
 

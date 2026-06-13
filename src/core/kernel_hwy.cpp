@@ -23,7 +23,7 @@ namespace hn = hwy::HWY_NAMESPACE;
 
 template <int kSampleMode, bool kBlurFirst, int kDitherAlgo, class PixelIn, class PixelOut>
 void process_plane_templated(const process_plane_params& params) {
-    static_assert(kSampleMode >= 1 && kSampleMode <= 5);
+    static_assert(kSampleMode >= 1 && kSampleMode <= 7);
     static_assert(
         kDitherAlgo == DA_HIGH_NO_DITHERING ||
         kDitherAlgo == DA_HIGH_ORDERED_DITHERING ||
@@ -126,6 +126,12 @@ void dispatch_sample_mode(const process_plane_params& params) {
         case 5:
             dispatch_blur<5, PixelIn, PixelOut>(params);
             break;
+        case 6:
+            dispatch_blur<6, PixelIn, PixelOut>(params);
+            break;
+        case 7:
+            dispatch_blur<7, PixelIn, PixelOut>(params);
+            break;
         default:
             abort();
     }
@@ -163,9 +169,7 @@ namespace core {
 namespace {
 
 bool delegates_to_scalar(const process_plane_params& params) {
-    return params.dither_algo == DA_HIGH_FLOYD_STEINBERG_DITHERING ||
-        params.sample_mode < 1 ||
-        params.sample_mode > 5;
+    return params.dither_algo == DA_HIGH_FLOYD_STEINBERG_DITHERING;
 }
 
 } // namespace
