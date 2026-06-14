@@ -3,7 +3,7 @@
 #include "core/constants.hpp"
 #include "core/pixel_proc_common.hpp"
 
-namespace pixel_proc_16bit {
+namespace neo_f3kdb::core::pixel_proc_detail::output_16bit {
     
     static inline void init_context(char context_buffer[CONTEXT_BUFFER_SIZE], int frame_width, int output_depth)
     {
@@ -53,4 +53,4 @@ namespace pixel_proc_16bit {
         return neo_f3kdb::core::pixel_proc_common::avg_4(context, pixel1, pixel2, pixel3, pixel4);
     }
 
-};
+} // namespace neo_f3kdb::core::pixel_proc_detail::output_16bit

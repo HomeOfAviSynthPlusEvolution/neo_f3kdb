@@ -3,6 +3,7 @@
 template <int kSampleMode, bool kBlurFirst, int kDitherAlgo, class PixelIn, class PixelOut, class D32, class DU32>
 void process_block(
     const process_plane_params& params,
+    neo_f3kdb::core::dither::FloydSteinbergDither* fs_dither,
     const PixelIn* src_base,
     const PixelIn* src_row,
     PixelOut* dst_row,
@@ -66,7 +67,22 @@ void process_block(
         );
     }
 
-    auto pixel = hn::LoadU(d32, src_up);
-    pixel = apply_dither_and_grain<kDitherAlgo>(params, d32, pixel, grain_row, row, col, lanes);
-    store_pixels_from_u32(du32, dst_row + col, hn::BitCast(du32, pixel));
+    if constexpr (kDitherAlgo == DA_HIGH_FLOYD_STEINBERG_DITHERING) {
+        for (std::size_t lane = 0; lane < lanes; ++lane) {
+            const int column = col + static_cast<int>(lane);
+            const int pixel = postprocess_floyd_steinberg_pixel(
+                params,
+                *fs_dither,
+                src_up[lane],
+                grain_row,
+                column
+            );
+            dst_row[column] = static_cast<PixelOut>(pixel);
+            fs_dither->next_pixel();
+        }
+    } else {
+        auto pixel = hn::LoadU(d32, src_up);
+        pixel = apply_dither_and_grain<kDitherAlgo>(params, d32, pixel, grain_row, row, col, lanes);
+        store_pixels_from_u32(du32, dst_row + col, hn::BitCast(du32, pixel));
+    }
 }

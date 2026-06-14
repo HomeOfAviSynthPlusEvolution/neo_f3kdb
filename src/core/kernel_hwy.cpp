@@ -1,7 +1,9 @@
 #include "core/constants.hpp"
-#include "core/kernel.hpp"
-#include "core/sample_modes.hpp"
+#include "core/dither_floyd_steinberg.hpp"
 #include "core/dither_ordered.hpp"
+#include "core/kernel.hpp"
+#include "core/pixel_proc_common.hpp"
+#include "core/sample_modes.hpp"
 
 #undef HWY_TARGET_INCLUDE
 #define HWY_TARGET_INCLUDE "core/kernel_hwy.cpp"
@@ -27,6 +29,7 @@ void process_plane_templated(const process_plane_params& params) {
     static_assert(
         kDitherAlgo == DA_HIGH_NO_DITHERING ||
         kDitherAlgo == DA_HIGH_ORDERED_DITHERING ||
+        kDitherAlgo == DA_HIGH_FLOYD_STEINBERG_DITHERING ||
         kDitherAlgo == DA_16BIT_INTERLEAVED
     );
 
@@ -43,6 +46,18 @@ void process_plane_templated(const process_plane_params& params) {
     const std::size_t lanes = hn::Lanes(di32);
     const int vec_width = width - static_cast<int>(width % lanes);
 
+    using FloydSteinbergDither = neo_f3kdb::core::dither::FloydSteinbergDither;
+    alignas(FloydSteinbergDither) char fs_context[CONTEXT_BUFFER_SIZE];
+    FloydSteinbergDither* fs_dither = nullptr;
+    if constexpr (kDitherAlgo == DA_HIGH_FLOYD_STEINBERG_DITHERING) {
+        fs_dither = new (fs_context) FloydSteinbergDither(
+            fs_context + sizeof(FloydSteinbergDither),
+            CONTEXT_BUFFER_SIZE - static_cast<int>(sizeof(FloydSteinbergDither)),
+            width,
+            params.output_depth
+        );
+    }
+
     for (int row = 0; row < height; ++row) {
         const PixelIn* src_row = src_base + row * src_stride;
         PixelOut* dst_row = dst_base + row * dst_stride;
@@ -53,6 +68,7 @@ void process_plane_templated(const process_plane_params& params) {
         for (; col < vec_width; col += static_cast<int>(lanes)) {
             deband_hwy_detail::process_block<kSampleMode, kBlurFirst, kDitherAlgo>(
                 params,
+                fs_dither,
                 src_base,
                 src_row,
                 dst_row,
@@ -76,9 +92,34 @@ void process_plane_templated(const process_plane_params& params) {
                 row,
                 col
             );
-            pixel = deband_hwy_detail::postprocess_scalar_pixel<kDitherAlgo>(params, pixel, grain_row, row, col);
+            if constexpr (kDitherAlgo == DA_HIGH_FLOYD_STEINBERG_DITHERING) {
+                pixel = deband_hwy_detail::postprocess_floyd_steinberg_pixel(
+                    params,
+                    *fs_dither,
+                    pixel,
+                    grain_row,
+                    col
+                );
+                fs_dither->next_pixel();
+            } else {
+                pixel = deband_hwy_detail::postprocess_scalar_pixel<kDitherAlgo>(
+                    params,
+                    pixel,
+                    grain_row,
+                    row,
+                    col
+                );
+            }
             dst_row[col] = static_cast<PixelOut>(pixel);
         }
+
+        if constexpr (kDitherAlgo == DA_HIGH_FLOYD_STEINBERG_DITHERING) {
+            fs_dither->next_row();
+        }
+    }
+
+    if constexpr (kDitherAlgo == DA_HIGH_FLOYD_STEINBERG_DITHERING) {
+        fs_dither->~FloydSteinbergDither();
     }
 }
 
@@ -90,6 +131,11 @@ void dispatch_dither(const process_plane_params& params) {
             break;
         case DA_HIGH_ORDERED_DITHERING:
             process_plane_templated<kSampleMode, kBlurFirst, DA_HIGH_ORDERED_DITHERING, PixelIn, PixelOut>(params);
+            break;
+        case DA_HIGH_FLOYD_STEINBERG_DITHERING:
+            process_plane_templated<kSampleMode, kBlurFirst, DA_HIGH_FLOYD_STEINBERG_DITHERING, PixelIn, PixelOut>(
+                params
+            );
             break;
         case DA_16BIT_INTERLEAVED:
             process_plane_templated<kSampleMode, kBlurFirst, DA_16BIT_INTERLEAVED, PixelIn, PixelOut>(params);
@@ -166,20 +212,7 @@ HWY_EXPORT(ProcessPlaneHWY);
 
 namespace core {
 
-namespace {
-
-bool delegates_to_scalar(const process_plane_params& params) {
-    return params.dither_algo == DA_HIGH_FLOYD_STEINBERG_DITHERING;
-}
-
-} // namespace
-
 void process_plane_highway(const PlaneJob& job) {
-    if (delegates_to_scalar(job.params)) {
-        process_plane_scalar(job);
-        return;
-    }
-
     HWY_DYNAMIC_DISPATCH(ProcessPlaneHWY)(job.params, job.context);
 }
 

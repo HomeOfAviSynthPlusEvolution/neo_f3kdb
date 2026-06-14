@@ -2,7 +2,7 @@
 
 #include "core/pixel_proc_common.hpp"
 
-namespace pixel_proc_high_no_dithering {
+namespace neo_f3kdb::core::pixel_proc_detail::none {
 	
 	static inline void init_context(char context_buffer[CONTEXT_BUFFER_SIZE], int frame_width, int output_depth)
 	{
@@ -50,4 +50,4 @@ namespace pixel_proc_high_no_dithering {
         return neo_f3kdb::core::pixel_proc_common::avg_4(context, pixel1, pixel2, pixel3, pixel4);
     }
 
-};
+} // namespace neo_f3kdb::core::pixel_proc_detail::none

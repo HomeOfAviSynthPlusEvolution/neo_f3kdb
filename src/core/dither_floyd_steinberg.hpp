@@ -124,7 +124,7 @@ private:
 
 } // namespace neo_f3kdb::core::dither
 
-namespace pixel_proc_high_f_s_dithering {
+namespace neo_f3kdb::core::pixel_proc_detail::floyd_steinberg {
 
     using FloydSteinbergDither = neo_f3kdb::core::dither::FloydSteinbergDither;
 
@@ -184,6 +184,6 @@ namespace pixel_proc_high_f_s_dithering {
         return neo_f3kdb::core::pixel_proc_common::avg_4(context, pixel1, pixel2, pixel3, pixel4);
     }
 
-};
+} // namespace neo_f3kdb::core::pixel_proc_detail::floyd_steinberg
 
 #endif // PIXEL_PROC_C_HIGH_F_S_DITHERING_H

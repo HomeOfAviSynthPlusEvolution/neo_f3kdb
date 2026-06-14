@@ -6,7 +6,7 @@
 #include "core/constants.hpp"
 #include "core/pixel_proc_common.hpp"
 
-namespace pixel_proc_high_ordered_dithering {
+namespace neo_f3kdb::core::pixel_proc_detail::ordered {
 
     // bayer dither matrix
     // align to 16 byte for reading from SSE code
@@ -80,6 +80,6 @@ namespace pixel_proc_high_ordered_dithering {
     {
         return neo_f3kdb::core::pixel_proc_common::avg_4(context, pixel1, pixel2, pixel3, pixel4);
     }
-};
+} // namespace neo_f3kdb::core::pixel_proc_detail::ordered
 
 #endif // PIXEL_PROC_C_HIGH_ORDERED_DITHERING_H

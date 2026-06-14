@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cmath>
 #include "core/plane.hpp"
@@ -107,7 +108,7 @@ template <int sample_mode, bool blur_first, int mode, int output_mode>
 static __forceinline void __cdecl process_plane_plainc_mode12_high(const process_plane_params& params, process_plane_context*)
 {
     pixel_dither_info* info_ptr;
-    char context[CONTEXT_BUFFER_SIZE];
+    alignas(std::max_align_t) char context[CONTEXT_BUFFER_SIZE];
 
     unsigned short threshold = params.threshold;
 
