@@ -233,7 +233,9 @@ set(F3KDB_SOURCES
   src/core/processor.hpp
   src/core/random.cpp
   src/core/random.hpp
+  src/core/sample_math.hpp
   src/core/sample_modes.hpp
+  src/core/sample_reader.hpp
 )
 
 if(WIN32)

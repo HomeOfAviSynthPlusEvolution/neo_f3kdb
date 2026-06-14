@@ -13,6 +13,7 @@ void process_block(
     DU32 du32,
     std::size_t lanes
 ) {
+    const auto& config = params.config;
     alignas(64) std::int32_t src_up[hn::MaxLanes(d32)];
     alignas(64) std::int32_t ref1[hn::MaxLanes(d32)];
     alignas(64) std::int32_t ref2[hn::MaxLanes(d32)];
@@ -50,9 +51,9 @@ void process_block(
                 ref2,
                 ref3,
                 ref4,
-                params.config.threshold,
-                params.config.threshold1,
-                params.config.threshold2
+                config.threshold,
+                config.threshold1,
+                config.threshold2
             ),
             d32,
             src_up
@@ -63,7 +64,7 @@ void process_block(
         for (std::size_t lane = 0; lane < lanes; ++lane) {
             const int column = col + static_cast<int>(lane);
             const int pixel = postprocess_floyd_steinberg_pixel(
-                params,
+                config,
                 *fs_dither,
                 src_up[lane],
                 grain_row,
@@ -74,7 +75,7 @@ void process_block(
         }
     } else {
         auto pixel = hn::LoadU(d32, src_up);
-        pixel = apply_dither_and_grain<kDitherAlgo>(params, d32, pixel, grain_row, row, col, lanes);
+        pixel = apply_dither_and_grain<kDitherAlgo>(config, d32, pixel, grain_row, row, col, lanes);
         store_pixels_from_u32(du32, dst_row.data() + col, hn::BitCast(du32, pixel));
     }
 }

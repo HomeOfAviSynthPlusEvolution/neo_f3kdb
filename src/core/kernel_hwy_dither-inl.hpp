@@ -2,7 +2,7 @@
 
 template <int kDitherAlgo>
 int postprocess_scalar_pixel(
-    const process_plane_params& params,
+    const neo_f3kdb::core::KernelConfig& config,
     int pixel,
     std::span<const std::int16_t> grain_row,
     int row,
@@ -11,18 +11,18 @@ int postprocess_scalar_pixel(
     pixel += static_cast<int>(grain_row[static_cast<std::size_t>(col)]);
 
     if constexpr (kDitherAlgo == DA_HIGH_NO_DITHERING) {
-        return std::clamp(pixel, params.config.pixel_min, params.config.pixel_max) >> (16 - params.config.output_depth);
+        return std::clamp(pixel, config.pixel_min, config.pixel_max) >> (16 - config.output_depth);
     } else if constexpr (kDitherAlgo == DA_HIGH_ORDERED_DITHERING) {
-        pixel += neo_f3kdb::core::pixel_proc_detail::ordered::THRESHOLD_MAP[row & 15][col & 15] >> (params.config.output_depth - 8);
-        return std::clamp(pixel, params.config.pixel_min, params.config.pixel_max) >> (16 - params.config.output_depth);
+        pixel += neo_f3kdb::core::pixel_proc_detail::ordered::THRESHOLD_MAP[row & 15][col & 15] >> (config.output_depth - 8);
+        return std::clamp(pixel, config.pixel_min, config.pixel_max) >> (16 - config.output_depth);
     } else {
         static_assert(kDitherAlgo == DA_16BIT_INTERLEAVED);
-        return std::clamp(pixel, params.config.pixel_min, params.config.pixel_max);
+        return std::clamp(pixel, config.pixel_min, config.pixel_max);
     }
 }
 
 inline int postprocess_floyd_steinberg_pixel(
-    const process_plane_params& params,
+    const neo_f3kdb::core::KernelConfig& config,
     neo_f3kdb::core::dither::FloydSteinbergDither& fs_dither,
     int pixel,
     std::span<const std::int16_t> grain_row,
@@ -32,15 +32,15 @@ inline int postprocess_floyd_steinberg_pixel(
     pixel = fs_dither.dither(pixel);
     return neo_f3kdb::core::pixel_proc_common::downsample(
         pixel,
-        params.config.pixel_min,
-        params.config.pixel_max,
-        params.config.output_depth
+        config.pixel_min,
+        config.pixel_max,
+        config.output_depth
     );
 }
 
 template <int kDitherAlgo, class D32, class V32>
 V32 apply_dither_and_grain(
-    const process_plane_params& params,
+    const neo_f3kdb::core::KernelConfig& config,
     D32 d32,
     V32 pixel,
     std::span<const std::int16_t> grain_row,
@@ -54,14 +54,14 @@ V32 apply_dither_and_grain(
     if constexpr (kDitherAlgo == DA_HIGH_ORDERED_DITHERING) {
         alignas(64) std::int32_t dither[hn::MaxLanes(d32)];
         for (std::size_t lane = 0; lane < lanes; ++lane) {
-            dither[lane] = neo_f3kdb::core::pixel_proc_detail::ordered::THRESHOLD_MAP[row & 15][(col + static_cast<int>(lane)) & 15] >> (params.config.output_depth - 8);
+            dither[lane] = neo_f3kdb::core::pixel_proc_detail::ordered::THRESHOLD_MAP[row & 15][(col + static_cast<int>(lane)) & 15] >> (config.output_depth - 8);
         }
         pixel = hn::Add(pixel, hn::LoadU(d32, dither));
     }
 
-    pixel = hn::Min(hn::Max(pixel, hn::Set(d32, params.config.pixel_min)), hn::Set(d32, params.config.pixel_max));
+    pixel = hn::Min(hn::Max(pixel, hn::Set(d32, config.pixel_min)), hn::Set(d32, config.pixel_max));
     if constexpr (kDitherAlgo != DA_16BIT_INTERLEAVED) {
-        pixel = hn::ShiftRightSame(pixel, 16 - params.config.output_depth);
+        pixel = hn::ShiftRightSame(pixel, 16 - config.output_depth);
     }
     return pixel;
 }

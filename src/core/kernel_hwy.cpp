@@ -33,6 +33,7 @@ void process_plane_templated(const process_plane_params& params) {
         kDitherAlgo == DA_16BIT_INTERLEAVED
     );
 
+    const auto& config = params.config;
     const int height = params.plane_height();
     const int width = params.plane_width();
     const auto src_plane = params.src_plane<PixelIn>();
@@ -52,7 +53,7 @@ void process_plane_templated(const process_plane_params& params) {
             fs_context + sizeof(FloydSteinbergDither),
             CONTEXT_BUFFER_SIZE - static_cast<int>(sizeof(FloydSteinbergDither)),
             width,
-            params.config.output_depth
+            config.output_depth
         );
     }
 
@@ -85,7 +86,7 @@ void process_plane_templated(const process_plane_params& params) {
             );
             if constexpr (kDitherAlgo == DA_HIGH_FLOYD_STEINBERG_DITHERING) {
                 pixel = deband_hwy_detail::postprocess_floyd_steinberg_pixel(
-                    params,
+                    config,
                     *fs_dither,
                     pixel,
                     grain_row,
@@ -94,7 +95,7 @@ void process_plane_templated(const process_plane_params& params) {
                 fs_dither->next_pixel();
             } else {
                 pixel = deband_hwy_detail::postprocess_scalar_pixel<kDitherAlgo>(
-                    params,
+                    config,
                     pixel,
                     grain_row,
                     row,
