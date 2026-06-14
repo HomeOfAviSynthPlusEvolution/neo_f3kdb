@@ -5,9 +5,8 @@ void process_block(
     const process_plane_params& params,
     neo_f3kdb::core::dither::FloydSteinbergDither* fs_dither,
     neo_f3kdb::core::StridedPlaneView<const PixelIn> src_plane,
-    PixelOut* dst_row,
-    const std::int16_t* grain_row,
-    const pixel_dither_info* info_row,
+    std::span<PixelOut> dst_row,
+    std::span<const std::int16_t> grain_row,
     int row,
     int col,
     D32 d32,
@@ -33,7 +32,6 @@ void process_block(
         gather_reference_pixels<kSampleMode>(
             params,
             src_plane,
-            info_row,
             row,
             col,
             lanes,
@@ -71,12 +69,12 @@ void process_block(
                 grain_row,
                 column
             );
-            dst_row[column] = static_cast<PixelOut>(pixel);
+            dst_row[static_cast<std::size_t>(column)] = static_cast<PixelOut>(pixel);
             fs_dither->next_pixel();
         }
     } else {
         auto pixel = hn::LoadU(d32, src_up);
         pixel = apply_dither_and_grain<kDitherAlgo>(params, d32, pixel, grain_row, row, col, lanes);
-        store_pixels_from_u32(du32, dst_row + col, hn::BitCast(du32, pixel));
+        store_pixels_from_u32(du32, dst_row.data() + col, hn::BitCast(du32, pixel));
     }
 }

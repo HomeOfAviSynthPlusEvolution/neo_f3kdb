@@ -4,7 +4,6 @@ template <int kSampleMode, class PixelIn>
 void gather_reference_pixels(
     const process_plane_params& params,
     neo_f3kdb::core::StridedPlaneView<const PixelIn> src_plane,
-    const pixel_dither_info* info_row,
     int row,
     int col,
     std::size_t lanes,
@@ -15,7 +14,6 @@ void gather_reference_pixels(
     std::int32_t* ref4
 ) {
     static_assert(kSampleMode >= 1 && kSampleMode <= 5);
-    (void)info_row;
 
     for (std::size_t lane = 0; lane < lanes; ++lane) {
         const int pixel_col = col + static_cast<int>(lane);

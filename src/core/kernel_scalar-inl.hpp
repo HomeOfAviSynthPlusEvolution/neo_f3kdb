@@ -123,6 +123,7 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
     neo_f3kdb::core::pixel_proc::init_context<mode>(context, params.plane_width_in_pixels, params.output_depth);
 
     int pixel_step = params.input_mode == HIGH_BIT_DEPTH_INTERLEAVED ? 2 : 1;
+    int dst_pixel_step = output_mode == HIGH_BIT_DEPTH_INTERLEAVED ? 2 : 1;
 
     int process_width = params.plane_width_in_pixels;
 
@@ -138,14 +139,12 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
         const auto grain_row = grain_plane.row(i);
         const auto info_row = info_plane.row(i);
 
-        const unsigned char* src_px = src_row.data();
-        unsigned char* dst_px = dst_row.data();
-        const std::int16_t* grain_buffer_ptr = grain_row.data();
-        const pixel_dither_info* info_ptr = info_row.data();
-
         for (int j = 0; j < process_width; j++)
         {
-            pixel_dither_info info = *info_ptr;
+            const auto column = static_cast<std::size_t>(j);
+            const unsigned char* src_px = src_row.data() + static_cast<intptr_t>(j) * pixel_step;
+            unsigned char* dst_px = dst_row.data() + static_cast<intptr_t>(j) * dst_pixel_step;
+            pixel_dither_info info = info_row[column];
             int src_px_up = read_pixel<mode>(params, context, src_px);
 
             if constexpr (sample_mode == 1 || sample_mode == 2 || (sample_mode >= 4 && sample_mode <= 7))
@@ -366,7 +365,7 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
 
             new_pixel = neo_f3kdb::core::pixel_proc::downsample<mode>(
                 context,
-                new_pixel + *grain_buffer_ptr,
+                new_pixel + grain_row[column],
                 i,
                 j,
                 pixel_min,
@@ -381,16 +380,11 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                 break;
             case HIGH_BIT_DEPTH_INTERLEAVED:
                 *((unsigned short*)dst_px) = (unsigned short)(new_pixel & 0xFFFF);
-                dst_px++;
                 break;
             default:
                 abort();
             }
 
-            src_px += pixel_step;
-            dst_px++;
-            info_ptr++;
-            grain_buffer_ptr++;
             neo_f3kdb::core::pixel_proc::next_pixel<mode>(context);
         }
         neo_f3kdb::core::pixel_proc::next_row<mode>(context);

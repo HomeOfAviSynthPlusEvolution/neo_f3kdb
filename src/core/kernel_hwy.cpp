@@ -38,7 +38,6 @@ void process_plane_templated(const process_plane_params& params) {
     const auto src_plane = params.src_plane<PixelIn>();
     auto dst_plane = params.dst_plane<PixelOut>();
     const auto grain_plane = params.grain_plane();
-    const auto info_plane = params.dither_info_plane();
 
     const hn::ScalableTag<std::uint32_t> du32;
     const hn::Rebind<std::int32_t, decltype(du32)> di32;
@@ -60,7 +59,6 @@ void process_plane_templated(const process_plane_params& params) {
     for (int row = 0; row < height; ++row) {
         auto dst_row = dst_plane.row(row);
         const auto grain_row = grain_plane.row(row);
-        const auto info_row = info_plane.row(row);
 
         int col = 0;
         for (; col < vec_width; col += static_cast<int>(lanes)) {
@@ -68,9 +66,8 @@ void process_plane_templated(const process_plane_params& params) {
                 params,
                 fs_dither,
                 src_plane,
-                dst_row.data(),
-                grain_row.data(),
-                info_row.data(),
+                dst_row,
+                grain_row,
                 row,
                 col,
                 di32,
@@ -91,7 +88,7 @@ void process_plane_templated(const process_plane_params& params) {
                     params,
                     *fs_dither,
                     pixel,
-                    grain_row.data(),
+                    grain_row,
                     col
                 );
                 fs_dither->next_pixel();
@@ -99,7 +96,7 @@ void process_plane_templated(const process_plane_params& params) {
                 pixel = deband_hwy_detail::postprocess_scalar_pixel<kDitherAlgo>(
                     params,
                     pixel,
-                    grain_row.data(),
+                    grain_row,
                     row,
                     col
                 );

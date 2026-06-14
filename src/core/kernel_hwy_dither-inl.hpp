@@ -1,8 +1,14 @@
 // Intentionally no include guard: included by kernel_hwy-inl.hpp once per Highway target.
 
 template <int kDitherAlgo>
-int postprocess_scalar_pixel(const process_plane_params& params, int pixel, const std::int16_t* grain_row, int row, int col) {
-    pixel += static_cast<int>(grain_row[col]);
+int postprocess_scalar_pixel(
+    const process_plane_params& params,
+    int pixel,
+    std::span<const std::int16_t> grain_row,
+    int row,
+    int col
+) {
+    pixel += static_cast<int>(grain_row[static_cast<std::size_t>(col)]);
 
     if constexpr (kDitherAlgo == DA_HIGH_NO_DITHERING) {
         return std::clamp(pixel, params.pixel_min, params.pixel_max) >> (16 - params.output_depth);
@@ -19,10 +25,10 @@ inline int postprocess_floyd_steinberg_pixel(
     const process_plane_params& params,
     neo_f3kdb::core::dither::FloydSteinbergDither& fs_dither,
     int pixel,
-    const std::int16_t* grain_row,
+    std::span<const std::int16_t> grain_row,
     int col
 ) {
-    pixel += static_cast<int>(grain_row[col]);
+    pixel += static_cast<int>(grain_row[static_cast<std::size_t>(col)]);
     pixel = fs_dither.dither(pixel);
     return neo_f3kdb::core::pixel_proc_common::downsample(
         pixel,
@@ -37,13 +43,13 @@ V32 apply_dither_and_grain(
     const process_plane_params& params,
     D32 d32,
     V32 pixel,
-    const std::int16_t* grain_row,
+    std::span<const std::int16_t> grain_row,
     int row,
     int col,
     std::size_t lanes
 ) {
     const hn::Rebind<std::int16_t, D32> d16;
-    pixel = hn::Add(pixel, hn::PromoteTo(d32, hn::LoadU(d16, grain_row + col)));
+    pixel = hn::Add(pixel, hn::PromoteTo(d32, hn::LoadU(d16, grain_row.data() + col)));
 
     if constexpr (kDitherAlgo == DA_HIGH_ORDERED_DITHERING) {
         alignas(64) std::int32_t dither[hn::MaxLanes(d32)];
