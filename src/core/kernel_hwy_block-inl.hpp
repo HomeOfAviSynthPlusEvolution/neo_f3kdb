@@ -50,7 +50,7 @@ void process_block(
         );
 
         hn::StoreU(
-            process_refs<kSampleMode, kBlurFirst>(
+            process_reference_samples<kSampleMode, kBlurFirst>(
                 d32,
                 hn::LoadU(d32, src_up),
                 ref1,

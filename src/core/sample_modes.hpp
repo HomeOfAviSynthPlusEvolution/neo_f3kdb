@@ -14,6 +14,16 @@ inline int upsample(PixelIn pixel, int input_depth) {
   return static_cast<int>(pixel) << (16 - input_depth);
 }
 
+struct ReferenceSamples {
+  int src;
+  int ref_y = 0;
+  int ref_x = 0;
+  int ref1 = 0;
+  int ref2 = 0;
+  int ref3 = 0;
+  int ref4 = 0;
+};
+
 inline int avg2(int pixel1, int pixel2) {
   return (pixel1 + pixel2 + 1) >> 1;
 }
@@ -43,7 +53,7 @@ inline float calculate_ratio_term(float diff, float threshold) {
 }
 
 template <class PixelIn>
-inline float read_upsampled_pixel(
+inline int read_upsampled_sample(
   const process_plane_params& params,
   const PixelIn* src_base,
   int src_stride,
@@ -52,7 +62,71 @@ inline float read_upsampled_pixel(
 ) {
   row = std::clamp(row, 0, params.plane_height_in_pixels - 1);
   col = std::clamp(col, 0, params.plane_width_in_pixels - 1);
-  return static_cast<float>(upsample(src_base[row * src_stride + col], params.input_depth));
+  return upsample(src_base[row * src_stride + col], params.input_depth);
+}
+
+template <class PixelIn>
+inline float read_upsampled_pixel(
+  const process_plane_params& params,
+  const PixelIn* src_base,
+  int src_stride,
+  int row,
+  int col
+) {
+  return static_cast<float>(read_upsampled_sample(params, src_base, src_stride, row, col));
+}
+
+template <int kSampleMode, class PixelIn>
+ReferenceSamples load_reference_samples(
+  const process_plane_params& params,
+  const PixelIn* src_base,
+  const PixelIn* src_row,
+  int src_stride,
+  int row,
+  int col
+) {
+  static_assert(kSampleMode >= 1 && kSampleMode <= 7);
+
+  const auto info = params.info_ptr_base[static_cast<intptr_t>(params.info_stride) * row + col];
+  const int width_subsamp = params.width_subsampling;
+  const int height_subsamp = params.height_subsampling;
+
+  ReferenceSamples samples{.src = upsample(src_row[col], params.input_depth)};
+
+  if constexpr (kSampleMode == 1) {
+    samples.ref_y = info.ref1 >> height_subsamp;
+    samples.ref1 = read_upsampled_sample(params, src_base, src_stride, row - samples.ref_y, col);
+    samples.ref2 = read_upsampled_sample(params, src_base, src_stride, row + samples.ref_y, col);
+  } else if constexpr (kSampleMode == 2) {
+    const int ref_y1 = info.ref2 >> height_subsamp;
+    const int ref_y2 = info.ref1 >> height_subsamp;
+    const int ref_x1 = info.ref1 >> width_subsamp;
+    const int ref_x2 = info.ref2 >> width_subsamp;
+    samples.ref1 = read_upsampled_sample(params, src_base, src_stride, row - ref_y1, col - ref_x1);
+    samples.ref2 = read_upsampled_sample(params, src_base, src_stride, row - ref_y2, col + ref_x2);
+    samples.ref3 = read_upsampled_sample(params, src_base, src_stride, row + ref_y1, col + ref_x1);
+    samples.ref4 = read_upsampled_sample(params, src_base, src_stride, row + ref_y2, col - ref_x2);
+  } else if constexpr (kSampleMode == 3) {
+    samples.ref_x = info.ref1 >> width_subsamp;
+    samples.ref1 = read_upsampled_sample(params, src_base, src_stride, row, col - samples.ref_x);
+    samples.ref2 = read_upsampled_sample(params, src_base, src_stride, row, col + samples.ref_x);
+  } else if constexpr (kSampleMode == 4 || kSampleMode == 5) {
+    samples.ref_y = info.ref1 >> height_subsamp;
+    samples.ref_x = info.ref1 >> width_subsamp;
+    samples.ref1 = read_upsampled_sample(params, src_base, src_stride, row - samples.ref_y, col);
+    samples.ref2 = read_upsampled_sample(params, src_base, src_stride, row + samples.ref_y, col);
+    samples.ref3 = read_upsampled_sample(params, src_base, src_stride, row, col - samples.ref_x);
+    samples.ref4 = read_upsampled_sample(params, src_base, src_stride, row, col + samples.ref_x);
+  } else if constexpr (kSampleMode == 6 || kSampleMode == 7) {
+    samples.ref_y = info.ref1 >> height_subsamp;
+    samples.ref_x = info.ref1 >> width_subsamp;
+    samples.ref1 = read_upsampled_sample(params, src_base, src_stride, row + samples.ref_y, col);
+    samples.ref2 = read_upsampled_sample(params, src_base, src_stride, row - samples.ref_y, col);
+    samples.ref3 = read_upsampled_sample(params, src_base, src_stride, row, col + samples.ref_x);
+    samples.ref4 = read_upsampled_sample(params, src_base, src_stride, row, col - samples.ref_x);
+  }
+
+  return samples;
 }
 
 template <class PixelIn>
@@ -64,14 +138,38 @@ float calculate_gradient_angle(
   int current_y,
   int read_distance = 20
 ) {
-  const float p00 = read_upsampled_pixel(params, src_base, src_stride, current_y - read_distance, current_x - read_distance);
+  const float p00 = read_upsampled_pixel(
+    params,
+    src_base,
+    src_stride,
+    current_y - read_distance,
+    current_x - read_distance
+  );
   const float p10 = read_upsampled_pixel(params, src_base, src_stride, current_y - read_distance, current_x);
-  const float p20 = read_upsampled_pixel(params, src_base, src_stride, current_y - read_distance, current_x + read_distance);
+  const float p20 = read_upsampled_pixel(
+    params,
+    src_base,
+    src_stride,
+    current_y - read_distance,
+    current_x + read_distance
+  );
   const float p01 = read_upsampled_pixel(params, src_base, src_stride, current_y, current_x - read_distance);
   const float p21 = read_upsampled_pixel(params, src_base, src_stride, current_y, current_x + read_distance);
-  const float p02 = read_upsampled_pixel(params, src_base, src_stride, current_y + read_distance, current_x - read_distance);
+  const float p02 = read_upsampled_pixel(
+    params,
+    src_base,
+    src_stride,
+    current_y + read_distance,
+    current_x - read_distance
+  );
   const float p12 = read_upsampled_pixel(params, src_base, src_stride, current_y + read_distance, current_x);
-  const float p22 = read_upsampled_pixel(params, src_base, src_stride, current_y + read_distance, current_x + read_distance);
+  const float p22 = read_upsampled_pixel(
+    params,
+    src_base,
+    src_stride,
+    current_y + read_distance,
+    current_x + read_distance
+  );
 
   const float gx = (p20 + 2.0f * p21 + p22) - (p00 + 2.0f * p01 + p02);
   const float gy = (p00 + 2.0f * p10 + p20) - (p02 + 2.0f * p12 + p22);
@@ -241,134 +339,71 @@ int process_pixel(
   int row,
   int col
 ) {
-  const int height = params.plane_height_in_pixels;
-  const int width = params.plane_width_in_pixels;
-  const int input_depth = params.input_depth;
-  const int width_subsamp = params.width_subsampling;
-  const int height_subsamp = params.height_subsampling;
-  const auto info = params.info_ptr_base[static_cast<intptr_t>(params.info_stride) * row + col];
-
-  const int src_px = upsample(src_row[col], input_depth);
+  const ReferenceSamples samples =
+    load_reference_samples<kSampleMode>(params, src_base, src_row, src_stride, row, col);
 
   if constexpr (kSampleMode == 1) {
-    const int ref_y = info.ref1 >> height_subsamp;
-    const int ref1 = upsample(
-      src_base[std::clamp(row - ref_y, 0, height - 1) * src_stride + col],
-      input_depth
-    );
-    const int ref2 = upsample(
-      src_base[std::clamp(row + ref_y, 0, height - 1) * src_stride + col],
-      input_depth
-    );
-    return process_mode1<kBlurFirst>(src_px, ref1, ref2, params.threshold);
+    return process_mode1<kBlurFirst>(samples.src, samples.ref1, samples.ref2, params.threshold);
   } else if constexpr (kSampleMode == 2) {
-    const int ref_y1 = info.ref2 >> height_subsamp;
-    const int ref_y2 = info.ref1 >> height_subsamp;
-    const int ref_x1 = info.ref1 >> width_subsamp;
-    const int ref_x2 = info.ref2 >> width_subsamp;
-    const int ref1 = upsample(
-      src_base[
-        std::clamp(row - ref_y1, 0, height - 1) * src_stride +
-        std::clamp(col - ref_x1, 0, width - 1)
-      ],
-      input_depth
+    return process_mode2<kBlurFirst>(
+      samples.src,
+      samples.ref1,
+      samples.ref2,
+      samples.ref3,
+      samples.ref4,
+      params.threshold
     );
-    const int ref2 = upsample(
-      src_base[
-        std::clamp(row - ref_y2, 0, height - 1) * src_stride +
-        std::clamp(col + ref_x2, 0, width - 1)
-      ],
-      input_depth
-    );
-    const int ref3 = upsample(
-      src_base[
-        std::clamp(row + ref_y1, 0, height - 1) * src_stride +
-        std::clamp(col + ref_x1, 0, width - 1)
-      ],
-      input_depth
-    );
-    const int ref4 = upsample(
-      src_base[
-        std::clamp(row + ref_y2, 0, height - 1) * src_stride +
-        std::clamp(col - ref_x2, 0, width - 1)
-      ],
-      input_depth
-    );
-    return process_mode2<kBlurFirst>(src_px, ref1, ref2, ref3, ref4, params.threshold);
   } else if constexpr (kSampleMode == 3) {
-    const int ref_x = info.ref1 >> width_subsamp;
-    const int ref1 = upsample(src_row[std::clamp(col - ref_x, 0, width - 1)], input_depth);
-    const int ref2 = upsample(src_row[std::clamp(col + ref_x, 0, width - 1)], input_depth);
-    return process_mode3<kBlurFirst>(src_px, ref1, ref2, params.threshold);
+    return process_mode3<kBlurFirst>(samples.src, samples.ref1, samples.ref2, params.threshold);
   } else if constexpr (kSampleMode == 4) {
-    const int ref_y = info.ref1 >> height_subsamp;
-    const int ref_x = info.ref1 >> width_subsamp;
-    const int ref_v1 = upsample(
-      src_base[std::clamp(row - ref_y, 0, height - 1) * src_stride + col],
-      input_depth
+    return process_mode4<kBlurFirst>(
+      samples.src,
+      samples.ref1,
+      samples.ref2,
+      samples.ref3,
+      samples.ref4,
+      params.threshold
     );
-    const int ref_v2 = upsample(
-      src_base[std::clamp(row + ref_y, 0, height - 1) * src_stride + col],
-      input_depth
-    );
-    const int ref_h1 = upsample(src_row[std::clamp(col - ref_x, 0, width - 1)], input_depth);
-    const int ref_h2 = upsample(src_row[std::clamp(col + ref_x, 0, width - 1)], input_depth);
-    return process_mode4<kBlurFirst>(src_px, ref_v1, ref_v2, ref_h1, ref_h2, params.threshold);
   } else if constexpr (kSampleMode == 5) {
-    const int ref_y = info.ref1 >> height_subsamp;
-    const int ref_x = info.ref1 >> width_subsamp;
-    const int ref_h1 = upsample(
-      src_base[std::clamp(row - ref_y, 0, height - 1) * src_stride + col],
-      input_depth
-    );
-    const int ref_h2 = upsample(
-      src_base[std::clamp(row + ref_y, 0, height - 1) * src_stride + col],
-      input_depth
-    );
-    const int ref_w1 = upsample(src_row[std::clamp(col - ref_x, 0, width - 1)], input_depth);
-    const int ref_w2 = upsample(src_row[std::clamp(col + ref_x, 0, width - 1)], input_depth);
     return process_mode5(
-      src_px,
-      ref_h1,
-      ref_h2,
-      ref_w1,
-      ref_w2,
+      samples.src,
+      samples.ref1,
+      samples.ref2,
+      samples.ref3,
+      samples.ref4,
       params.threshold,
       params.threshold1,
       params.threshold2
     );
   } else if constexpr (kSampleMode == 6 || kSampleMode == 7) {
-    const int ref_y = info.ref1 >> height_subsamp;
-    const int ref_x = info.ref1 >> width_subsamp;
-    const float ref_h1 = read_upsampled_pixel(params, src_base, src_stride, row + ref_y, col);
-    const float ref_h2 = read_upsampled_pixel(params, src_base, src_stride, row - ref_y, col);
-    const float ref_w1 = read_upsampled_pixel(params, src_base, src_stride, row, col + ref_x);
-    const float ref_w2 = read_upsampled_pixel(params, src_base, src_stride, row, col - ref_x);
-
     if constexpr (kSampleMode == 6) {
       return process_mode6(
-        src_px,
-        ref_h1,
-        ref_h2,
-        ref_w1,
-        ref_w2,
+        samples.src,
+        static_cast<float>(samples.ref1),
+        static_cast<float>(samples.ref2),
+        static_cast<float>(samples.ref3),
+        static_cast<float>(samples.ref4),
         static_cast<float>(params.threshold),
         static_cast<float>(params.threshold1),
         static_cast<float>(params.threshold2)
       );
     } else {
       const float angle_org = calculate_gradient_angle(params, src_base, src_stride, col, row);
-      const float angle_ref_h1 = calculate_gradient_angle(params, src_base, src_stride, col, row + ref_y);
-      const float angle_ref_h2 = calculate_gradient_angle(params, src_base, src_stride, col, row - ref_y);
-      const float angle_ref_w1 = calculate_gradient_angle(params, src_base, src_stride, col + ref_x, row);
-      const float angle_ref_w2 = calculate_gradient_angle(params, src_base, src_stride, col - ref_x, row);
+      const float angle_ref_h1 =
+        calculate_gradient_angle(params, src_base, src_stride, col, row + samples.ref_y);
+      const float angle_ref_h2 =
+        calculate_gradient_angle(params, src_base, src_stride, col, row - samples.ref_y);
+      const float angle_ref_w1 =
+        calculate_gradient_angle(params, src_base, src_stride, col + samples.ref_x, row);
+      const float angle_ref_w2 =
+        calculate_gradient_angle(params, src_base, src_stride, col - samples.ref_x, row);
       return process_mode7(
         params,
-        src_px,
-        ref_h1,
-        ref_h2,
-        ref_w1,
-        ref_w2,
+        samples.src,
+        static_cast<float>(samples.ref1),
+        static_cast<float>(samples.ref2),
+        static_cast<float>(samples.ref3),
+        static_cast<float>(samples.ref4),
         angle_org,
         angle_ref_h1,
         angle_ref_h2,

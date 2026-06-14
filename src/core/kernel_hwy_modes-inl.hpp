@@ -1,7 +1,17 @@
 // Intentionally no include guard: included by kernel_hwy-inl.hpp once per Highway target.
 
 template <int kSampleMode, bool kBlurFirst, class D32, class V32>
-V32 process_refs(D32 d32, V32 src, const std::int32_t* ref1, const std::int32_t* ref2, const std::int32_t* ref3, const std::int32_t* ref4, int threshold, int threshold1, int threshold2) {
+V32 process_reference_samples(
+    D32 d32,
+    V32 src,
+    const std::int32_t* ref1,
+    const std::int32_t* ref2,
+    const std::int32_t* ref3,
+    const std::int32_t* ref4,
+    int threshold,
+    int threshold1,
+    int threshold2
+) {
     const auto one = hn::Set(d32, 1);
     const auto threshold_v = hn::Set(d32, static_cast<std::int32_t>(threshold));
 
