@@ -35,11 +35,10 @@ void process_plane_templated(const process_plane_params& params) {
 
     const int height = params.plane_height_in_pixels;
     const int width = params.plane_width_in_pixels;
-    const int src_stride = params.src_pitch / sizeof(PixelIn);
-    const int dst_stride = params.dst_pitch / sizeof(PixelOut);
-
-    const PixelIn* src_base = reinterpret_cast<const PixelIn*>(params.src_plane_ptr);
-    PixelOut* dst_base = reinterpret_cast<PixelOut*>(params.dst_plane_ptr);
+    const auto src_plane = params.src_plane<PixelIn>();
+    auto dst_plane = params.dst_plane<PixelOut>();
+    const auto grain_plane = params.grain_plane();
+    const auto info_plane = params.dither_info_plane();
 
     const hn::ScalableTag<std::uint32_t> du32;
     const hn::Rebind<std::int32_t, decltype(du32)> di32;
@@ -59,22 +58,22 @@ void process_plane_templated(const process_plane_params& params) {
     }
 
     for (int row = 0; row < height; ++row) {
-        const PixelIn* src_row = src_base + row * src_stride;
-        PixelOut* dst_row = dst_base + row * dst_stride;
-        const std::int16_t* grain_row = params.grain_buffer + params.grain_buffer_stride * row;
-        const pixel_dither_info* info_row = params.info_ptr_base + params.info_stride * row;
+        const auto src_row = src_plane.row(row);
+        auto dst_row = dst_plane.row(row);
+        const auto grain_row = grain_plane.row(row);
+        const auto info_row = info_plane.row(row);
 
         int col = 0;
         for (; col < vec_width; col += static_cast<int>(lanes)) {
             deband_hwy_detail::process_block<kSampleMode, kBlurFirst, kDitherAlgo>(
                 params,
                 fs_dither,
-                src_base,
-                src_row,
-                dst_row,
-                grain_row,
-                info_row,
-                src_stride,
+                src_plane.data,
+                src_row.data(),
+                dst_row.data(),
+                grain_row.data(),
+                info_row.data(),
+                src_plane.stride,
                 row,
                 col,
                 di32,
@@ -86,9 +85,9 @@ void process_plane_templated(const process_plane_params& params) {
         for (; col < width; ++col) {
             int pixel = neo_f3kdb::core::sample_modes::process_pixel<kSampleMode, kBlurFirst>(
                 params,
-                src_base,
-                src_row,
-                src_stride,
+                src_plane.data,
+                src_row.data(),
+                src_plane.stride,
                 row,
                 col
             );
@@ -97,7 +96,7 @@ void process_plane_templated(const process_plane_params& params) {
                     params,
                     *fs_dither,
                     pixel,
-                    grain_row,
+                    grain_row.data(),
                     col
                 );
                 fs_dither->next_pixel();
@@ -105,12 +104,12 @@ void process_plane_templated(const process_plane_params& params) {
                 pixel = deband_hwy_detail::postprocess_scalar_pixel<kDitherAlgo>(
                     params,
                     pixel,
-                    grain_row,
+                    grain_row.data(),
                     row,
                     col
                 );
             }
-            dst_row[col] = static_cast<PixelOut>(pixel);
+            dst_row[static_cast<std::size_t>(col)] = static_cast<PixelOut>(pixel);
         }
 
         if constexpr (kDitherAlgo == DA_HIGH_FLOYD_STEINBERG_DITHERING) {

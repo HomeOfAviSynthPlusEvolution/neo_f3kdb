@@ -60,12 +60,16 @@ static __inline float calculate_ratio_term(float diff, float thresh)
 #endif
 
 template <int pixel_proc_mode>
-static float calculate_gradient_angle(const process_plane_params& params, void* context_pixel_proc, const unsigned char* src_plane_base_ptr,
+static float calculate_gradient_angle(
+    const process_plane_params& params,
+    void* context_pixel_proc,
+    neo_f3kdb::core::StridedPlaneView<const unsigned char> src_plane,
     int current_x, int current_y, int read_distance = 20)
 {
     auto get_pixel_value_at = [&](int x, int y) -> float {
-        const unsigned char* pixel_address = src_plane_base_ptr +
-            static_cast<intptr_t>(std::clamp(y, 0, params.plane_height_in_pixels - 1)) * params.src_pitch +
+        const auto src_row = src_plane.row(std::clamp(y, 0, params.plane_height_in_pixels - 1));
+        const unsigned char* pixel_address =
+            src_row.data() +
             static_cast<intptr_t>(std::clamp(x, 0, params.plane_width_in_pixels - 1)) *
             (params.input_mode == HIGH_BIT_DEPTH_INTERLEAVED ? 2 : 1);
 
@@ -107,7 +111,6 @@ static float calculate_gradient_angle(const process_plane_params& params, void* 
 template <int sample_mode, bool blur_first, int mode, int output_mode>
 static __forceinline void __cdecl process_plane_plainc_mode12_high(const process_plane_params& params, process_plane_context*)
 {
-    pixel_dither_info* info_ptr;
     alignas(std::max_align_t) char context[CONTEXT_BUFFER_SIZE];
 
     unsigned short threshold = params.threshold;
@@ -123,15 +126,22 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
 
     int process_width = params.plane_width_in_pixels;
 
+    const auto src_plane = params.src_bytes();
+    auto dst_plane = params.dst_bytes();
+    const auto grain_plane = params.grain_plane();
+    const auto info_plane = params.dither_info_plane();
+
     for (int i = 0; i < params.plane_height_in_pixels; i++)
     {
-        const unsigned char* src_px = params.src_plane_ptr + params.src_pitch * i;
-        unsigned char* dst_px = params.dst_plane_ptr + params.dst_pitch * i;
+        const auto src_row = src_plane.row(i);
+        auto dst_row = dst_plane.row(i);
+        const auto grain_row = grain_plane.row(i);
+        const auto info_row = info_plane.row(i);
 
-        const short* grain_buffer_ptr = params.grain_buffer + params.grain_buffer_stride * i;
-
-        info_ptr = params.info_ptr_base + params.info_stride * i;
-
+        const unsigned char* src_px = src_row.data();
+        unsigned char* dst_px = dst_row.data();
+        const std::int16_t* grain_buffer_ptr = grain_row.data();
+        const pixel_dither_info* info_ptr = info_row.data();
 
         for (int j = 0; j < process_width; j++)
         {
@@ -306,15 +316,15 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                 const float ref_1_w_f = static_cast<float>(read_pixel<mode>(params, context, src_px + ref_h_offset_bytes));
                 const float ref_2_w_f = static_cast<float>(read_pixel<mode>(params, context, src_px - ref_h_offset_bytes));
 
-                const float angle_org = calculate_gradient_angle<mode>(params, context, params.src_plane_ptr, j, i);
+                const float angle_org = calculate_gradient_angle<mode>(params, context, src_plane, j, i);
 
                 const int ref1h_y_offset = (info.ref1 >> params.height_subsampling);
                 const int ref1w_x_offset = (info.ref1 >> params.width_subsampling);
 
-                const float angle_ref1_h = calculate_gradient_angle<mode>(params, context, params.src_plane_ptr, j, i + ref1h_y_offset);
-                const float angle_ref2_h = calculate_gradient_angle<mode>(params, context, params.src_plane_ptr, j, i - ref1h_y_offset);
-                const float angle_ref1_w = calculate_gradient_angle<mode>(params, context, params.src_plane_ptr, j + ref1w_x_offset, i);
-                const float angle_ref2_w = calculate_gradient_angle<mode>(params, context, params.src_plane_ptr, j - ref1w_x_offset, i);
+                const float angle_ref1_h = calculate_gradient_angle<mode>(params, context, src_plane, j, i + ref1h_y_offset);
+                const float angle_ref2_h = calculate_gradient_angle<mode>(params, context, src_plane, j, i - ref1h_y_offset);
+                const float angle_ref1_w = calculate_gradient_angle<mode>(params, context, src_plane, j + ref1w_x_offset, i);
+                const float angle_ref2_w = calculate_gradient_angle<mode>(params, context, src_plane, j - ref1w_x_offset, i);
 
                 float max_angle_diff = 0.0f;
                 max_angle_diff = std::max(max_angle_diff, std::abs(angle_ref1_h - angle_org));

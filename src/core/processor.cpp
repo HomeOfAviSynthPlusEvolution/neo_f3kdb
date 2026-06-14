@@ -136,17 +136,23 @@ bool DebandProcessor::should_copy_plane(const PlaneJob& job, int grain_setting) 
 void DebandProcessor::copy_plane(const PlaneJob& job) const {
   const auto& p = job.params;
   const int line_size = p.get_src_width();
-  auto src = p.src_plane_ptr;
-  auto dst = p.dst_plane_ptr;
+  const auto src_plane = p.src_bytes();
+  auto dst_plane = p.dst_bytes();
   if (line_size == p.src_pitch && p.src_pitch == p.dst_pitch) {
-    std::memcpy(dst, src, static_cast<std::size_t>(line_size * p.get_src_height()));
+    std::memcpy(
+      dst_plane.data,
+      src_plane.data,
+      static_cast<std::size_t>(line_size * p.get_src_height())
+    );
     return;
   }
 
   for (int row = 0; row < p.get_src_height(); row++) {
-    std::memcpy(dst, src, static_cast<std::size_t>(line_size));
-    src += p.src_pitch;
-    dst += p.dst_pitch;
+    std::memcpy(
+      dst_plane.row(row).data(),
+      src_plane.row(row).data(),
+      static_cast<std::size_t>(line_size)
+    );
   }
 }
 

@@ -4,7 +4,27 @@
 #include "core/kernel_types.hpp"
 
 #include <cstdint>
+#include <cstddef>
 #include <span>
+
+namespace neo_f3kdb::core {
+
+template <class T>
+struct StridedPlaneView {
+  T* data = nullptr;
+  int width = 0;
+  int height = 0;
+  int stride = 0;
+
+  [[nodiscard]] std::span<T> row(int y) const noexcept {
+    return std::span<T>{
+      data + static_cast<std::ptrdiff_t>(y) * stride,
+      static_cast<std::size_t>(width)
+    };
+  }
+};
+
+} // namespace neo_f3kdb::core
 
 typedef struct _pixel_dither_info {
   alignas(4) std::int8_t ref1;
@@ -75,6 +95,42 @@ typedef struct _process_plane_params {
 
   inline int get_src_height() const {
     return plane_height_in_pixels;
+  }
+
+  template <class Pixel>
+  [[nodiscard]] neo_f3kdb::core::StridedPlaneView<const Pixel> src_plane() const noexcept {
+    return {
+      reinterpret_cast<const Pixel*>(src_plane_ptr),
+      plane_width_in_pixels,
+      plane_height_in_pixels,
+      src_pitch / static_cast<int>(sizeof(Pixel))
+    };
+  }
+
+  template <class Pixel>
+  [[nodiscard]] neo_f3kdb::core::StridedPlaneView<Pixel> dst_plane() const noexcept {
+    return {
+      reinterpret_cast<Pixel*>(dst_plane_ptr),
+      plane_width_in_pixels,
+      plane_height_in_pixels,
+      dst_pitch / static_cast<int>(sizeof(Pixel))
+    };
+  }
+
+  [[nodiscard]] neo_f3kdb::core::StridedPlaneView<const unsigned char> src_bytes() const noexcept {
+    return {src_plane_ptr, get_src_width(), get_src_height(), src_pitch};
+  }
+
+  [[nodiscard]] neo_f3kdb::core::StridedPlaneView<unsigned char> dst_bytes() const noexcept {
+    return {dst_plane_ptr, get_dst_width(), get_dst_height(), dst_pitch};
+  }
+
+  [[nodiscard]] neo_f3kdb::core::StridedPlaneView<const pixel_dither_info> dither_info_plane() const noexcept {
+    return {info_ptr_base, plane_width_in_pixels, plane_height_in_pixels, info_stride};
+  }
+
+  [[nodiscard]] neo_f3kdb::core::StridedPlaneView<const std::int16_t> grain_plane() const noexcept {
+    return {grain_buffer, plane_width_in_pixels, plane_height_in_pixels, grain_buffer_stride};
   }
 } process_plane_params;
 

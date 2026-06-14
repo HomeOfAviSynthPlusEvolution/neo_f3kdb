@@ -87,7 +87,7 @@ ReferenceSamples load_reference_samples(
 ) {
   static_assert(kSampleMode >= 1 && kSampleMode <= 7);
 
-  const auto info = params.info_ptr_base[static_cast<intptr_t>(params.info_stride) * row + col];
+  const auto info = params.dither_info_plane().row(row)[static_cast<std::size_t>(col)];
   const int width_subsamp = params.width_subsampling;
   const int height_subsamp = params.height_subsampling;
 
