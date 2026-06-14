@@ -52,7 +52,7 @@ void process_plane_templated(const process_plane_params& params) {
             fs_context + sizeof(FloydSteinbergDither),
             CONTEXT_BUFFER_SIZE - static_cast<int>(sizeof(FloydSteinbergDither)),
             width,
-            params.output_depth
+            params.config.output_depth
         );
     }
 
@@ -116,7 +116,7 @@ void process_plane_templated(const process_plane_params& params) {
 
 template <int kSampleMode, bool kBlurFirst, class PixelIn, class PixelOut>
 void dispatch_dither(const process_plane_params& params) {
-    switch (params.dither_algo) {
+    switch (params.config.dither_algo) {
         case DA_HIGH_NO_DITHERING:
             process_plane_templated<kSampleMode, kBlurFirst, DA_HIGH_NO_DITHERING, PixelIn, PixelOut>(params);
             break;
@@ -138,7 +138,7 @@ void dispatch_dither(const process_plane_params& params) {
 
 template <int kSampleMode, class PixelIn, class PixelOut>
 void dispatch_blur(const process_plane_params& params) {
-    if (params.blur_first) {
+    if (params.config.blur_first) {
         dispatch_dither<kSampleMode, true, PixelIn, PixelOut>(params);
     } else {
         dispatch_dither<kSampleMode, false, PixelIn, PixelOut>(params);
@@ -147,7 +147,7 @@ void dispatch_blur(const process_plane_params& params) {
 
 template <class PixelIn, class PixelOut>
 void dispatch_sample_mode(const process_plane_params& params) {
-    switch (params.sample_mode) {
+    switch (params.config.sample_mode) {
         case 1:
             dispatch_blur<1, PixelIn, PixelOut>(params);
             break;
@@ -176,7 +176,7 @@ void dispatch_sample_mode(const process_plane_params& params) {
 
 template <class PixelIn>
 void dispatch_pixel_out(const process_plane_params& params) {
-    if (params.output_depth <= 8) {
+    if (params.config.output_depth <= 8) {
         dispatch_sample_mode<PixelIn, std::uint8_t>(params);
     } else {
         dispatch_sample_mode<PixelIn, std::uint16_t>(params);
@@ -184,7 +184,7 @@ void dispatch_pixel_out(const process_plane_params& params) {
 }
 
 void ProcessPlaneHWY(const process_plane_params& params, [[maybe_unused]] process_plane_context* context) {
-    if (params.input_depth == 8) {
+    if (params.config.input_depth == 8) {
         dispatch_pixel_out<std::uint8_t>(params);
     } else {
         dispatch_pixel_out<std::uint16_t>(params);
@@ -203,8 +203,8 @@ HWY_EXPORT(ProcessPlaneHWY);
 
 namespace core {
 
-void process_plane_highway(const PlaneJob& job) {
-    HWY_DYNAMIC_DISPATCH(ProcessPlaneHWY)(job.params, job.context);
+void process_plane_highway(KernelExecution execution) {
+    HWY_DYNAMIC_DISPATCH(ProcessPlaneHWY)(execution.input, execution.context);
 }
 
 } // namespace core

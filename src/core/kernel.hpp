@@ -13,7 +13,7 @@ using deband_kernel_proc_t = void (__cdecl *)(
 
 namespace neo_f3kdb::core {
 
-void process_plane_scalar(const PlaneJob& job);
-void process_plane_highway(const PlaneJob& job);
+void process_plane_scalar(KernelExecution execution);
+void process_plane_highway(KernelExecution execution);
 
 } // namespace neo_f3kdb::core

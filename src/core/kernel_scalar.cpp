@@ -33,11 +33,12 @@ const deband_kernel_proc_t* scalar_table(DITHER_ALGORITHM dither_algo) {
 
 } // namespace
 
-void process_plane_scalar(const PlaneJob& job) {
-  const auto* table = scalar_table(job.params.dither_algo);
+void process_plane_scalar(KernelExecution execution) {
+  const auto& params = execution.input;
+  const auto* table = scalar_table(params.config.dither_algo);
   const deband_kernel_proc_t kernel =
-    table[select_impl_index(job.params.sample_mode, job.params.blur_first)];
-  kernel(job.params, job.context);
+    table[select_impl_index(params.config.sample_mode, params.config.blur_first)];
+  kernel(params, execution.context);
 }
 
 } // namespace neo_f3kdb::core

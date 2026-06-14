@@ -47,9 +47,9 @@ void DebandProcessor::process(
     }
 
     if (requested_backend_ == Backend::Highway) {
-      process_plane_highway(job);
+      process_plane_highway(job.kernel_execution());
     } else {
-      process_plane_scalar(job);
+      process_plane_scalar(job.kernel_execution());
     }
   }
 }
@@ -66,19 +66,19 @@ PlaneJob DebandProcessor::make_plane_job(
   auto& p = job.params;
 
   const int input_depth = ds::bits_per_sample(input_.format.sample_format);
-  p.input_mode = input_depth == 8 ? LOW_BIT_DEPTH : HIGH_BIT_DEPTH_INTERLEAVED;
-  p.input_depth = input_depth;
-  p.output_mode = params_.output_depth <= 8 ? LOW_BIT_DEPTH : HIGH_BIT_DEPTH_INTERLEAVED;
-  p.output_depth = params_.output_depth;
-  p.dither_algo = params_.dither_algo;
-  p.blur_first = params_.blur_first;
-  p.sample_mode = params_.sample_mode;
-  p.angle_boost = static_cast<float>(params_.angle_boost);
-  p.max_angle = static_cast<float>(params_.max_angle);
+  p.config.input_mode = input_depth == 8 ? LOW_BIT_DEPTH : HIGH_BIT_DEPTH_INTERLEAVED;
+  p.config.input_depth = input_depth;
+  p.config.output_mode = params_.output_depth <= 8 ? LOW_BIT_DEPTH : HIGH_BIT_DEPTH_INTERLEAVED;
+  p.config.output_depth = params_.output_depth;
+  p.config.dither_algo = params_.dither_algo;
+  p.config.blur_first = params_.blur_first;
+  p.config.sample_mode = params_.sample_mode;
+  p.config.angle_boost = static_cast<float>(params_.angle_boost);
+  p.config.max_angle = static_cast<float>(params_.max_angle);
 
-  p.plane = plane;
-  p.width_subsampling = static_cast<unsigned char>(plane == 0 ? 0 : input_.format.subsampling_w);
-  p.height_subsampling = static_cast<unsigned char>(plane == 0 ? 0 : input_.format.subsampling_h);
+  p.config.plane_index = plane;
+  p.config.width_subsampling = static_cast<unsigned char>(plane == 0 ? 0 : input_.format.subsampling_w);
+  p.config.height_subsampling = static_cast<unsigned char>(plane == 0 ? 0 : input_.format.subsampling_h);
   p.set_geometry(
     plane == 0 ? input_.width : (input_.width >> input_.format.subsampling_w),
     plane == 0 ? input_.height : (input_.height >> input_.format.subsampling_h)
@@ -96,25 +96,25 @@ PlaneJob DebandProcessor::make_plane_job(
 
   switch (plane) {
   case 0:
-    p.threshold = static_cast<std::uint16_t>(params_.y);
-    p.threshold1 = static_cast<std::uint16_t>(params_.y_1);
-    p.threshold2 = static_cast<std::uint16_t>(params_.y_2);
-    p.pixel_max = params_.keep_tv_range ? TV_RANGE_Y_MAX : FULL_RANGE_Y_MAX;
-    p.pixel_min = params_.keep_tv_range ? TV_RANGE_Y_MIN : FULL_RANGE_Y_MIN;
+    p.config.threshold = static_cast<std::uint16_t>(params_.y);
+    p.config.threshold1 = static_cast<std::uint16_t>(params_.y_1);
+    p.config.threshold2 = static_cast<std::uint16_t>(params_.y_2);
+    p.config.pixel_max = params_.keep_tv_range ? TV_RANGE_Y_MAX : FULL_RANGE_Y_MAX;
+    p.config.pixel_min = params_.keep_tv_range ? TV_RANGE_Y_MIN : FULL_RANGE_Y_MIN;
     break;
   case 1:
-    p.threshold = static_cast<std::uint16_t>(params_.cb);
-    p.threshold1 = static_cast<std::uint16_t>(params_.cb_1);
-    p.threshold2 = static_cast<std::uint16_t>(params_.cb_2);
-    p.pixel_max = params_.keep_tv_range ? TV_RANGE_C_MAX : FULL_RANGE_C_MAX;
-    p.pixel_min = params_.keep_tv_range ? TV_RANGE_C_MIN : FULL_RANGE_C_MIN;
+    p.config.threshold = static_cast<std::uint16_t>(params_.cb);
+    p.config.threshold1 = static_cast<std::uint16_t>(params_.cb_1);
+    p.config.threshold2 = static_cast<std::uint16_t>(params_.cb_2);
+    p.config.pixel_max = params_.keep_tv_range ? TV_RANGE_C_MAX : FULL_RANGE_C_MAX;
+    p.config.pixel_min = params_.keep_tv_range ? TV_RANGE_C_MIN : FULL_RANGE_C_MIN;
     break;
   case 2:
-    p.threshold = static_cast<std::uint16_t>(params_.cr);
-    p.threshold1 = static_cast<std::uint16_t>(params_.cr_1);
-    p.threshold2 = static_cast<std::uint16_t>(params_.cr_2);
-    p.pixel_max = params_.keep_tv_range ? TV_RANGE_C_MAX : FULL_RANGE_C_MAX;
-    p.pixel_min = params_.keep_tv_range ? TV_RANGE_C_MIN : FULL_RANGE_C_MIN;
+    p.config.threshold = static_cast<std::uint16_t>(params_.cr);
+    p.config.threshold1 = static_cast<std::uint16_t>(params_.cr_1);
+    p.config.threshold2 = static_cast<std::uint16_t>(params_.cr_2);
+    p.config.pixel_max = params_.keep_tv_range ? TV_RANGE_C_MAX : FULL_RANGE_C_MAX;
+    p.config.pixel_min = params_.keep_tv_range ? TV_RANGE_C_MIN : FULL_RANGE_C_MIN;
     break;
   default:
     std::abort();
@@ -126,9 +126,9 @@ PlaneJob DebandProcessor::make_plane_job(
 bool DebandProcessor::should_copy_plane(const PlaneJob& job, int grain_setting) const {
   return ds::bits_per_sample(input_.format.sample_format) == params_.output_depth &&
     grain_setting == 0 &&
-    job.params.threshold == 0 &&
-    job.params.threshold1 == 0 &&
-    job.params.threshold2 == 0;
+    job.params.config.threshold == 0 &&
+    job.params.config.threshold1 == 0 &&
+    job.params.config.threshold2 == 0;
 }
 
 void DebandProcessor::copy_plane(const PlaneJob& job) const {

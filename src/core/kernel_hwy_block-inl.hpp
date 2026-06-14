@@ -50,9 +50,9 @@ void process_block(
                 ref2,
                 ref3,
                 ref4,
-                params.threshold,
-                params.threshold1,
-                params.threshold2
+                params.config.threshold,
+                params.config.threshold1,
+                params.config.threshold2
             ),
             d32,
             src_up
