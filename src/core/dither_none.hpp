@@ -1,5 +1,6 @@
 
 
+#include "core/kernel.hpp"
 #include "core/pixel_proc_common.hpp"
 
 namespace neo_f3kdb::core::pixel_proc_detail::none {

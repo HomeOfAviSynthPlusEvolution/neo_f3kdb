@@ -4,6 +4,7 @@
 #define PIXEL_PROC_C_HIGH_ORDERED_DITHERING_H
 
 #include "core/constants.hpp"
+#include "core/kernel.hpp"
 #include "core/pixel_proc_common.hpp"
 
 namespace neo_f3kdb::core::pixel_proc_detail::ordered {

@@ -203,6 +203,7 @@ set(F3KDB_SOURCES
   src/core/dither_info.hpp
   src/core/dither_none.hpp
   src/core/dither_ordered.hpp
+  src/core/floyd_steinberg_dither.hpp
   src/core/frame_state.cpp
   src/core/frame_state.hpp
   src/core/grain.cpp

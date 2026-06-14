@@ -1,6 +1,6 @@
 #include "core/constants.hpp"
-#include "core/dither_floyd_steinberg.hpp"
 #include "core/dither_ordered.hpp"
+#include "core/floyd_steinberg_dither.hpp"
 #include "core/kernel.hpp"
 #include "core/pixel_proc_common.hpp"
 #include "core/sample_modes.hpp"

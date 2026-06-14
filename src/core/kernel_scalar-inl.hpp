@@ -26,10 +26,14 @@ static inline bool is_above_threshold(int threshold, int diff1, int diff2, int d
            _is_above_threshold(threshold, diff4);
 }
 
-template <int mode>
-static __inline int read_pixel(const process_plane_params& params, void* context, const unsigned char* base, int offset = 0)
+inline int input_pixel_step(const process_plane_params& params)
 {
-    const unsigned char* ptr = base + offset;
+    return params.input_mode == HIGH_BIT_DEPTH_INTERLEAVED ? 2 : 1;
+}
+
+template <int mode>
+static __inline int read_pixel_value(const process_plane_params& params, void* context, const unsigned char* ptr)
+{
     if (params.input_mode == LOW_BIT_DEPTH)
     {
         return neo_f3kdb::core::pixel_proc::upsample<mode>(context, *ptr);
@@ -40,6 +44,36 @@ static __inline int read_pixel(const process_plane_params& params, void* context
     ret = *(unsigned short*)ptr;
     ret <<= (INTERNAL_BIT_DEPTH - params.input_depth);
     return ret;
+}
+
+template <int mode>
+static __inline int read_pixel_at(
+    const process_plane_params& params,
+    void* context,
+    neo_f3kdb::core::StridedPlaneView<const unsigned char> src_plane,
+    int row,
+    int col
+) {
+    const auto src_row = src_plane.row(row);
+    const auto* ptr = src_row.data() + static_cast<intptr_t>(col) * input_pixel_step(params);
+    return read_pixel_value<mode>(params, context, ptr);
+}
+
+template <int mode>
+static __inline int read_pixel_clamped(
+    const process_plane_params& params,
+    void* context,
+    neo_f3kdb::core::StridedPlaneView<const unsigned char> src_plane,
+    int row,
+    int col
+) {
+    return read_pixel_at<mode>(
+        params,
+        context,
+        src_plane,
+        std::clamp(row, 0, params.plane_height_in_pixels - 1),
+        std::clamp(col, 0, params.plane_width_in_pixels - 1)
+    );
 }
 
 static __inline float saturate(float val)
@@ -67,14 +101,14 @@ static float calculate_gradient_angle(
     int current_x, int current_y, int read_distance = 20)
 {
     auto get_pixel_value_at = [&](int x, int y) -> float {
-        const auto src_row = src_plane.row(std::clamp(y, 0, params.plane_height_in_pixels - 1));
-        const unsigned char* pixel_address =
-            src_row.data() +
-            static_cast<intptr_t>(std::clamp(x, 0, params.plane_width_in_pixels - 1)) *
-            (params.input_mode == HIGH_BIT_DEPTH_INTERLEAVED ? 2 : 1);
-
-        return static_cast<float>(read_pixel<pixel_proc_mode>(params, context_pixel_proc, pixel_address, 0));
-        };
+        return static_cast<float>(read_pixel_clamped<pixel_proc_mode>(
+            params,
+            context_pixel_proc,
+            src_plane,
+            y,
+            x
+        ));
+    };
 
     const float p00 = get_pixel_value_at(current_x - read_distance, current_y - read_distance);
     const float p10 = get_pixel_value_at(current_x, current_y - read_distance);
@@ -122,7 +156,6 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
 
     neo_f3kdb::core::pixel_proc::init_context<mode>(context, params.plane_width_in_pixels, params.output_depth);
 
-    int pixel_step = params.input_mode == HIGH_BIT_DEPTH_INTERLEAVED ? 2 : 1;
     int dst_pixel_step = output_mode == HIGH_BIT_DEPTH_INTERLEAVED ? 2 : 1;
 
     int process_width = params.plane_width_in_pixels;
@@ -134,7 +167,6 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
 
     for (int i = 0; i < params.plane_height_in_pixels; i++)
     {
-        const auto src_row = src_plane.row(i);
         auto dst_row = dst_plane.row(i);
         const auto grain_row = grain_plane.row(i);
         const auto info_row = info_plane.row(i);
@@ -142,10 +174,9 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
         for (int j = 0; j < process_width; j++)
         {
             const auto column = static_cast<std::size_t>(j);
-            const unsigned char* src_px = src_row.data() + static_cast<intptr_t>(j) * pixel_step;
             unsigned char* dst_px = dst_row.data() + static_cast<intptr_t>(j) * dst_pixel_step;
             pixel_dither_info info = info_row[column];
-            int src_px_up = read_pixel<mode>(params, context, src_px);
+            int src_px_up = read_pixel_at<mode>(params, context, src_plane, i, j);
 
             if constexpr (sample_mode == 1 || sample_mode == 2 || (sample_mode >= 4 && sample_mode <= 7))
             {
@@ -162,14 +193,13 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
             }
             int avg;
             bool use_org_px_as_base;
-            int ref_pos, ref_pos_2;
             int new_pixel = src_px_up, new_pixel_mode1, new_pixel_mode3;
             if constexpr (sample_mode == 1 || sample_mode == 4)
             {
-                ref_pos = (info.ref1 >> params.height_subsampling) * params.src_pitch;
+                const int ref_y = info.ref1 >> params.height_subsampling;
 
-                int ref_1_up = read_pixel<mode>(params, context, src_px, ref_pos);
-                int ref_2_up = read_pixel<mode>(params, context, src_px, -ref_pos);
+                int ref_1_up = read_pixel_at<mode>(params, context, src_plane, i + ref_y, j);
+                int ref_2_up = read_pixel_at<mode>(params, context, src_plane, i - ref_y, j);
 
                 avg = neo_f3kdb::core::pixel_proc::avg_2<mode>(context, ref_1_up, ref_2_up);
 
@@ -186,10 +216,10 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
             }
             if constexpr (sample_mode == 3 || sample_mode == 4)
             {
-                ref_pos = (info.ref1 >> params.width_subsampling) * pixel_step;
+                const int ref_x = info.ref1 >> params.width_subsampling;
 
-                int ref_1_up = read_pixel<mode>(params, context, src_px, ref_pos);
-                int ref_2_up = read_pixel<mode>(params, context, src_px, -ref_pos);
+                int ref_1_up = read_pixel_at<mode>(params, context, src_plane, i, j + ref_x);
+                int ref_2_up = read_pixel_at<mode>(params, context, src_plane, i, j - ref_x);
 
                 avg = neo_f3kdb::core::pixel_proc::avg_2<mode>(context, ref_1_up, ref_2_up);
 
@@ -211,22 +241,20 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
             if constexpr (sample_mode == 2)
             {
                 int x_multiplier = 1;
+                const int ref_x1 = (info.ref1 * x_multiplier) >> width_subsamp;
+                const int ref_x2 = (info.ref2 * x_multiplier) >> width_subsamp;
+                const int ref_y1 = info.ref1 >> params.height_subsampling;
+                const int ref_y2 = info.ref2 >> params.height_subsampling;
 
                 assert(((info.ref1 >> width_subsamp) * x_multiplier) <= j &&
                        ((info.ref1 >> width_subsamp) * x_multiplier) + j < process_width);
                 assert(((info.ref2 >> width_subsamp) * x_multiplier) <= j &&
                        ((info.ref2 >> width_subsamp) * x_multiplier) + j < process_width);
 
-                ref_pos = params.src_pitch * (info.ref2 >> params.height_subsampling) +
-                          ((info.ref1 * x_multiplier) >> width_subsamp) * pixel_step;
-
-                ref_pos_2 = ((info.ref2 * x_multiplier) >> width_subsamp) * pixel_step -
-                            params.src_pitch * (info.ref1 >> params.height_subsampling);
-
-                int ref_1_up = read_pixel<mode>(params, context, src_px, ref_pos);
-                int ref_2_up = read_pixel<mode>(params, context, src_px, ref_pos_2);
-                int ref_3_up = read_pixel<mode>(params, context, src_px, -ref_pos);
-                int ref_4_up = read_pixel<mode>(params, context, src_px, -ref_pos_2);
+                int ref_1_up = read_pixel_at<mode>(params, context, src_plane, i + ref_y2, j + ref_x1);
+                int ref_2_up = read_pixel_at<mode>(params, context, src_plane, i - ref_y1, j + ref_x2);
+                int ref_3_up = read_pixel_at<mode>(params, context, src_plane, i - ref_y2, j - ref_x1);
+                int ref_4_up = read_pixel_at<mode>(params, context, src_plane, i + ref_y1, j - ref_x2);
 
                 avg = neo_f3kdb::core::pixel_proc::avg_4<mode>(context, ref_1_up, ref_2_up, ref_3_up, ref_4_up);
 
@@ -245,15 +273,14 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
             }
             if constexpr (sample_mode == 5)
             {
-                ref_pos = (info.ref1 >> params.height_subsampling) * params.src_pitch;
+                const int ref_y = info.ref1 >> params.height_subsampling;
+                const int ref_x = info.ref1 >> params.width_subsampling;
 
-                int ref_1_h = read_pixel<mode>(params, context, src_px, ref_pos);
-                int ref_2_h = read_pixel<mode>(params, context, src_px, -ref_pos);
+                int ref_1_h = read_pixel_at<mode>(params, context, src_plane, i + ref_y, j);
+                int ref_2_h = read_pixel_at<mode>(params, context, src_plane, i - ref_y, j);
 
-                ref_pos_2 = (info.ref1 >> params.width_subsampling) * pixel_step;
-
-                int ref_1_w = read_pixel<mode>(params, context, src_px, ref_pos_2);
-                int ref_2_w = read_pixel<mode>(params, context, src_px, -ref_pos_2);
+                int ref_1_w = read_pixel_at<mode>(params, context, src_plane, i, j + ref_x);
+                int ref_2_w = read_pixel_at<mode>(params, context, src_plane, i, j - ref_x);
 
                 const int avg = neo_f3kdb::core::pixel_proc::avg_4<mode>(context, ref_1_h, ref_2_h, ref_1_w, ref_2_w);
                 const int avgDif = std::abs(avg - src_px_up);
@@ -275,13 +302,13 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                 const float thresh_max_dif_param_f = static_cast<float>(params.threshold1);
                 const float thresh_mid_dif_param_f = static_cast<float>(params.threshold2);
 
-                const int ref_v_offset_bytes = (info.ref1 >> params.height_subsampling) * params.src_pitch;
-                const float ref_1_h_f = static_cast<float>(read_pixel<mode>(params, context, src_px, ref_v_offset_bytes));
-                const float ref_2_h_f = static_cast<float>(read_pixel<mode>(params, context, src_px, -ref_v_offset_bytes));
+                const int ref_y = info.ref1 >> params.height_subsampling;
+                const int ref_x = info.ref1 >> params.width_subsampling;
+                const float ref_1_h_f = static_cast<float>(read_pixel_at<mode>(params, context, src_plane, i + ref_y, j));
+                const float ref_2_h_f = static_cast<float>(read_pixel_at<mode>(params, context, src_plane, i - ref_y, j));
 
-                const int ref_h_offset_bytes = (info.ref1 >> params.width_subsampling) * pixel_step;
-                const float ref_1_w_f = static_cast<float>(read_pixel<mode>(params, context, src_px, ref_h_offset_bytes));
-                const float ref_2_w_f = static_cast<float>(read_pixel<mode>(params, context, src_px, -ref_h_offset_bytes));
+                const float ref_1_w_f = static_cast<float>(read_pixel_at<mode>(params, context, src_plane, i, j + ref_x));
+                const float ref_2_w_f = static_cast<float>(read_pixel_at<mode>(params, context, src_plane, i, j - ref_x));
 
                 const float avg_refs_f = (ref_1_h_f + ref_2_h_f + ref_1_w_f + ref_2_w_f) * 0.25f;
 
@@ -307,13 +334,13 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
 
                 const float org_pix_f = static_cast<float>(src_px_up);
 
-                const int ref_v_offset_bytes = (info.ref1 >> params.height_subsampling) * params.src_pitch;
-                const float ref_1_h_f = static_cast<float>(read_pixel<mode>(params, context, src_px + ref_v_offset_bytes));
-                const float ref_2_h_f = static_cast<float>(read_pixel<mode>(params, context, src_px - ref_v_offset_bytes));
+                const int ref_y = info.ref1 >> params.height_subsampling;
+                const int ref_x = info.ref1 >> params.width_subsampling;
+                const float ref_1_h_f = static_cast<float>(read_pixel_at<mode>(params, context, src_plane, i + ref_y, j));
+                const float ref_2_h_f = static_cast<float>(read_pixel_at<mode>(params, context, src_plane, i - ref_y, j));
 
-                const int ref_h_offset_bytes = (info.ref1 >> params.width_subsampling) * pixel_step;
-                const float ref_1_w_f = static_cast<float>(read_pixel<mode>(params, context, src_px + ref_h_offset_bytes));
-                const float ref_2_w_f = static_cast<float>(read_pixel<mode>(params, context, src_px - ref_h_offset_bytes));
+                const float ref_1_w_f = static_cast<float>(read_pixel_at<mode>(params, context, src_plane, i, j + ref_x));
+                const float ref_2_w_f = static_cast<float>(read_pixel_at<mode>(params, context, src_plane, i, j - ref_x));
 
                 const float angle_org = calculate_gradient_angle<mode>(params, context, src_plane, j, i);
 

@@ -1,3 +1,4 @@
+#pragma once
 
 static inline int clamp_pixel(int pixel, int min, int max)
 {
@@ -8,4 +9,3 @@ static inline int clamp_pixel(int pixel, int min, int max)
     }
     return pixel;
 }
-
