@@ -4,12 +4,10 @@ template <int kSampleMode, bool kBlurFirst, int kDitherAlgo, class PixelIn, clas
 void process_block(
     const process_plane_params& params,
     neo_f3kdb::core::dither::FloydSteinbergDither* fs_dither,
-    const PixelIn* src_base,
-    const PixelIn* src_row,
+    neo_f3kdb::core::StridedPlaneView<const PixelIn> src_plane,
     PixelOut* dst_row,
     const std::int16_t* grain_row,
     const pixel_dither_info* info_row,
-    int src_stride,
     int row,
     int col,
     D32 d32,
@@ -26,9 +24,7 @@ void process_block(
         for (std::size_t lane = 0; lane < lanes; ++lane) {
             src_up[lane] = neo_f3kdb::core::sample_modes::process_pixel<kSampleMode, kBlurFirst>(
                 params,
-                src_base,
-                src_row,
-                src_stride,
+                src_plane,
                 row,
                 col + static_cast<int>(lane)
             );
@@ -36,10 +32,8 @@ void process_block(
     } else {
         gather_reference_pixels<kSampleMode>(
             params,
-            src_base,
-            src_row,
+            src_plane,
             info_row,
-            src_stride,
             row,
             col,
             lanes,

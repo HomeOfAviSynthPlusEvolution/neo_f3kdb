@@ -3,10 +3,8 @@
 template <int kSampleMode, class PixelIn>
 void gather_reference_pixels(
     const process_plane_params& params,
-    const PixelIn* src_base,
-    const PixelIn* src_row,
+    neo_f3kdb::core::StridedPlaneView<const PixelIn> src_plane,
     const pixel_dither_info* info_row,
-    int src_stride,
     int row,
     int col,
     std::size_t lanes,
@@ -23,9 +21,7 @@ void gather_reference_pixels(
         const int pixel_col = col + static_cast<int>(lane);
         const auto samples = neo_f3kdb::core::sample_modes::load_reference_samples<kSampleMode>(
             params,
-            src_base,
-            src_row,
-            src_stride,
+            src_plane,
             row,
             pixel_col
         );

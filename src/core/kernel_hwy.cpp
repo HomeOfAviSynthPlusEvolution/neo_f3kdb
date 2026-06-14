@@ -58,7 +58,6 @@ void process_plane_templated(const process_plane_params& params) {
     }
 
     for (int row = 0; row < height; ++row) {
-        const auto src_row = src_plane.row(row);
         auto dst_row = dst_plane.row(row);
         const auto grain_row = grain_plane.row(row);
         const auto info_row = info_plane.row(row);
@@ -68,12 +67,10 @@ void process_plane_templated(const process_plane_params& params) {
             deband_hwy_detail::process_block<kSampleMode, kBlurFirst, kDitherAlgo>(
                 params,
                 fs_dither,
-                src_plane.data,
-                src_row.data(),
+                src_plane,
                 dst_row.data(),
                 grain_row.data(),
                 info_row.data(),
-                src_plane.stride,
                 row,
                 col,
                 di32,
@@ -85,9 +82,7 @@ void process_plane_templated(const process_plane_params& params) {
         for (; col < width; ++col) {
             int pixel = neo_f3kdb::core::sample_modes::process_pixel<kSampleMode, kBlurFirst>(
                 params,
-                src_plane.data,
-                src_row.data(),
-                src_plane.stride,
+                src_plane,
                 row,
                 col
             );
