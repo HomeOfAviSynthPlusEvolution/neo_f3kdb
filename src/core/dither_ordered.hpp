@@ -33,50 +33,50 @@ namespace neo_f3kdb::core::pixel_proc_detail::ordered {
     static const int THRESHOLD_MAP_RIGHT_SHIFT_BITS = 16 - INTERNAL_BIT_DEPTH;
 
 
-    static inline void init_context(char context_buffer[CONTEXT_BUFFER_SIZE], int frame_width, int output_depth)
+    inline void init_context(char context_buffer[CONTEXT_BUFFER_SIZE], int frame_width, int output_depth)
     {
         *((int*)context_buffer) = output_depth;
     }
 
-    static inline void destroy_context(void* context)
+    inline void destroy_context(void* context)
     {
         // nothing to do
     }
 
-    static inline void next_pixel(void* context)
+    inline void next_pixel(void* context)
     {
         // nothing to do
     }
 
-    static inline void next_row(void* context)
+    inline void next_row(void* context)
     {
         // nothing to do
     }
 
-    static inline int dither(void* context, int pixel, int row, int column)
+    inline int dither(void* context, int pixel, int row, int column)
     {
         int output_depth = *(int*)context;
         pixel += (THRESHOLD_MAP[row & 15][column & 15] >> (THRESHOLD_MAP_RIGHT_SHIFT_BITS + output_depth - 8));
         return pixel;
     }
 
-    static inline int upsample(void* context, unsigned char pixel)
+    inline int upsample(void* context, unsigned char pixel)
     {
         return neo_f3kdb::core::pixel_proc_common::upsample(context, pixel);
     }
 
-    static inline int downsample(void* context, int pixel, int row, int column, int pixel_min, int pixel_max, int output_depth)
+    inline int downsample(void* context, int pixel, int row, int column, int pixel_min, int pixel_max, int output_depth)
     {
         pixel = dither(context, pixel, row, column);
         return neo_f3kdb::core::pixel_proc_common::downsample(pixel, pixel_min, pixel_max, output_depth);
     }
 
-    static inline int avg_2(void* context, int pixel1, int pixel2)
+    inline int avg_2(void* context, int pixel1, int pixel2)
     {
         return neo_f3kdb::core::pixel_proc_common::avg_2(context, pixel1, pixel2);
     }
 
-    static inline int avg_4(void* context, int pixel1, int pixel2, int pixel3, int pixel4)
+    inline int avg_4(void* context, int pixel1, int pixel2, int pixel3, int pixel4)
     {
         return neo_f3kdb::core::pixel_proc_common::avg_4(context, pixel1, pixel2, pixel3, pixel4);
     }

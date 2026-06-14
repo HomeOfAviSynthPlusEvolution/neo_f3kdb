@@ -10,212 +10,107 @@
 
 namespace neo_f3kdb::core::pixel_proc {
 
+namespace adapter {
+
+template <
+	void (*InitContext)(char*, int, int),
+	void (*DestroyContext)(void*),
+	void (*NextPixel)(void*),
+	void (*NextRow)(void*),
+	int (*Upsample)(void*, unsigned char),
+	int (*Downsample)(void*, int, int, int, int, int, int),
+	int (*Avg2)(void*, int, int),
+	int (*Avg4)(void*, int, int, int, int)>
+struct FunctionTable {
+	static inline void init_context(char context_buffer[CONTEXT_BUFFER_SIZE], int frame_width, int output_depth) {
+		InitContext(context_buffer, frame_width, output_depth);
+	}
+
+	static inline void destroy_context(void* context) {
+		DestroyContext(context);
+	}
+
+	static inline void next_pixel(void* context) {
+		NextPixel(context);
+	}
+
+	static inline void next_row(void* context) {
+		NextRow(context);
+	}
+
+	static inline int upsample(void* context, unsigned char pixel) {
+		return Upsample(context, pixel);
+	}
+
+	static inline int downsample(
+		void* context,
+		int pixel,
+		int row,
+		int column,
+		int pixel_min,
+		int pixel_max,
+		int output_depth
+	) {
+		return Downsample(context, pixel, row, column, pixel_min, pixel_max, output_depth);
+	}
+
+	static inline int avg_2(void* context, int pixel1, int pixel2) {
+		return Avg2(context, pixel1, pixel2);
+	}
+
+	static inline int avg_4(void* context, int pixel1, int pixel2, int pixel3, int pixel4) {
+		return Avg4(context, pixel1, pixel2, pixel3, pixel4);
+	}
+};
+
+} // namespace adapter
+
 template <int mode>
 struct Impl;
 
 template <>
-struct Impl<DA_HIGH_NO_DITHERING> {
-	static inline void init_context(char context_buffer[CONTEXT_BUFFER_SIZE], int frame_width, int output_depth) {
-		neo_f3kdb::core::pixel_proc_detail::none::init_context(context_buffer, frame_width, output_depth);
-	}
-
-	static inline void destroy_context(void* context) {
-		neo_f3kdb::core::pixel_proc_detail::none::destroy_context(context);
-	}
-
-	static inline void next_pixel(void* context) {
-		neo_f3kdb::core::pixel_proc_detail::none::next_pixel(context);
-	}
-
-	static inline void next_row(void* context) {
-		neo_f3kdb::core::pixel_proc_detail::none::next_row(context);
-	}
-
-	static inline int upsample(void* context, unsigned char pixel) {
-		return neo_f3kdb::core::pixel_proc_detail::none::upsample(context, pixel);
-	}
-
-	static inline int downsample(
-		void* context,
-		int pixel,
-		int row,
-		int column,
-		int pixel_min,
-		int pixel_max,
-		int output_depth
-	) {
-		return neo_f3kdb::core::pixel_proc_detail::none::downsample(
-			context,
-			pixel,
-			row,
-			column,
-			pixel_min,
-			pixel_max,
-			output_depth
-		);
-	}
-
-	static inline int avg_2(void* context, int pixel1, int pixel2) {
-		return neo_f3kdb::core::pixel_proc_detail::none::avg_2(context, pixel1, pixel2);
-	}
-
-	static inline int avg_4(void* context, int pixel1, int pixel2, int pixel3, int pixel4) {
-		return neo_f3kdb::core::pixel_proc_detail::none::avg_4(context, pixel1, pixel2, pixel3, pixel4);
-	}
-};
+struct Impl<DA_HIGH_NO_DITHERING> : adapter::FunctionTable<
+	neo_f3kdb::core::pixel_proc_detail::none::init_context,
+	neo_f3kdb::core::pixel_proc_detail::none::destroy_context,
+	neo_f3kdb::core::pixel_proc_detail::none::next_pixel,
+	neo_f3kdb::core::pixel_proc_detail::none::next_row,
+	neo_f3kdb::core::pixel_proc_detail::none::upsample,
+	neo_f3kdb::core::pixel_proc_detail::none::downsample,
+	neo_f3kdb::core::pixel_proc_detail::none::avg_2,
+	neo_f3kdb::core::pixel_proc_detail::none::avg_4> {};
 
 template <>
-struct Impl<DA_HIGH_ORDERED_DITHERING> {
-	static inline void init_context(char context_buffer[CONTEXT_BUFFER_SIZE], int frame_width, int output_depth) {
-		neo_f3kdb::core::pixel_proc_detail::ordered::init_context(context_buffer, frame_width, output_depth);
-	}
-
-	static inline void destroy_context(void* context) {
-		neo_f3kdb::core::pixel_proc_detail::ordered::destroy_context(context);
-	}
-
-	static inline void next_pixel(void* context) {
-		neo_f3kdb::core::pixel_proc_detail::ordered::next_pixel(context);
-	}
-
-	static inline void next_row(void* context) {
-		neo_f3kdb::core::pixel_proc_detail::ordered::next_row(context);
-	}
-
-	static inline int upsample(void* context, unsigned char pixel) {
-		return neo_f3kdb::core::pixel_proc_detail::ordered::upsample(context, pixel);
-	}
-
-	static inline int downsample(
-		void* context,
-		int pixel,
-		int row,
-		int column,
-		int pixel_min,
-		int pixel_max,
-		int output_depth
-	) {
-		return neo_f3kdb::core::pixel_proc_detail::ordered::downsample(
-			context,
-			pixel,
-			row,
-			column,
-			pixel_min,
-			pixel_max,
-			output_depth
-		);
-	}
-
-	static inline int avg_2(void* context, int pixel1, int pixel2) {
-		return neo_f3kdb::core::pixel_proc_detail::ordered::avg_2(context, pixel1, pixel2);
-	}
-
-	static inline int avg_4(void* context, int pixel1, int pixel2, int pixel3, int pixel4) {
-		return neo_f3kdb::core::pixel_proc_detail::ordered::avg_4(context, pixel1, pixel2, pixel3, pixel4);
-	}
-};
+struct Impl<DA_HIGH_ORDERED_DITHERING> : adapter::FunctionTable<
+	neo_f3kdb::core::pixel_proc_detail::ordered::init_context,
+	neo_f3kdb::core::pixel_proc_detail::ordered::destroy_context,
+	neo_f3kdb::core::pixel_proc_detail::ordered::next_pixel,
+	neo_f3kdb::core::pixel_proc_detail::ordered::next_row,
+	neo_f3kdb::core::pixel_proc_detail::ordered::upsample,
+	neo_f3kdb::core::pixel_proc_detail::ordered::downsample,
+	neo_f3kdb::core::pixel_proc_detail::ordered::avg_2,
+	neo_f3kdb::core::pixel_proc_detail::ordered::avg_4> {};
 
 template <>
-struct Impl<DA_HIGH_FLOYD_STEINBERG_DITHERING> {
-	static inline void init_context(char context_buffer[CONTEXT_BUFFER_SIZE], int frame_width, int output_depth) {
-		neo_f3kdb::core::pixel_proc_detail::floyd_steinberg::init_context(context_buffer, frame_width, output_depth);
-	}
-
-	static inline void destroy_context(void* context) {
-		neo_f3kdb::core::pixel_proc_detail::floyd_steinberg::destroy_context(context);
-	}
-
-	static inline void next_pixel(void* context) {
-		neo_f3kdb::core::pixel_proc_detail::floyd_steinberg::next_pixel(context);
-	}
-
-	static inline void next_row(void* context) {
-		neo_f3kdb::core::pixel_proc_detail::floyd_steinberg::next_row(context);
-	}
-
-	static inline int upsample(void* context, unsigned char pixel) {
-		return neo_f3kdb::core::pixel_proc_detail::floyd_steinberg::upsample(context, pixel);
-	}
-
-	static inline int downsample(
-		void* context,
-		int pixel,
-		int row,
-		int column,
-		int pixel_min,
-		int pixel_max,
-		int output_depth
-	) {
-		return neo_f3kdb::core::pixel_proc_detail::floyd_steinberg::downsample(
-			context,
-			pixel,
-			row,
-			column,
-			pixel_min,
-			pixel_max,
-			output_depth
-		);
-	}
-
-	static inline int avg_2(void* context, int pixel1, int pixel2) {
-		return neo_f3kdb::core::pixel_proc_detail::floyd_steinberg::avg_2(context, pixel1, pixel2);
-	}
-
-	static inline int avg_4(void* context, int pixel1, int pixel2, int pixel3, int pixel4) {
-		return neo_f3kdb::core::pixel_proc_detail::floyd_steinberg::avg_4(context, pixel1, pixel2, pixel3, pixel4);
-	}
-};
+struct Impl<DA_HIGH_FLOYD_STEINBERG_DITHERING> : adapter::FunctionTable<
+	neo_f3kdb::core::pixel_proc_detail::floyd_steinberg::init_context,
+	neo_f3kdb::core::pixel_proc_detail::floyd_steinberg::destroy_context,
+	neo_f3kdb::core::pixel_proc_detail::floyd_steinberg::next_pixel,
+	neo_f3kdb::core::pixel_proc_detail::floyd_steinberg::next_row,
+	neo_f3kdb::core::pixel_proc_detail::floyd_steinberg::upsample,
+	neo_f3kdb::core::pixel_proc_detail::floyd_steinberg::downsample,
+	neo_f3kdb::core::pixel_proc_detail::floyd_steinberg::avg_2,
+	neo_f3kdb::core::pixel_proc_detail::floyd_steinberg::avg_4> {};
 
 template <>
-struct Impl<DA_16BIT_INTERLEAVED> {
-	static inline void init_context(char context_buffer[CONTEXT_BUFFER_SIZE], int frame_width, int output_depth) {
-		neo_f3kdb::core::pixel_proc_detail::output_16bit::init_context(context_buffer, frame_width, output_depth);
-	}
-
-	static inline void destroy_context(void* context) {
-		neo_f3kdb::core::pixel_proc_detail::output_16bit::destroy_context(context);
-	}
-
-	static inline void next_pixel(void* context) {
-		neo_f3kdb::core::pixel_proc_detail::output_16bit::next_pixel(context);
-	}
-
-	static inline void next_row(void* context) {
-		neo_f3kdb::core::pixel_proc_detail::output_16bit::next_row(context);
-	}
-
-	static inline int upsample(void* context, unsigned char pixel) {
-		return neo_f3kdb::core::pixel_proc_detail::output_16bit::upsample(context, pixel);
-	}
-
-	static inline int downsample(
-		void* context,
-		int pixel,
-		int row,
-		int column,
-		int pixel_min,
-		int pixel_max,
-		int output_depth
-	) {
-		return neo_f3kdb::core::pixel_proc_detail::output_16bit::downsample(
-			context,
-			pixel,
-			row,
-			column,
-			pixel_min,
-			pixel_max,
-			output_depth
-		);
-	}
-
-	static inline int avg_2(void* context, int pixel1, int pixel2) {
-		return neo_f3kdb::core::pixel_proc_detail::output_16bit::avg_2(context, pixel1, pixel2);
-	}
-
-	static inline int avg_4(void* context, int pixel1, int pixel2, int pixel3, int pixel4) {
-		return neo_f3kdb::core::pixel_proc_detail::output_16bit::avg_4(context, pixel1, pixel2, pixel3, pixel4);
-	}
-};
+struct Impl<DA_16BIT_INTERLEAVED> : adapter::FunctionTable<
+	neo_f3kdb::core::pixel_proc_detail::output_16bit::init_context,
+	neo_f3kdb::core::pixel_proc_detail::output_16bit::destroy_context,
+	neo_f3kdb::core::pixel_proc_detail::output_16bit::next_pixel,
+	neo_f3kdb::core::pixel_proc_detail::output_16bit::next_row,
+	neo_f3kdb::core::pixel_proc_detail::output_16bit::upsample,
+	neo_f3kdb::core::pixel_proc_detail::output_16bit::downsample,
+	neo_f3kdb::core::pixel_proc_detail::output_16bit::avg_2,
+	neo_f3kdb::core::pixel_proc_detail::output_16bit::avg_4> {};
 
 template <int mode>
 static inline void init_context(char context_buffer[CONTEXT_BUFFER_SIZE], int frame_width, int output_depth)
