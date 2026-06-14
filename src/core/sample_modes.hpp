@@ -59,8 +59,8 @@ inline int read_upsampled_sample(
   int row,
   int col
 ) {
-  row = std::clamp(row, 0, params.plane_height_in_pixels - 1);
-  col = std::clamp(col, 0, params.plane_width_in_pixels - 1);
+  row = std::clamp(row, 0, params.plane_height() - 1);
+  col = std::clamp(col, 0, params.plane_width() - 1);
   return upsample(src_plane.row(row)[static_cast<std::size_t>(col)], params.input_depth);
 }
 

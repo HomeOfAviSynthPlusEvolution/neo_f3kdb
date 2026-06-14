@@ -34,6 +34,22 @@ typedef struct _pixel_dither_info {
 
 static_assert(sizeof(pixel_dither_info) == 4, "Something wrong in pixel_dither_info");
 
+namespace neo_f3kdb::core {
+
+struct PlaneGeometry {
+  int width_pixels = 0;
+  int height_pixels = 0;
+};
+
+struct PlaneBuffers {
+  StridedPlaneView<const unsigned char> src_bytes{};
+  StridedPlaneView<unsigned char> dst_bytes{};
+  StridedPlaneView<const pixel_dither_info> dither_info{};
+  StridedPlaneView<const std::int16_t> grain{};
+};
+
+} // namespace neo_f3kdb::core
+
 typedef void (*destroy_data_t)(void* data);
 
 typedef struct _process_plane_context {
@@ -45,14 +61,8 @@ void destroy_context(process_plane_context* context);
 void init_context(process_plane_context* context);
 
 typedef struct _process_plane_params {
-  const unsigned char* src_plane_ptr;
-  int src_pitch;
-
-  unsigned char* dst_plane_ptr;
-  int dst_pitch;
-
-  int plane_width_in_pixels;
-  int plane_height_in_pixels;
+  neo_f3kdb::core::PlaneGeometry geometry{};
+  neo_f3kdb::core::PlaneBuffers buffers{};
 
   PIXEL_MODE input_mode;
   int input_depth;
@@ -67,11 +77,6 @@ typedef struct _process_plane_params {
   std::uint16_t threshold2;
   float angle_boost;
   float max_angle;
-  pixel_dither_info* info_ptr_base;
-  int info_stride;
-
-  std::int16_t* grain_buffer;
-  int grain_buffer_stride;
 
   int plane;
 
@@ -81,56 +86,95 @@ typedef struct _process_plane_params {
   int pixel_max;
   int pixel_min;
 
+  inline void set_geometry(int width_pixels, int height_pixels) noexcept {
+    geometry = {width_pixels, height_pixels};
+  }
+
+  inline int plane_width() const noexcept {
+    return geometry.width_pixels;
+  }
+
+  inline int plane_height() const noexcept {
+    return geometry.height_pixels;
+  }
+
+  inline void set_frame_planes(
+    const unsigned char* src_plane,
+    int src_pitch,
+    unsigned char* dst_plane,
+    int dst_pitch
+  ) noexcept {
+    buffers.src_bytes = {src_plane, get_src_width(), get_src_height(), src_pitch};
+    buffers.dst_bytes = {dst_plane, get_dst_width(), get_dst_height(), dst_pitch};
+  }
+
+  inline void set_dither_info_plane(std::span<pixel_dither_info> info, int stride) noexcept {
+    buffers.dither_info = {info.data(), plane_width(), plane_height(), stride};
+  }
+
+  inline void set_grain_plane(std::int16_t* grain, int stride) noexcept {
+    buffers.grain = {grain, plane_width(), plane_height(), stride};
+  }
+
   inline int get_dst_width() const {
-    return output_mode == HIGH_BIT_DEPTH_INTERLEAVED ? plane_width_in_pixels * 2 : plane_width_in_pixels;
+    return output_mode == HIGH_BIT_DEPTH_INTERLEAVED ? plane_width() * 2 : plane_width();
   }
 
   inline int get_dst_height() const {
-    return plane_height_in_pixels;
+    return plane_height();
   }
 
   inline int get_src_width() const {
-    return input_mode == HIGH_BIT_DEPTH_INTERLEAVED ? plane_width_in_pixels * 2 : plane_width_in_pixels;
+    return input_mode == HIGH_BIT_DEPTH_INTERLEAVED ? plane_width() * 2 : plane_width();
   }
 
   inline int get_src_height() const {
-    return plane_height_in_pixels;
+    return plane_height();
+  }
+
+  inline int copy_line_size_bytes() const noexcept {
+    return get_src_width();
+  }
+
+  inline bool has_contiguous_byte_planes_for_copy() const noexcept {
+    const int line_size = copy_line_size_bytes();
+    return buffers.src_bytes.stride == line_size && buffers.dst_bytes.stride == line_size;
   }
 
   template <class Pixel>
   [[nodiscard]] neo_f3kdb::core::StridedPlaneView<const Pixel> src_plane() const noexcept {
     return {
-      reinterpret_cast<const Pixel*>(src_plane_ptr),
-      plane_width_in_pixels,
-      plane_height_in_pixels,
-      src_pitch / static_cast<int>(sizeof(Pixel))
+      reinterpret_cast<const Pixel*>(buffers.src_bytes.data),
+      plane_width(),
+      plane_height(),
+      buffers.src_bytes.stride / static_cast<int>(sizeof(Pixel))
     };
   }
 
   template <class Pixel>
   [[nodiscard]] neo_f3kdb::core::StridedPlaneView<Pixel> dst_plane() const noexcept {
     return {
-      reinterpret_cast<Pixel*>(dst_plane_ptr),
-      plane_width_in_pixels,
-      plane_height_in_pixels,
-      dst_pitch / static_cast<int>(sizeof(Pixel))
+      reinterpret_cast<Pixel*>(buffers.dst_bytes.data),
+      plane_width(),
+      plane_height(),
+      buffers.dst_bytes.stride / static_cast<int>(sizeof(Pixel))
     };
   }
 
   [[nodiscard]] neo_f3kdb::core::StridedPlaneView<const unsigned char> src_bytes() const noexcept {
-    return {src_plane_ptr, get_src_width(), get_src_height(), src_pitch};
+    return buffers.src_bytes;
   }
 
   [[nodiscard]] neo_f3kdb::core::StridedPlaneView<unsigned char> dst_bytes() const noexcept {
-    return {dst_plane_ptr, get_dst_width(), get_dst_height(), dst_pitch};
+    return buffers.dst_bytes;
   }
 
   [[nodiscard]] neo_f3kdb::core::StridedPlaneView<const pixel_dither_info> dither_info_plane() const noexcept {
-    return {info_ptr_base, plane_width_in_pixels, plane_height_in_pixels, info_stride};
+    return buffers.dither_info;
   }
 
   [[nodiscard]] neo_f3kdb::core::StridedPlaneView<const std::int16_t> grain_plane() const noexcept {
-    return {grain_buffer, plane_width_in_pixels, plane_height_in_pixels, grain_buffer_stride};
+    return buffers.grain;
   }
 } process_plane_params;
 

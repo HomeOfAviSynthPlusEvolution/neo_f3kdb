@@ -71,8 +71,8 @@ static __inline int read_pixel_clamped(
         params,
         context,
         src_plane,
-        std::clamp(row, 0, params.plane_height_in_pixels - 1),
-        std::clamp(col, 0, params.plane_width_in_pixels - 1)
+        std::clamp(row, 0, params.plane_height() - 1),
+        std::clamp(col, 0, params.plane_width() - 1)
     );
 }
 
@@ -154,18 +154,18 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
 
     int width_subsamp = params.width_subsampling;
 
-    neo_f3kdb::core::pixel_proc::init_context<mode>(context, params.plane_width_in_pixels, params.output_depth);
+    neo_f3kdb::core::pixel_proc::init_context<mode>(context, params.plane_width(), params.output_depth);
 
     int dst_pixel_step = output_mode == HIGH_BIT_DEPTH_INTERLEAVED ? 2 : 1;
 
-    int process_width = params.plane_width_in_pixels;
+    int process_width = params.plane_width();
 
     const auto src_plane = params.src_bytes();
     auto dst_plane = params.dst_bytes();
     const auto grain_plane = params.grain_plane();
     const auto info_plane = params.dither_info_plane();
 
-    for (int i = 0; i < params.plane_height_in_pixels; i++)
+    for (int i = 0; i < params.plane_height(); i++)
     {
         auto dst_row = dst_plane.row(i);
         const auto grain_row = grain_plane.row(i);
@@ -182,14 +182,14 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
             {
                 assert(info.ref1 >= 0);
                 assert((info.ref1 >> params.height_subsampling) <= i &&
-                    (info.ref1 >> params.height_subsampling) + i < params.plane_height_in_pixels);
+                    (info.ref1 >> params.height_subsampling) + i < params.plane_height());
             }
 
             if constexpr (sample_mode >= 2 && sample_mode <= 7)
             {
                 assert(info.ref2 >= 0);
                 assert((info.ref2 >> params.height_subsampling) <= i &&
-                       (info.ref2 >> params.height_subsampling) + i < params.plane_height_in_pixels);
+                       (info.ref2 >> params.height_subsampling) + i < params.plane_height());
             }
             int avg;
             bool use_org_px_as_base;

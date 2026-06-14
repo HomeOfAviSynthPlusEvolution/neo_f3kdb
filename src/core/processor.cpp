@@ -65,11 +65,6 @@ PlaneJob DebandProcessor::make_plane_job(
   PlaneJob job{};
   auto& p = job.params;
 
-  p.src_plane_ptr = src_frame_ptr;
-  p.src_pitch = src_pitch;
-  p.dst_plane_ptr = dst_frame_ptr;
-  p.dst_pitch = dst_pitch;
-
   const int input_depth = ds::bits_per_sample(input_.format.sample_format);
   p.input_mode = input_depth == 8 ? LOW_BIT_DEPTH : HIGH_BIT_DEPTH_INTERLEAVED;
   p.input_depth = input_depth;
@@ -84,16 +79,19 @@ PlaneJob DebandProcessor::make_plane_job(
   p.plane = plane;
   p.width_subsampling = static_cast<unsigned char>(plane == 0 ? 0 : input_.format.subsampling_w);
   p.height_subsampling = static_cast<unsigned char>(plane == 0 ? 0 : input_.format.subsampling_h);
-  p.plane_width_in_pixels = plane == 0 ? input_.width : (input_.width >> input_.format.subsampling_w);
-  p.plane_height_in_pixels = plane == 0 ? input_.height : (input_.height >> input_.format.subsampling_h);
-
-  p.info_stride = frame_state_.info_stride(plane);
-  p.grain_buffer_stride = frame_state_.grain_stride(plane);
+  p.set_geometry(
+    plane == 0 ? input_.width : (input_.width >> input_.format.subsampling_w),
+    plane == 0 ? input_.height : (input_.height >> input_.format.subsampling_h)
+  );
+  p.set_frame_planes(src_frame_ptr, src_pitch, dst_frame_ptr, dst_pitch);
 
   job.dither_info = frame_state_.dither_info(plane);
   job.grain = frame_state_.grain_buffer(plane);
-  p.info_ptr_base = job.dither_info.data();
-  p.grain_buffer = frame_state_.grain_row_base(plane, frame_number, input_.num_frames);
+  p.set_dither_info_plane(job.dither_info, frame_state_.info_stride(plane));
+  p.set_grain_plane(
+    frame_state_.grain_row_base(plane, frame_number, input_.num_frames),
+    frame_state_.grain_stride(plane)
+  );
   job.context = frame_state_.context(plane);
 
   switch (plane) {
@@ -135,10 +133,10 @@ bool DebandProcessor::should_copy_plane(const PlaneJob& job, int grain_setting) 
 
 void DebandProcessor::copy_plane(const PlaneJob& job) const {
   const auto& p = job.params;
-  const int line_size = p.get_src_width();
+  const int line_size = p.copy_line_size_bytes();
   const auto src_plane = p.src_bytes();
   auto dst_plane = p.dst_bytes();
-  if (line_size == p.src_pitch && p.src_pitch == p.dst_pitch) {
+  if (p.has_contiguous_byte_planes_for_copy()) {
     std::memcpy(
       dst_plane.data,
       src_plane.data,

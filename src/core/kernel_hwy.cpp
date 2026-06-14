@@ -33,8 +33,8 @@ void process_plane_templated(const process_plane_params& params) {
         kDitherAlgo == DA_16BIT_INTERLEAVED
     );
 
-    const int height = params.plane_height_in_pixels;
-    const int width = params.plane_width_in_pixels;
+    const int height = params.plane_height();
+    const int width = params.plane_width();
     const auto src_plane = params.src_plane<PixelIn>();
     auto dst_plane = params.dst_plane<PixelOut>();
     const auto grain_plane = params.grain_plane();
