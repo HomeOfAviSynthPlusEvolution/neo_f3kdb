@@ -31,7 +31,7 @@ static __inline int read_pixel(const process_plane_params& params, void* context
     const unsigned char* ptr = base + offset;
     if (params.input_mode == LOW_BIT_DEPTH)
     {
-        return pixel_proc_upsample<mode>(context, *ptr);
+        return neo_f3kdb::core::pixel_proc::upsample<mode>(context, *ptr);
     }
 
     int ret;
@@ -116,7 +116,7 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
 
     int width_subsamp = params.width_subsampling;
 
-    pixel_proc_init_context<mode>(context, params.plane_width_in_pixels, params.output_depth);
+    neo_f3kdb::core::pixel_proc::init_context<mode>(context, params.plane_width_in_pixels, params.output_depth);
 
     int pixel_step = params.input_mode == HIGH_BIT_DEPTH_INTERLEAVED ? 2 : 1;
 
@@ -161,7 +161,7 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                 int ref_1_up = read_pixel<mode>(params, context, src_px, ref_pos);
                 int ref_2_up = read_pixel<mode>(params, context, src_px, -ref_pos);
 
-                avg = pixel_proc_avg_2<mode>(context, ref_1_up, ref_2_up);
+                avg = neo_f3kdb::core::pixel_proc::avg_2<mode>(context, ref_1_up, ref_2_up);
 
                 if (blur_first)
                 {
@@ -181,7 +181,7 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                 int ref_1_up = read_pixel<mode>(params, context, src_px, ref_pos);
                 int ref_2_up = read_pixel<mode>(params, context, src_px, -ref_pos);
 
-                avg = pixel_proc_avg_2<mode>(context, ref_1_up, ref_2_up);
+                avg = neo_f3kdb::core::pixel_proc::avg_2<mode>(context, ref_1_up, ref_2_up);
 
                 if (blur_first)
                 {
@@ -196,7 +196,7 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
             }
             if constexpr (sample_mode == 4)
             {
-                new_pixel = pixel_proc_avg_2<mode>(context, new_pixel_mode1, new_pixel_mode3);
+                new_pixel = neo_f3kdb::core::pixel_proc::avg_2<mode>(context, new_pixel_mode1, new_pixel_mode3);
             }
             if constexpr (sample_mode == 2)
             {
@@ -218,7 +218,7 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                 int ref_3_up = read_pixel<mode>(params, context, src_px, -ref_pos);
                 int ref_4_up = read_pixel<mode>(params, context, src_px, -ref_pos_2);
 
-                avg = pixel_proc_avg_4<mode>(context, ref_1_up, ref_2_up, ref_3_up, ref_4_up);
+                avg = neo_f3kdb::core::pixel_proc::avg_4<mode>(context, ref_1_up, ref_2_up, ref_3_up, ref_4_up);
 
                 if (blur_first)
                 {
@@ -245,7 +245,7 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                 int ref_1_w = read_pixel<mode>(params, context, src_px, ref_pos_2);
                 int ref_2_w = read_pixel<mode>(params, context, src_px, -ref_pos_2);
 
-                const int avg = pixel_proc_avg_4<mode>(context, ref_1_h, ref_2_h, ref_1_w, ref_2_w);
+                const int avg = neo_f3kdb::core::pixel_proc::avg_4<mode>(context, ref_1_h, ref_2_h, ref_1_w, ref_2_w);
                 const int avgDif = std::abs(avg - src_px_up);
                 const int maxDif = std::max(std::abs(ref_1_h - src_px_up), std::max(std::abs(ref_2_h - src_px_up),
                     std::max(std::abs(ref_1_w - src_px_up), std::abs(ref_2_w - src_px_up))));
@@ -353,7 +353,15 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                 new_pixel = static_cast<int>((org_pix_f + (avg_refs_f - org_pix_f) * factor) + 0.5f);
             }
 
-            new_pixel = pixel_proc_downsample<mode>(context, new_pixel + *grain_buffer_ptr, i, j, pixel_min, pixel_max, params.output_depth);
+            new_pixel = neo_f3kdb::core::pixel_proc::downsample<mode>(
+                context,
+                new_pixel + *grain_buffer_ptr,
+                i,
+                j,
+                pixel_min,
+                pixel_max,
+                params.output_depth
+            );
 
             switch (output_mode)
             {
@@ -372,12 +380,12 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
             dst_px++;
             info_ptr++;
             grain_buffer_ptr++;
-            pixel_proc_next_pixel<mode>(context);
+            neo_f3kdb::core::pixel_proc::next_pixel<mode>(context);
         }
-        pixel_proc_next_row<mode>(context);
+        neo_f3kdb::core::pixel_proc::next_row<mode>(context);
     }
 
-    pixel_proc_destroy_context<mode>(context);
+    neo_f3kdb::core::pixel_proc::destroy_context<mode>(context);
 }
 
 template <int sample_mode, bool blur_first, int mode>

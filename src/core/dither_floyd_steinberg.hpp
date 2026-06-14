@@ -1,137 +1,188 @@
 #ifndef PIXEL_PROC_C_HIGH_F_S_DITHERING_H
 #define PIXEL_PROC_C_HIGH_F_S_DITHERING_H
 
-#include <math.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstring>
+#include <new>
 
 #include "core/constants.hpp"
 #include "core/kernel.hpp"
+#include "core/pixel_proc_common.hpp"
 
-namespace pixel_proc_high_f_s_dithering {
+namespace neo_f3kdb::core::dither {
     
 // #define DUMP_DATA
 
-    typedef unsigned short ERROR_TYPE;
+class FloydSteinbergDither {
+public:
+    using ErrorType = unsigned short;
 
-    typedef struct _context_t
+    FloydSteinbergDither(char* inline_buffer, int inline_buffer_size, int frame_width, int output_depth)
+        : output_depth_(output_depth),
+          row_pitch_(frame_width + 2),
+          frame_width_(frame_width)
     {
-        int output_depth;
-        ERROR_TYPE* error_buffer;
-        bool buffer_needs_dealloc;
-        ERROR_TYPE* current_px_error;
-        int row_pitch;
-        int frame_width;
-        int processed_pixels_in_current_line;
-#ifdef DUMP_DATA
-        FILE* debug_dump_fd[3];
-#endif
-    } context_t;
-
-    static inline void init_context(char context_buffer[CONTEXT_BUFFER_SIZE], int frame_width, int output_depth)
-    {
-        context_t* ctx = (context_t*)context_buffer;
-        int ctx_size = sizeof(context_t);
-        memset(ctx, 0, ctx_size);
-
-        // additional 2 bytes are placed at the beginning and the end
-        int size_needed = (frame_width + 2) * 2 * sizeof(ERROR_TYPE);
-        if (CONTEXT_BUFFER_SIZE - ctx_size < size_needed)
+        const int size_needed = (frame_width + 2) * 2 * static_cast<int>(sizeof(ErrorType));
+        if (inline_buffer_size < size_needed)
         {
-            ctx->error_buffer = (ERROR_TYPE*)malloc(size_needed);
-            ctx->buffer_needs_dealloc = true;
+            error_buffer_ = static_cast<ErrorType*>(std::malloc(size_needed));
+            buffer_needs_dealloc_ = true;
         } else {
-            ctx->error_buffer = (ERROR_TYPE*)(context_buffer + ctx_size);
+            error_buffer_ = reinterpret_cast<ErrorType*>(inline_buffer);
         }
-        memset(ctx->error_buffer, 0, size_needed);
-        ctx->current_px_error = ctx->error_buffer + 1;
-        ctx->row_pitch = frame_width + 2;
-        ctx->frame_width = frame_width;
-        ctx->output_depth = output_depth;
+        std::memset(error_buffer_, 0, size_needed);
+        current_px_error_ = error_buffer_ + 1;
 
 #ifdef DUMP_DATA
         char file_name[256];
         sprintf(file_name, "fsdither_dump_stage0_%d", frame_width);
-        ctx->debug_dump_fd[0] = fopen(file_name, "wb");
+        debug_dump_fd_[0] = fopen(file_name, "wb");
         sprintf(file_name, "fsdither_dump_stage1_%d", frame_width);
-        ctx->debug_dump_fd[1] = fopen(file_name, "wb");
+        debug_dump_fd_[1] = fopen(file_name, "wb");
         sprintf(file_name, "fsdither_dump_stage2_%d", frame_width);
-        ctx->debug_dump_fd[2] = fopen(file_name, "wb");
+        debug_dump_fd_[2] = fopen(file_name, "wb");
 #endif
     }
 
-    static inline void destroy_context(void* context)
+    ~FloydSteinbergDither()
     {
-        context_t* ctx = (context_t*)context;
-        if (ctx->buffer_needs_dealloc)
+        if (buffer_needs_dealloc_)
         {
-            free(ctx->error_buffer);
-            ctx->error_buffer = NULL;
+            std::free(error_buffer_);
+            error_buffer_ = nullptr;
         }
 #ifdef DUMP_DATA
-        for (int i = 0; i < sizeof(ctx->debug_dump_fd) / sizeof(FILE*); i++)
+        for (int i = 0; i < sizeof(debug_dump_fd_) / sizeof(FILE*); i++)
         {
-            if (ctx->debug_dump_fd[i])
+            if (debug_dump_fd_[i])
             {
-                fclose(ctx->debug_dump_fd[i]);
+                fclose(debug_dump_fd_[i]);
             }
         }
 #endif
     }
 
-    static __forceinline void next_pixel(void* context)
+    void next_pixel()
     {
-        context_t* ctx = (context_t*)context;
-        ctx->current_px_error++;
-        ctx->processed_pixels_in_current_line++;
+        current_px_error_++;
+        processed_pixels_in_current_line_++;
     }
 
-    static __forceinline void next_row(void* context)
+    void next_row()
     {
-        context_t* ctx = (context_t*)context;
-        ctx->row_pitch = -ctx->row_pitch;
-        ctx->current_px_error = ctx->error_buffer + (ctx->row_pitch >> 31) * ctx->row_pitch;
-        memset(ctx->current_px_error + ctx->row_pitch, 0, abs(ctx->row_pitch) * sizeof(ERROR_TYPE));
-        ctx->current_px_error++;
-        ctx->processed_pixels_in_current_line = 0;
+        row_pitch_ = -row_pitch_;
+        current_px_error_ = error_buffer_ + (row_pitch_ >> 31) * row_pitch_;
+        std::memset(current_px_error_ + row_pitch_, 0, std::abs(row_pitch_) * sizeof(ErrorType));
+        current_px_error_++;
+        processed_pixels_in_current_line_ = 0;
     }
 
-    static __forceinline int dither(void* context, int pixel, int row, int column);
-
-    #include "core/pixel_proc_common.hpp"
-
-    static const int PIXEL_MAX = ( ( 1 << (INTERNAL_BIT_DEPTH) ) - 1 );
-    static const int PIXEL_MIN = 0;
-
-    static __forceinline int dither(void* context, int pixel, int row, int column)
+    int dither(int pixel)
     {
-        context_t* ctx = (context_t*)context;
-        if (ctx->processed_pixels_in_current_line >= ctx->frame_width)
+        if (processed_pixels_in_current_line_ >= frame_width_)
         {
             // outside plane, can occur in SSE code
             return pixel;
         }
 #ifndef FS_DITHER_SKIP_PRE_CLAMP
-        pixel = clamp_pixel(pixel, PIXEL_MIN, PIXEL_MAX);
+        pixel = clamp_pixel(pixel, kPixelMin, kPixelMax);
 #endif
 #ifdef DUMP_DATA
-        fwrite(&pixel, 4, 1, ctx->debug_dump_fd[0]);
+        fwrite(&pixel, 4, 1, debug_dump_fd_[0]);
 #endif
-        pixel += *(ctx->current_px_error);
+        pixel += *current_px_error_;
 #ifdef DUMP_DATA
-        fwrite(&pixel, 4, 1, ctx->debug_dump_fd[1]);
+        fwrite(&pixel, 4, 1, debug_dump_fd_[1]);
 #endif
-        pixel = clamp_pixel(pixel, PIXEL_MIN, PIXEL_MAX);
+        pixel = clamp_pixel(pixel, kPixelMin, kPixelMax);
 #ifdef DUMP_DATA
-        fwrite(&pixel, 4, 1, ctx->debug_dump_fd[2]);
+        fwrite(&pixel, 4, 1, debug_dump_fd_[2]);
 #endif
-        int new_error = pixel & ( ( 1 << (INTERNAL_BIT_DEPTH - ctx->output_depth) ) - 1 );
-        *(ctx->current_px_error + 1) += (new_error * 7) >> 4;
-        *(ctx->current_px_error + ctx->row_pitch - 1) += (new_error * 3) >> 4;
-        *(ctx->current_px_error + ctx->row_pitch) += (new_error * 5) >> 4;
-        *(ctx->current_px_error + ctx->row_pitch + 1) += (new_error * 1) >> 4;
+        const int new_error = pixel & ((1 << (INTERNAL_BIT_DEPTH - output_depth_)) - 1);
+        *(current_px_error_ + 1) += (new_error * 7) >> 4;
+        *(current_px_error_ + row_pitch_ - 1) += (new_error * 3) >> 4;
+        *(current_px_error_ + row_pitch_) += (new_error * 5) >> 4;
+        *(current_px_error_ + row_pitch_ + 1) += (new_error * 1) >> 4;
         return pixel;
     }
 
+private:
+    static constexpr int kPixelMax = (1 << INTERNAL_BIT_DEPTH) - 1;
+    static constexpr int kPixelMin = 0;
+
+    int output_depth_ = 0;
+    ErrorType* error_buffer_ = nullptr;
+    bool buffer_needs_dealloc_ = false;
+    ErrorType* current_px_error_ = nullptr;
+    int row_pitch_ = 0;
+    int frame_width_ = 0;
+    int processed_pixels_in_current_line_ = 0;
+#ifdef DUMP_DATA
+    FILE* debug_dump_fd_[3] {};
+#endif
+};
+
+} // namespace neo_f3kdb::core::dither
+
+namespace pixel_proc_high_f_s_dithering {
+
+    using FloydSteinbergDither = neo_f3kdb::core::dither::FloydSteinbergDither;
+
+    static inline FloydSteinbergDither& state(void* context)
+    {
+        return *reinterpret_cast<FloydSteinbergDither*>(context);
+    }
+
+    static inline void init_context(char context_buffer[CONTEXT_BUFFER_SIZE], int frame_width, int output_depth)
+    {
+        new (context_buffer) FloydSteinbergDither(
+            context_buffer + sizeof(FloydSteinbergDither),
+            CONTEXT_BUFFER_SIZE - static_cast<int>(sizeof(FloydSteinbergDither)),
+            frame_width,
+            output_depth
+        );
+    }
+
+    static inline void destroy_context(void* context)
+    {
+        state(context).~FloydSteinbergDither();
+    }
+
+    static __forceinline void next_pixel(void* context)
+    {
+        state(context).next_pixel();
+    }
+
+    static __forceinline void next_row(void* context)
+    {
+        state(context).next_row();
+    }
+
+    static __forceinline int dither(void* context, int pixel, int row, int column)
+    {
+        return state(context).dither(pixel);
+    }
+
+    static inline int upsample(void* context, unsigned char pixel)
+    {
+        return neo_f3kdb::core::pixel_proc_common::upsample(context, pixel);
+    }
+
+    static inline int downsample(void* context, int pixel, int row, int column, int pixel_min, int pixel_max, int output_depth)
+    {
+        pixel = dither(context, pixel, row, column);
+        return neo_f3kdb::core::pixel_proc_common::downsample(pixel, pixel_min, pixel_max, output_depth);
+    }
+
+    static inline int avg_2(void* context, int pixel1, int pixel2)
+    {
+        return neo_f3kdb::core::pixel_proc_common::avg_2(context, pixel1, pixel2);
+    }
+
+    static inline int avg_4(void* context, int pixel1, int pixel2, int pixel3, int pixel4)
+    {
+        return neo_f3kdb::core::pixel_proc_common::avg_4(context, pixel1, pixel2, pixel3, pixel4);
+    }
 
 };
 

@@ -1,6 +1,7 @@
 #include <assert.h>
 
 #include "core/constants.hpp"
+#include "core/pixel_proc_common.hpp"
 
 namespace pixel_proc_16bit {
     
@@ -30,9 +31,10 @@ namespace pixel_proc_16bit {
         return pixel;
     }
 
-    #define HAS_DOWNSAMPLE
-
-    #include "core/pixel_proc_common.hpp"
+    static inline int upsample(void* context, unsigned char pixel)
+    {
+        return neo_f3kdb::core::pixel_proc_common::upsample(context, pixel);
+    }
 
     static inline int downsample(void* context, int pixel, int row, int column, int pixel_min, int pixel_max, int output_depth)
     {
@@ -41,5 +43,14 @@ namespace pixel_proc_16bit {
         return clamp_pixel(pixel, pixel_min, pixel_max) << (output_depth - INTERNAL_BIT_DEPTH);
     }
 
+    static inline int avg_2(void* context, int pixel1, int pixel2)
+    {
+        return neo_f3kdb::core::pixel_proc_common::avg_2(context, pixel1, pixel2);
+    }
+
+    static inline int avg_4(void* context, int pixel1, int pixel2, int pixel3, int pixel4)
+    {
+        return neo_f3kdb::core::pixel_proc_common::avg_4(context, pixel1, pixel2, pixel3, pixel4);
+    }
 
 };

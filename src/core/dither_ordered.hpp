@@ -4,6 +4,7 @@
 #define PIXEL_PROC_C_HIGH_ORDERED_DITHERING_H
 
 #include "core/constants.hpp"
+#include "core/pixel_proc_common.hpp"
 
 namespace pixel_proc_high_ordered_dithering {
 
@@ -59,7 +60,26 @@ namespace pixel_proc_high_ordered_dithering {
         return pixel;
     }
 
-    #include "core/pixel_proc_common.hpp"
+    static inline int upsample(void* context, unsigned char pixel)
+    {
+        return neo_f3kdb::core::pixel_proc_common::upsample(context, pixel);
+    }
+
+    static inline int downsample(void* context, int pixel, int row, int column, int pixel_min, int pixel_max, int output_depth)
+    {
+        pixel = dither(context, pixel, row, column);
+        return neo_f3kdb::core::pixel_proc_common::downsample(pixel, pixel_min, pixel_max, output_depth);
+    }
+
+    static inline int avg_2(void* context, int pixel1, int pixel2)
+    {
+        return neo_f3kdb::core::pixel_proc_common::avg_2(context, pixel1, pixel2);
+    }
+
+    static inline int avg_4(void* context, int pixel1, int pixel2, int pixel3, int pixel4)
+    {
+        return neo_f3kdb::core::pixel_proc_common::avg_4(context, pixel1, pixel2, pixel3, pixel4);
+    }
 };
 
 #endif // PIXEL_PROC_C_HIGH_ORDERED_DITHERING_H
