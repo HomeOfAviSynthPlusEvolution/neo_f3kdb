@@ -40,24 +40,6 @@ void f3kdb_core_t::destroy_frame_luts(void)
     destroy_context(&_cr_context);
 }
 
-static int inline min_multi( int first, ... )
-{
-    int ret = first, i = first;
-    va_list marker;
-
-    va_start( marker, first );
-    while( i >= 0 )
-    {
-        if (i < ret)
-        {
-            ret = i;
-        }
-        i = va_arg( marker, int);
-    }
-    va_end( marker );
-    return ret;
-}
-
 static int get_frame_lut_stride(int width_in_pixels)
 {
     // whole multiples of alignment, so SSE codes don't need to check boundaries
@@ -121,8 +103,8 @@ void f3kdb_core_t::init_frame_luts(void)
             pixel_dither_info info_y = {0, 0, 0};
             info_y.change = random(_params.random_algo_grain, seed, _params.grainY, _params.random_param_grain);
 
-            int x_range = min_multi(_params.range, x, width_in_pixels - x - 1, -1);
-            int y_range = min_multi(_params.range, y, height_in_pixels - y - 1, -1);
+            int x_range = std::min({ _params.range, x, width_in_pixels - x - 1 });
+            int y_range = std::min({ _params.range, y, height_in_pixels - y - 1 });
             int cur_range = [&]() {
                 switch (_params.sample_mode)
                 {
@@ -137,7 +119,7 @@ void f3kdb_core_t::init_frame_luts(void)
                 case 5:
                 case 6:
                 case 7:
-                    return min_multi(x_range, y_range, -1);
+                    return std::min({ x_range, y_range });
 
                 default: // unlikely
                     return 0;
