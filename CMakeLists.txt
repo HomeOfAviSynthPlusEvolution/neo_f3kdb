@@ -76,8 +76,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|i.86")
     message(STATUS "x86/x86_64 architecture detected. Configuring SIMD instruction sets.")
 
     target_sources(${LIBRARY_NAME} PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_avx2_base.h"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_avx512_base.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_avx_base.h"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_avx2.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_avx512.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/flash3kyuu_deband_impl_sse4.cpp"

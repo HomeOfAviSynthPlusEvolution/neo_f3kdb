@@ -7,10 +7,13 @@
 #include "constants.h"
 #include "random.h"
 #include "impl_dispatch.h"
+#include "avx_dispatch.h"
 
 #ifdef _WIN32
 #include <intrin.h>
 #endif
+
+int GetCPUFlags();
 
 void f3kdb_core_t::destroy_frame_luts(void)
 {
@@ -245,7 +248,7 @@ static __inline int select_impl_index(int sample_mode, bool blur_first)
     return sample_mode * 2 + (blur_first ? 0 : 1) - 1;
 }
 
-void f3kdb_core_t::init(void) 
+void f3kdb_core_t::init(void)
 {
     init_context(&_y_context);
     init_context(&_cb_context);
@@ -253,8 +256,25 @@ void f3kdb_core_t::init(void)
 
     init_frame_luts();
 
-    const process_plane_impl_t* impl_table = process_plane_impls[_params.dither_algo][(int)_opt];
-    _process_plane_impl = impl_table[select_impl_index(_params.sample_mode, _params.blur_first)];
+    const int CPUFlags = GetCPUFlags();
+
+    const process_plane_impl_t* avx_impl = select_avx_impl(
+        static_cast<int>(_opt), CPUFlags, static_cast<int>(_params.dither_algo));
+
+    if (avx_impl) {
+        _process_plane_impl = avx_impl[select_impl_index(_params.sample_mode, _params.blur_first)];
+        return;
+    }
+
+    const process_plane_impl_t** impl_table = process_plane_impls[static_cast<int>(_params.dither_algo)];
+
+    // Determine the best non-AVX implementation
+    OPTIMIZATION_MODE fallback_opt = IMPL_C;
+    if ((CPUFlags & CPUF_SSE4_1) && (_opt == IMPL_AUTO_DETECT || _opt == IMPL_SSE4 || _opt > IMPL_SSE4)) {
+        fallback_opt = IMPL_SSE4;
+    }
+
+    _process_plane_impl = impl_table[static_cast<int>(fallback_opt)][select_impl_index(_params.sample_mode, _params.blur_first)];
 }
 
 void f3kdb_core_t::process_plane(int frame_index, int plane, unsigned char* dst_frame_ptr, int dst_pitch, const unsigned char* src_frame_ptr, int src_pitch)
