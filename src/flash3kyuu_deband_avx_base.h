@@ -214,7 +214,7 @@ namespace DEBAND_NAMESPACE {
 
         V_fbool gx_is_small = abs(gx) < scaled_epsilon_for_gx;
 
-        auto angle = atan(gy / gx);
+        auto angle = atan(gy / select(gx_is_small, V_float(1.0f), gx));
         angle = select(gx_is_small, 1.0f, angle / static_cast<float>(M_PI) + 0.5f);
         return angle;
     }
