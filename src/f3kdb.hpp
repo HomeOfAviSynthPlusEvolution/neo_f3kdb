@@ -247,8 +247,7 @@ struct F3KDB final : Filter {
   {
     auto src = in_frames[n];
     auto dst = src.Create(out_vi);
-    auto core = [&](char&idx) {
-      int p = static_cast<int>(reinterpret_cast<intptr_t>(&idx));
+    auto core = [&](int p) {
       auto src_stride = src.StrideBytes[p];
       auto src_ptr = src.SrcPointers[p];
       auto dst_stride = dst.StrideBytes[p];
@@ -258,12 +257,14 @@ struct F3KDB final : Filter {
     };
 
 #ifdef ENABLE_PAR
-    if(mt)
-      std::for_each_n(PAR_POLICY, reinterpret_cast<char*>(0), in_vi.Format.Planes, core);
+    if (mt) {
+      int plane_indices[4] = { 0, 1, 2, 3 };
+      std::for_each_n(PAR_POLICY, plane_indices, in_vi.Format.Planes, core);
+    }
     else
 #endif
-    for (intptr_t i = 0; i < in_vi.Format.Planes; i++)
-      core(*reinterpret_cast<char*>(i));
+    for (int i = 0; i < in_vi.Format.Planes; i++)
+      core(i);
 
     return dst;
   }
