@@ -85,25 +85,34 @@ struct F3KDB final : Filter {
     bool scale = false;
     in->Read("scale", scale);
 
-    while(!piss.eof()) {
-      std::string piss1;
-      std::getline(piss, piss1, '/');
-      if (piss1 == "depth")
-          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = 0;
-      else if (piss1 == "low")
-          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 128 : 32;
-      else if (piss1 == "medium")
-          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 192 : 48;
-      else if (piss1 == "high")
-          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 256 : 64;
-      else if (piss1 == "veryhigh")
-          ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 320 : 80;
-      else if (piss1 == "nograin")
-        ep.grainY = ep.grainC = 0;
-      else if (piss1 == "luma")
-        ep.Cb = ep.Cr = ep.grainC = 0;
-      else if (piss1 == "chroma")
-        ep.Y = ep.grainY = 0;
+    if (preset.size()) {
+        std::string piss1;
+        while (std::getline(piss, piss1, '/')) {
+            if (piss1.empty()) {
+                continue;
+            }
+
+            if (piss1 == "depth")
+                ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = 0;
+            else if (piss1 == "low")
+                ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 128 : 32;
+            else if (piss1 == "medium")
+                ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 192 : 48;
+            else if (piss1 == "high")
+                ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 256 : 64;
+            else if (piss1 == "veryhigh")
+                ep.Y = ep.Cb = ep.Cr = ep.grainY = ep.grainC = ep.Y_1 = ep.Cb_1 = ep.Cr_1 = ep.Y_2 = ep.Cb_2 = ep.Cr_2 = (scale) ? 320 : 80;
+            else if (piss1 == "nograin")
+                ep.grainY = ep.grainC = 0;
+            else if (piss1 == "luma")
+                ep.Cb = ep.Cr = ep.grainC = 0;
+            else if (piss1 == "chroma")
+                ep.Y = ep.grainY = 0;
+            else {
+                snprintf(error_msg, sizeof(error_msg), "Unknown preset: '%s'", piss1.c_str());
+                throw error_msg;
+            }
+        }
     }
     int tmp;
     in->Read("range", ep.range);
