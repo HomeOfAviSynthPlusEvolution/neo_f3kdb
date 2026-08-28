@@ -16,6 +16,40 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+namespace sse_mxcsr {
+    static inline unsigned int get_control_word() noexcept {
+        return _mm_getcsr();
+    }
+
+    static inline void set_control_word(unsigned int w) noexcept {
+        _mm_setcsr(w);
+    }
+
+    static inline void no_subnormals() noexcept {
+        unsigned int t1 = get_control_word();
+        t1 |= (1 << 6) | (1 << 15);
+        set_control_word(t1);
+    }
+
+    static inline void reset_control_word() noexcept {
+        set_control_word(0x1F80);
+    }
+}
+
+struct MXCSR_guard_sse
+{
+    unsigned int old_cw;
+    MXCSR_guard_sse() noexcept
+        : old_cw(sse_mxcsr::get_control_word())
+    {
+        sse_mxcsr::no_subnormals();
+    }
+    ~MXCSR_guard_sse() noexcept
+    {
+        sse_mxcsr::set_control_word(old_cw);
+    }
+};
+
 #define process_34 (sample_mode == 2 || sample_mode == 4)
 
 typedef struct _info_cache
@@ -786,6 +820,8 @@ std::mutex cache_mutex;
 template<int sample_mode, bool blur_first, int dither_algo, bool aligned, PIXEL_MODE output_mode>
 static void __cdecl _process_plane_sse_impl(const process_plane_params& params, process_plane_context* context)
 {
+    MXCSR_guard_sse guard;
+
     assert(sample_mode > 0);
 
     __m128i src_pitch_vector = _mm_set1_epi32(params.src_pitch);

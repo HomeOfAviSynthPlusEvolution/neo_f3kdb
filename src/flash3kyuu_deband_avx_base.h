@@ -64,6 +64,20 @@ namespace DEBAND_NAMESPACE {
 #define M_PI 3.14159265358979323846
 #endif
 
+    struct MXCSR_guard
+    {
+        int old_cw;
+        MXCSR_guard() noexcept
+            : old_cw(get_control_word())
+        {
+            no_subnormals();
+        }
+        ~MXCSR_guard() noexcept
+        {
+            set_control_word(old_cw);
+        }
+    };
+
     typedef struct _info_cache_avx2_avx512
     {
         int pitch;
@@ -519,6 +533,8 @@ namespace DEBAND_NAMESPACE {
     template<int sample_mode, bool blur_first, int dither_algo, bool aligned, PIXEL_MODE output_mode>
     static void __cdecl _process_plane_avx2_avx512_impl(const process_plane_params& params, process_plane_context* context)
     {
+        MXCSR_guard guard;
+
         auto src_pitch_vector = V_int(params.src_pitch);
 
         alignas(simd_align)
