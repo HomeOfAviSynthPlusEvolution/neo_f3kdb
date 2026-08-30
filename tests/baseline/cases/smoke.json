@@ -1,0 +1,159 @@
+{
+  "cases": [
+    {
+      "id": "f3kdb_real_mp4_mode1_blur_nodither",
+      "tier": "smoke",
+      "filter": "Deband",
+      "source": {
+        "id": "mp4_yuv420p8_10f_bestsource",
+        "type": "bestsource",
+        "path": "../sources/14946398.mp4"
+      },
+      "frames": [1, 3],
+      "params": {
+        "range": 15,
+        "y": 64,
+        "cb": 64,
+        "cr": 64,
+        "grainy": 0,
+        "grainc": 0,
+        "sample_mode": 1,
+        "seed": 42,
+        "blur_first": true,
+        "dither_algo": 1
+      }
+    },
+    {
+      "id": "f3kdb_real_mp4_mode5_blur_fs_grain",
+      "tier": "smoke",
+      "filter": "Deband",
+      "source": {
+        "id": "mp4_yuv420p8_10f_bestsource",
+        "type": "bestsource",
+        "path": "../sources/14946398.mp4"
+      },
+      "frames": [1, 3],
+      "params": {
+        "range": 15,
+        "y": 64,
+        "cb": 64,
+        "cr": 64,
+        "grainy": 32,
+        "grainc": 16,
+        "sample_mode": 5,
+        "seed": 42,
+        "blur_first": true,
+        "dither_algo": 3
+      }
+    },
+    {
+      "id": "f3kdb_real_mp4_mode2_noblur_ordered",
+      "tier": "smoke",
+      "filter": "Deband",
+      "source": {
+        "id": "mp4_yuv420p8_10f_bestsource",
+        "type": "bestsource",
+        "path": "../sources/14946398.mp4"
+      },
+      "frames": [1, 3, 5],
+      "params": {
+        "range": 15,
+        "y": 64,
+        "cb": 64,
+        "cr": 64,
+        "grainy": 0,
+        "grainc": 0,
+        "sample_mode": 2,
+        "seed": 42,
+        "blur_first": false,
+        "dither_algo": 2
+      }
+    },
+    {
+      "id": "f3kdb_real_mp4_mode3_blur_fs",
+      "tier": "smoke",
+      "filter": "Deband",
+      "source": {
+        "id": "mp4_yuv420p8_10f_bestsource",
+        "type": "bestsource",
+        "path": "../sources/14946398.mp4"
+      },
+      "frames": [1, 3, 5],
+      "params": {
+        "range": 15,
+        "y": 64,
+        "cb": 64,
+        "cr": 64,
+        "grainy": 0,
+        "grainc": 0,
+        "sample_mode": 3,
+        "seed": 42,
+        "blur_first": true,
+        "dither_algo": 3
+      }
+    },
+    {
+      "id": "f3kdb_real_mp4_mode6_blur_ordered_tvrange",
+      "tier": "smoke",
+      "filter": "Deband",
+      "source": {
+        "id": "mp4_yuv420p8_10f_bestsource",
+        "type": "bestsource",
+        "path": "../sources/14946398.mp4"
+      },
+      "frames": [1, 3, 5],
+      "params": {
+        "range": 15,
+        "y": 64,
+        "cb": 64,
+        "cr": 64,
+        "grainy": 0,
+        "grainc": 0,
+        "sample_mode": 6,
+        "seed": 42,
+        "blur_first": true,
+        "dither_algo": 2,
+        "keep_tv_range": true
+      }
+    },
+    {
+      "id": "f3kdb_real_mp4_output_depth16_depth",
+      "tier": "smoke",
+      "filter": "Deband",
+      "source": {
+        "id": "mp4_yuv420p8_10f_bestsource",
+        "type": "bestsource",
+        "path": "../sources/14946398.mp4"
+      },
+      "frames": [1, 3],
+      "params": {
+        "preset": "depth",
+        "output_depth": 16
+      }
+    },
+    {
+      "id": "f3kdb_real_mp4_dynamic_grain",
+      "tier": "smoke",
+      "filter": "Deband",
+      "source": {
+        "id": "mp4_yuv420p8_10f_bestsource",
+        "type": "bestsource",
+        "path": "../sources/14946398.mp4"
+      },
+      "frames": [1, 3, 5],
+      "params": {
+        "range": 15,
+        "y": 64,
+        "cb": 64,
+        "cr": 64,
+        "grainy": 64,
+        "grainc": 32,
+        "dynamic_grain": true,
+        "sample_mode": 2,
+        "seed": 42,
+        "blur_first": true,
+        "dither_algo": 3
+      }
+    }
+  ]
+}

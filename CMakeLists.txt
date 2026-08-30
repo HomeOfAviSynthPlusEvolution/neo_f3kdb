@@ -240,6 +240,15 @@ if(ENABLE_PAR AND HAS_EXECUTION)
   endif()
 endif()
 
+add_executable(f3kdb_avs_frame_dump
+  tests/tools/avs_frame_dump.cpp
+)
+target_include_directories(f3kdb_avs_frame_dump PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/avisynth")
+set_property(TARGET f3kdb_avs_frame_dump PROPERTY CXX_STANDARD 17)
+if(NOT WIN32)
+  target_link_libraries(f3kdb_avs_frame_dump PRIVATE dl)
+endif()
+
 add_custom_command(
   TARGET ${LIBRARY_NAME} POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${LIBRARY_NAME}> "../Release_${PROJECT_VERSION_STRING_FULL}/${_DIR}/$<TARGET_FILE_NAME:${LIBRARY_NAME}>"
