@@ -81,12 +81,6 @@ def run_vs_case(case: dict, plugin_path: Path, backend: str) -> list[dict]:
     params = dict(case.get("params", {}))
     if backend == "purec":
         params["opt"] = 0
-    elif backend == "sse4":
-        params["opt"] = 1
-    elif backend == "avx2":
-        params["opt"] = 2
-    elif backend == "avx512":
-        params["opt"] = 3
     elif backend == "highway":
         params.pop("opt", None)
 
@@ -185,7 +179,8 @@ def _vs_source_clip(core: Any, vs: Any, source: dict) -> Any:
                 stride = f_out.get_stride(plane_index)
                 
                 dtype = np.uint16 if f_out.format.bytes_per_sample == 2 else np.uint8
-                arr = np.ctypeslib.as_array(ctypes.cast(p.value, ctypes.POINTER(ctypes.c_uint16 if dtype == np.uint16 else ctypes.c_uint8)), shape=(h, stride // f_out.format.bytes_per_sample))
+                ptr_val = ctypes.cast(p, ctypes.c_void_p).value
+                arr = np.ctypeslib.as_array(ctypes.cast(ptr_val, ctypes.POINTER(ctypes.c_uint16 if dtype == np.uint16 else ctypes.c_uint8)), shape=(h, stride // f_out.format.bytes_per_sample))
                 arr[:, :w] = val
                 
             return f_out
@@ -220,7 +215,8 @@ def _vs_frame_planes(frame: Any, num_frames: int) -> tuple[list[PlaneBytes], dic
         stride = frame.get_stride(plane_index)
         row_bytes = width * fmt.bytes_per_sample
         pointer = frame.get_read_ptr(plane_index)
-        data = ctypes.string_at(pointer.value, stride * height)
+        ptr_val = int(pointer) if hasattr(pointer, "__int__") else (pointer.value if hasattr(pointer, "value") else pointer)
+        data = ctypes.string_at(ptr_val, stride * height)
         planes.append(PlaneBytes(name, width, height, fmt.bytes_per_sample, stride, data))
         plane_metadata.append(
             {
@@ -331,8 +327,10 @@ def _render_avs_source_lines(source: dict) -> list[str]:
             f'? FFVideoSource("{path}") '
             ': FunctionExists("LSMASHVideoSource") '
             f'? LSMASHVideoSource("{path}") '
+            ': FunctionExists("LWLibavVideoSource") '
+            f'? LWLibavVideoSource("{path}") '
             ': Assert(false, "no supported AviSynth source filter found; '
-            'tried BSVideoSource, FFVideoSource and LSMASHVideoSource")'
+            'tried BSVideoSource, FFVideoSource, LSMASHVideoSource and LWLibavVideoSource")'
         ]
     raise ValueError(f"unsupported source type: {source['type']}")
 
@@ -341,12 +339,6 @@ def run_avs_case(case: dict, plugin_path: Path, avs_dump: Path, backend: str) ->
     params = dict(case.get("params", {}))
     if backend == "purec":
         params["opt"] = 0
-    elif backend == "sse4":
-        params["opt"] = 1
-    elif backend == "avx2":
-        params["opt"] = 2
-    elif backend == "avx512":
-        params["opt"] = 3
     elif backend == "highway":
         params.pop("opt", None)
 
@@ -459,7 +451,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--golden", required=True, type=Path)
     parser.add_argument("--tier", default="smoke")
     parser.add_argument("--hosts", nargs="+", default=["vs", "avs"], choices=["vs", "avs"])
-    parser.add_argument("--backend", default="purec", choices=["purec", "sse4", "avx2", "avx512", "highway"])
+    parser.add_argument("--backend", default="purec", choices=["purec", "highway"])
     args = parser.parse_args(argv)
 
     plugin_path = args.plugin.resolve()
