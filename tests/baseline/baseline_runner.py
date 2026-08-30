@@ -423,11 +423,15 @@ def write_golden(path: Path, results: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
-def verify_golden(path: Path, results: list[dict]) -> None:
+def verify_golden(path: Path, results: list[dict], hosts: list[str] | None = None) -> None:
     expected = json.loads(path.read_text(encoding="utf-8"))
     actual = {"schema": GOLDEN_SCHEMA, "results": results}
     
-    expected_map = {(r["case"], r["host"], r["frame"]): r["sha256"] for r in expected["results"]}
+    expected_results = expected["results"]
+    if hosts:
+        expected_results = [r for r in expected_results if r.get("host") in hosts]
+
+    expected_map = {(r["case"], r["host"], r["frame"]): r["sha256"] for r in expected_results}
     actual_map = {(r["case"], r["host"], r["frame"]): r["sha256"] for r in actual["results"]}
 
     mismatches = []
@@ -467,7 +471,7 @@ def main(argv: list[str] | None = None) -> int:
         write_golden(args.golden, results)
         print(f"Successfully generated golden baseline file: {args.golden}")
     else:
-        verify_golden(args.golden, results)
+        verify_golden(args.golden, results, hosts=args.hosts)
     return 0
 
 def run_cases(

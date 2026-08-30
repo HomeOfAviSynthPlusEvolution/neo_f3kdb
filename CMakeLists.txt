@@ -249,6 +249,29 @@ if(NOT WIN32)
   target_link_libraries(f3kdb_avs_frame_dump PRIVATE dl)
 endif()
 
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
+enable_testing()
+
+set(F3KDB_TEST_HOSTS "vs;avs" CACHE STRING "Hosts to test in baseline runner (e.g. vs;avs or vs)")
+
+foreach(backend IN ITEMS purec)
+  foreach(tier IN ITEMS smoke compat)
+    add_test(
+      NAME baseline_${backend}_${tier}
+      COMMAND
+        ${Python3_EXECUTABLE} -m tests.baseline.baseline_runner verify
+        --plugin $<TARGET_FILE:${LIBRARY_NAME}>
+        --avs-dump $<TARGET_FILE:f3kdb_avs_frame_dump>
+        --golden "${PROJECT_SOURCE_DIR}/tests/baseline/golden/${tier}.json"
+        --tier ${tier}
+        --backend ${backend}
+        --hosts ${F3KDB_TEST_HOSTS}
+      WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+    )
+  endforeach()
+endforeach()
+
 add_custom_command(
   TARGET ${LIBRARY_NAME} POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${LIBRARY_NAME}> "../Release_${PROJECT_VERSION_STRING_FULL}/${_DIR}/$<TARGET_FILE_NAME:${LIBRARY_NAME}>"

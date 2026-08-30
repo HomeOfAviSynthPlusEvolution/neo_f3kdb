@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [ "master", "refactor/*" ]
+    tags: [ "r*", "v*" ]
+  pull_request:
+    branches: [ "master", "refactor/*" ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-26.04
+            os: ubuntu-26.04
+            cmake_generator: "Ninja"
+            cmake_flags: "-DCMAKE_BUILD_TYPE=Release -DENABLE_PAR=OFF -DF3KDB_TEST_HOSTS=vs"
+
+          - name: ubuntu-26.04-arm
+            os: ubuntu-26.04-arm
+            cmake_generator: "Ninja"
+            cmake_flags: "-DCMAKE_BUILD_TYPE=Release -DENABLE_PAR=OFF -DF3KDB_TEST_HOSTS=vs"
+
+          - name: windows-2025-vs2026
+            os: windows-2025
+            cmake_generator: "Visual Studio 18 2026"
+            cmake_flags: "-T ClangCL -A x64 -DENABLE_PAR=OFF"
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Setup Windows Test Environment (VS & AVS)
+        if: runner.os == 'Windows'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install vapoursynth
+
+          # Download and unpack AviSynth+
+          Invoke-WebRequest -Uri "https://github.com/AviSynth/AviSynthPlus/releases/download/v3.7.5/AviSynthPlus_3.7.5_20250420-filesonly.7z" -OutFile "avisynth.7z"
+          7z x avisynth.7z -oavs
+          Get-ChildItem -Path avs -Filter "AviSynth.dll" -Recurse | Where-Object { $_.DirectoryName -match "x64|system64|x86_64" } | Select-Object -First 1 | ForEach-Object { Copy-Item $_.FullName -Destination "C:\Windows\System32\avisynth.dll" -Force }
+
+          # Download BestSource (supports VS & AVS)
+          Invoke-WebRequest -Uri "https://github.com/vapoursynth/bestsource/releases/download/R21/BestSource-R21-win64-msvc.zip" -OutFile "bestsource.zip"
+          7z x bestsource.zip -obs
+
+          # Download FFMS2 (supports VS & AVS)
+          Invoke-WebRequest -Uri "https://github.com/FFMS/ffms2/releases/download/5.0/ffms2-5.0-msvc.7z" -OutFile "ffms2.7z"
+          7z x ffms2.7z -offms2
+
+          # Configure AviSynth+ plugin autoloading and registry
+          $avsPluginDir = "C:\Program Files\AviSynth+\plugins"
+          New-Item -ItemType Directory -Path $avsPluginDir -Force | Out-Null
+          New-Item -Path "HKLM:\SOFTWARE\AviSynth" -Force | Out-Null
+          Set-ItemProperty -Path "HKLM:\SOFTWARE\AviSynth" -Name "PluginDir+" -Value $avsPluginDir -Force
+          Set-ItemProperty -Path "HKLM:\SOFTWARE\AviSynth" -Name "PluginDir64+" -Value $avsPluginDir -Force
+
+          # Configure VapourSynth plugin autoloading
+          $vsPluginDir = "$((python -c 'import vapoursynth, os; print(os.path.dirname(vapoursynth.__file__))').Trim())\plugins"
+          New-Item -ItemType Directory -Path $vsPluginDir -Force | Out-Null
+          $appdataVs = "$env:APPDATA\VapourSynth\plugins"
+          New-Item -ItemType Directory -Path $appdataVs -Force | Out-Null
+
+          # Distribute source filters
+          Get-ChildItem -Path bs, ffms2 -Filter "*.dll" -Recurse | Where-Object { $_.DirectoryName -match "x64|x86_64|win64" } | ForEach-Object {
+              Copy-Item $_.FullName -Destination $avsPluginDir -Force
+              Copy-Item $_.FullName -Destination $vsPluginDir -Force
+              Copy-Item $_.FullName -Destination $appdataVs -Force
+              Copy-Item $_.FullName -Destination "C:\Windows\System32\" -Force
+          }
+
+      - name: Setup Linux Test Environment (VapourSynth)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config ninja-build libffms2-dev
+          python -m pip install --upgrade pip
+          python -m pip install vapoursynth
+
+          # Copy libffms2 into VapourSynth plugin autoload path
+          VS_PLUGIN_DIR="$(python3 -c 'import vapoursynth, os; print(os.path.dirname(vapoursynth.__file__))')/plugins"
+          mkdir -p "$VS_PLUGIN_DIR"
+          find /usr/lib -name "libffms2.so*" -exec cp -L {} "$VS_PLUGIN_DIR/libffms2.so" \; -quit || true
+
+      - name: Configure CMake
+        run: >
+          cmake -B build
+          -G "${{ matrix.cmake_generator }}"
+          ${{ matrix.cmake_flags }}
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test (CTest)
+        run: ctest --test-dir build -C Release --output-on-failure
