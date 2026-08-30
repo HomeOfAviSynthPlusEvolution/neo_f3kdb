@@ -53,8 +53,13 @@ public:
 #if defined(_WIN32)
     data_ = static_cast<T*>(_aligned_malloc(bytes, Alignment));
 #else
-    const std::size_t aligned_bytes = ((bytes + Alignment - 1) / Alignment) * Alignment;
-    data_ = static_cast<T*>(std::aligned_alloc(Alignment, aligned_bytes));
+    void* ptr = nullptr;
+    constexpr std::size_t min_alignment = sizeof(void*);
+    constexpr std::size_t alloc_alignment = Alignment < min_alignment ? min_alignment : Alignment;
+    if (posix_memalign(&ptr, alloc_alignment, bytes) != 0) {
+      ptr = nullptr;
+    }
+    data_ = static_cast<T*>(ptr);
 #endif
     if (data_ == nullptr) {
       throw std::runtime_error("unable to allocate memory");
