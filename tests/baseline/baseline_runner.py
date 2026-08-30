@@ -188,16 +188,21 @@ def _vs_source_clip(core: Any, vs: Any, source: dict) -> Any:
         return core.std.ModifyFrame(blank, blank, populate_gradient)
     if source["type"] == "bestsource":
         path = str(source["resolved_path"])
+        clip = None
         if hasattr(core, "bs"):
-            return core.bs.VideoSource(source=path)
-        if hasattr(core, "ffms2"):
-            return core.ffms2.Source(source=path)
-        if hasattr(core, "lsmas"):
-            return core.lsmas.LibavSMASHSource(source=path)
-        raise RuntimeError(
-            "bestsource is requested but not found, and no supported VapourSynth fallback source filter was found; "
-            "tried core.ffms2.Source and core.lsmas.LibavSMASHSource"
-        )
+            clip = core.bs.VideoSource(source=path)
+        elif hasattr(core, "ffms2"):
+            clip = core.ffms2.Source(source=path)
+        elif hasattr(core, "lsmas"):
+            clip = core.lsmas.LibavSMASHSource(source=path)
+        else:
+            raise RuntimeError(
+                "bestsource is requested but not found, and no supported VapourSynth fallback source filter was found; "
+                "tried core.ffms2.Source and core.lsmas.LibavSMASHSource"
+            )
+        if source.get("gray"):
+            clip = core.std.ShufflePlanes(clips=clip, planes=0, colorfamily=vs.GRAY)
+        return clip
     raise ValueError(f"unsupported source type: {source['type']}")
 
 def _vs_frame_planes(frame: Any, num_frames: int) -> tuple[list[PlaneBytes], dict]:
@@ -294,6 +299,8 @@ def _render_avs_source_lines(source: dict) -> list[str]:
         pixel_type = source.get("avs_format", source["format"])
         if pixel_type == "YUV420P8":
             pixel_type = "YV12"
+        elif pixel_type == "GRAY8":
+            pixel_type = "Y8"
             
         expr_y = "sx sy +"
         
@@ -313,6 +320,12 @@ def _render_avs_source_lines(source: dict) -> list[str]:
             expr_u = "sx sy - 128 +"
             expr_v = "sy sx - 128 +"
             
+        if "GRAY" in source["format"] or pixel_type in ("Y8", "Y", "Y10", "Y12", "Y14", "Y16"):
+            return [
+                f'blank = BlankClip(width={source["width"]}, height={source["height"]}, '
+                f'length={source["length"]}, pixel_type="{pixel_type}", color_yuv=$808080)',
+                f'src = Expr(blank, "{expr_y}")'
+            ]
         return [
             f'blank = BlankClip(width={source["width"]}, height={source["height"]}, '
             f'length={source["length"]}, pixel_type="{pixel_type}", color_yuv=$808080)',
@@ -320,7 +333,7 @@ def _render_avs_source_lines(source: dict) -> list[str]:
         ]
     elif source["type"] == "bestsource":
         path = str(source["resolved_path"]).replace('\\', '/')
-        return [
+        lines = [
             'src = FunctionExists("BSVideoSource") '
             f'? BSVideoSource("{path}") '
             ': FunctionExists("FFVideoSource") '
@@ -332,6 +345,9 @@ def _render_avs_source_lines(source: dict) -> list[str]:
             ': Assert(false, "no supported AviSynth source filter found; '
             'tried BSVideoSource, FFVideoSource, LSMASHVideoSource and LWLibavVideoSource")'
         ]
+        if source.get("gray"):
+            lines.append("src = ConvertToY(src)")
+        return lines
     raise ValueError(f"unsupported source type: {source['type']}")
 
 def run_avs_case(case: dict, plugin_path: Path, avs_dump: Path, backend: str) -> list[dict]:
@@ -413,7 +429,7 @@ def _result_record(case: dict, host: str, frame_number: int, sha256: str, metada
 def write_golden(path: Path, results: list[dict]) -> None:
     payload = {"schema": GOLDEN_SCHEMA, "results": results}
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
 
 def verify_golden(path: Path, results: list[dict], hosts: list[str] | None = None) -> None:
     expected = json.loads(path.read_text(encoding="utf-8"))

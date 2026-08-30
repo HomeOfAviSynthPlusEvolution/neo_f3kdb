@@ -145,7 +145,10 @@ void apply_preset(DebandParameters& p, std::string_view preset, bool scale) {
 }
 
 void validate_parameters(const DebandParameters& p, const ds::VideoInputInfo& input, bool scale) {
-  invalid_param_if(input.format.color_family != ds::ColorFamily::Yuv, "input is not YUV");
+  invalid_param_if(
+    input.format.color_family != ds::ColorFamily::Yuv && input.format.color_family != ds::ColorFamily::Gray,
+    "input is not YUV or Gray"
+  );
   invalid_param_if(input.width < 16, "input.width < 16");
   invalid_param_if(input.height < 16, "input.height < 16");
   invalid_param_if(input.num_frames <= 0, "input.num_frames <= 0");

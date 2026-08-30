@@ -94,7 +94,7 @@ ds::Result<ds::VideoProcessResult> F3KDBFilterCore::process(ds::VideoProcessCont
 }
 
 bool F3KDBBridge::accepts_video_format(ds::VideoFormat format) {
-  return format.color_family == ds::ColorFamily::Yuv &&
+  return (format.color_family == ds::ColorFamily::Yuv || format.color_family == ds::ColorFamily::Gray) &&
          (format.sample_format == ds::SampleFormat::UInt8 || format.sample_format == ds::SampleFormat::UInt16);
 }
 
