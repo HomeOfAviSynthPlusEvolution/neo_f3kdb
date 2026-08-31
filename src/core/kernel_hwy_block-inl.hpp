@@ -20,7 +20,7 @@ HWY_INLINE void process_block(
 ) {
     static_assert(!kUseCachedOffsets || (kSampleMode >= 1 && kSampleMode <= 6));
     static_assert(!kPureDeband || (
-        kSampleMode >= 1 && kSampleMode <= 4 &&
+        kSampleMode >= 1 && kSampleMode <= 5 &&
         kDitherAlgo == DA_HIGH_NO_DITHERING &&
         std::is_same_v<PixelIn, unsigned char> &&
         std::is_same_v<PixelOut, unsigned char>
@@ -30,7 +30,7 @@ HWY_INLINE void process_block(
     decltype(hn::Zero(d32)) v_src_up;
     decltype(hn::Zero(d32)) processed_v;
 
-    if constexpr ((kSampleMode >= 1 && kSampleMode <= 4) && std::is_same_v<PixelIn, unsigned char> && kDitherAlgo != DA_HIGH_FLOYD_STEINBERG_DITHERING) {
+    if constexpr ((kSampleMode >= 1 && kSampleMode <= 5) && std::is_same_v<PixelIn, unsigned char> && kDitherAlgo != DA_HIGH_FLOYD_STEINBERG_DITHERING) {
         const hn::Rebind<std::uint16_t, D32> d16;
         const hn::Rebind<unsigned char, D32> d8;
 
@@ -79,7 +79,9 @@ HWY_INLINE void process_block(
             r2_v,
             r3_v,
             r4_v,
-            config.threshold
+            config.threshold,
+            config.threshold1,
+            config.threshold2
         );
 
         if constexpr (kPureDeband) {

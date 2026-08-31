@@ -8,9 +8,11 @@ V16 process_reference_samples_u16(
     V16 r2,
     V16 r3,
     V16 r4,
-    std::uint16_t threshold
+    std::uint16_t threshold,
+    std::uint16_t threshold1 = 0,
+    std::uint16_t threshold2 = 0
 ) {
-    static_assert(kSampleMode >= 1 && kSampleMode <= 4);
+    static_assert(kSampleMode >= 1 && kSampleMode <= 5);
 
     const auto threshold_v = hn::Set(d16, threshold);
 
@@ -32,8 +34,7 @@ V16 process_reference_samples_u16(
                 hn::Or(hn::Ge(hn::AbsDiff(r3, src), threshold_v), hn::Ge(hn::AbsDiff(r4, src), threshold_v))
             );
         return hn::IfThenElse(use_src, src, avg);
-    } else {
-        static_assert(kSampleMode == 4);
+    } else if constexpr (kSampleMode == 4) {
         const auto avg_v = hn::AverageRound(r1, r2);
         const auto avg_h = hn::AverageRound(r3, r4);
         const auto use_src_v = kBlurFirst
@@ -45,6 +46,34 @@ V16 process_reference_samples_u16(
         const auto new_v = hn::IfThenElse(use_src_v, src, avg_v);
         const auto new_h = hn::IfThenElse(use_src_h, src, avg_h);
         return hn::AverageRound(new_v, new_h);
+    } else {
+        static_assert(kSampleMode == 5);
+        auto avg1 = hn::AverageRound(r1, r2);
+        const auto avg2 = hn::AverageRound(r3, r4);
+        avg1 = hn::SaturatedSub(avg1, hn::Set(d16, static_cast<std::uint16_t>(1)));
+        const auto avg = hn::AverageRound(avg1, avg2);
+
+        const auto avg_dif = hn::AbsDiff(avg, src);
+        const auto d1 = hn::AbsDiff(r1, src);
+        const auto d2 = hn::AbsDiff(r2, src);
+        const auto d3 = hn::AbsDiff(r3, src);
+        const auto d4 = hn::AbsDiff(r4, src);
+        const auto max_dif = hn::Max(hn::Max(d1, d2), hn::Max(d3, d4));
+
+        const auto diff_sides1 = hn::Xor(hn::Ge(r1, src), hn::Ge(r2, src));
+        const auto mid_dif1 = hn::IfThenElse(diff_sides1, hn::AbsDiff(d1, d2), hn::Add(d1, d2));
+
+        const auto diff_sides2 = hn::Xor(hn::Ge(r3, src), hn::Ge(r4, src));
+        const auto mid_dif2 = hn::IfThenElse(diff_sides2, hn::AbsDiff(d3, d4), hn::Add(d3, d4));
+
+        const auto threshold1_v = hn::Set(d16, threshold1);
+        const auto threshold2_v = hn::Set(d16, threshold2);
+
+        const auto use_src = hn::Or(
+            hn::Or(hn::Ge(avg_dif, threshold_v), hn::Ge(max_dif, threshold1_v)),
+            hn::Or(hn::Ge(mid_dif1, threshold2_v), hn::Ge(mid_dif2, threshold2_v))
+        );
+        return hn::IfThenElse(use_src, src, avg);
     }
 }
 

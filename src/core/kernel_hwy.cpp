@@ -41,7 +41,7 @@ void process_plane_rows(
     // Rebind in process_block preserves the lane count, so these caps also
     // bound the uint16_t deband core and its cached reference gather.
     using BlockTag = std::conditional_t<
-        kSampleMode == 2 || kSampleMode == 4,
+        kSampleMode == 2 || kSampleMode == 4 || kSampleMode == 5,
         hn::CappedTag<std::uint32_t, 8>,
         std::conditional_t<
             kSampleMode == 1 || kSampleMode == 3,
@@ -182,7 +182,7 @@ void process_plane_rows_fs_wavefront(
     const std::size_t N = hn::Lanes(d);
 
     using BlockTag = std::conditional_t<
-        kSampleMode == 2 || kSampleMode == 4,
+        kSampleMode == 2 || kSampleMode == 4 || kSampleMode == 5,
         hn::CappedTag<std::uint32_t, 8>,
         std::conditional_t<
             kSampleMode == 1 || kSampleMode == 3,
@@ -217,7 +217,7 @@ void process_plane_rows_fs_wavefront(
             stripe_dst_rows[k] = dst_plane.row_ptr(row);
 
             int col = 0;
-            if constexpr ((kSampleMode >= 1 && kSampleMode <= 4) && std::is_same_v<PixelIn, unsigned char>) {
+            if constexpr ((kSampleMode >= 1 && kSampleMode <= 5) && std::is_same_v<PixelIn, unsigned char>) {
                 const hn::Rebind<unsigned char, BlockTag> d8;
                 if constexpr (kUseCachedOffsets) {
                     const std::size_t row_offset = static_cast<std::size_t>(row) * width;
@@ -235,7 +235,8 @@ void process_plane_rows_fs_wavefront(
                             16 - config.input_depth, deband_lanes, r1_v, r2_v, r3_v, r4_v
                         );
                         auto processed_u16 = deband_hwy_detail::process_reference_samples_u16<kSampleMode, kBlurFirst>(
-                            du16, v_src_u16, r1_v, r2_v, r3_v, r4_v, config.threshold
+                            du16, v_src_u16, r1_v, r2_v, r3_v, r4_v,
+                            config.threshold, config.threshold1, config.threshold2
                         );
                         auto grain_v = hn::BitCast(du16, hn::LoadU(d16, grain_row.data() + col));
                         auto intermediate_v = hn::Add(processed_u16, grain_v);
@@ -250,7 +251,8 @@ void process_plane_rows_fs_wavefront(
                             du16, params, src_plane, row, col, deband_lanes, r1_v, r2_v, r3_v, r4_v
                         );
                         auto processed_u16 = deband_hwy_detail::process_reference_samples_u16<kSampleMode, kBlurFirst>(
-                            du16, v_src_u16, r1_v, r2_v, r3_v, r4_v, config.threshold
+                            du16, v_src_u16, r1_v, r2_v, r3_v, r4_v,
+                            config.threshold, config.threshold1, config.threshold2
                         );
                         auto grain_v = hn::BitCast(du16, hn::LoadU(d16, grain_row.data() + col));
                         auto intermediate_v = hn::Add(processed_u16, grain_v);
@@ -409,7 +411,7 @@ void process_plane_templated(const process_plane_params& params, process_plane_c
     const auto& config = params.config;
 
     if constexpr (
-        kSampleMode >= 1 && kSampleMode <= 4 &&
+        kSampleMode >= 1 && kSampleMode <= 5 &&
         kDitherAlgo == DA_HIGH_NO_DITHERING &&
         std::is_same_v<PixelIn, unsigned char> &&
         std::is_same_v<PixelOut, unsigned char>
