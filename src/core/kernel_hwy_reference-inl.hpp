@@ -86,25 +86,36 @@ HWY_NOINLINE const neo_f3kdb::core::PlaneOffsetCache* prepare_offset_cache(
         return nullptr;
     }
 
-    if (context->data) {
-        const auto* cache = static_cast<const neo_f3kdb::core::PlaneOffsetCache*>(context->data);
-        if (cache && cache->matches(
-                static_cast<int>(src_plane.stride_bytes()),
-                params.plane_width(),
-                params.plane_height(),
-                kSampleMode,
-                params.config.input_depth
-            )) {
+    const int pitch = static_cast<int>(src_plane.stride_bytes());
+    const int width = params.plane_width();
+    const int height = params.plane_height();
+    const int depth = params.config.input_depth;
+
+    // Fast path: lock-free check with acquire semantics
+    void* existing_ptr = context->data.load(std::memory_order_acquire);
+    if (existing_ptr) {
+        const auto* cache = static_cast<const neo_f3kdb::core::PlaneOffsetCache*>(existing_ptr);
+        if (cache && cache->matches(pitch, width, height, kSampleMode, depth)) {
             return cache;
         }
     }
 
-    auto* cache = build_offset_cache<kSampleMode>(params, src_plane);
-    if (context->data && context->destroy) {
-        context->destroy(context->data);
+    // Slow path: lock mutex and perform double-checked initialization
+    std::lock_guard<std::mutex> lock(context->mutex);
+    existing_ptr = context->data.load(std::memory_order_relaxed);
+    if (existing_ptr) {
+        const auto* cache = static_cast<const neo_f3kdb::core::PlaneOffsetCache*>(existing_ptr);
+        if (cache && cache->matches(pitch, width, height, kSampleMode, depth)) {
+            return cache;
+        }
+        if (context->destroy) {
+            context->destroy(existing_ptr);
+        }
     }
-    context->data = cache;
+
+    auto* cache = build_offset_cache<kSampleMode>(params, src_plane);
     context->destroy = neo_f3kdb::core::destroy_offset_cache;
+    context->data.store(cache, std::memory_order_release);
     return cache;
 }
 

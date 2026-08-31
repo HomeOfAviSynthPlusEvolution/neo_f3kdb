@@ -5,8 +5,10 @@
 
 #include <dualsynth/span2d.hpp>
 
+#include <atomic>
 #include <cstdint>
 #include <cstddef>
+#include <mutex>
 #include <vector>
 
 typedef struct _pixel_dither_info {
@@ -35,10 +37,16 @@ struct PlaneBuffers {
 
 typedef void (*destroy_data_t)(void* data);
 
-typedef struct _process_plane_context {
-  void* data;
-  destroy_data_t destroy;
-} process_plane_context;
+struct process_plane_context {
+  std::atomic<void*> data{nullptr};
+  destroy_data_t destroy = nullptr;
+  std::mutex mutex{};
+
+  process_plane_context() = default;
+  ~process_plane_context() = default;
+  process_plane_context(const process_plane_context&) = delete;
+  process_plane_context& operator=(const process_plane_context&) = delete;
+};
 
 void destroy_context(process_plane_context* context);
 void init_context(process_plane_context* context);

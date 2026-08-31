@@ -21,8 +21,8 @@ public:
 
   FrameState(const FrameState&) = delete;
   FrameState& operator=(const FrameState&) = delete;
-  FrameState(FrameState&&) noexcept = default;
-  FrameState& operator=(FrameState&&) noexcept = default;
+  FrameState(FrameState&&) = delete;
+  FrameState& operator=(FrameState&&) = delete;
 
   void reset(const ds::VideoInputInfo& input, const DebandParameters& params);
 
