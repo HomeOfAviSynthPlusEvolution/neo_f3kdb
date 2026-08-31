@@ -1,13 +1,12 @@
 #pragma once
 
 #include "core/plane.hpp"
-
-#include <span>
+#include <dualsynth/span2d.hpp>
 
 namespace neo_f3kdb::core {
 
 struct DitherInfoPlane {
-  std::span<pixel_dither_info> pixels{};
+  span2d::Span<pixel_dither_info> pixels{};
   int stride = 0;
 };
 

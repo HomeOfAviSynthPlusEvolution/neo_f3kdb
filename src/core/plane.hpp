@@ -7,7 +7,6 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <span>
 #include <vector>
 
 typedef struct _pixel_dither_info {
@@ -124,7 +123,7 @@ struct KernelPlane {
     buffers.dst_bytes = span2d::RestrictPlane<unsigned char>(dst_plane, get_dst_width(config), get_dst_height(), dst_pitch);
   }
 
-  inline void set_dither_info_plane(std::span<pixel_dither_info> info, int stride) noexcept {
+  inline void set_dither_info_plane(span2d::Span<pixel_dither_info> info, int stride) noexcept {
     buffers.dither_info = span2d::ReadOnlyRestrictPlane<pixel_dither_info>(info.data(), plane_width(), plane_height(), stride);
   }
 
@@ -219,7 +218,7 @@ struct KernelInput {
     plane.set_frame_planes(config, src_plane, src_pitch, dst_plane, dst_pitch);
   }
 
-  inline void set_dither_info_plane(std::span<pixel_dither_info> info, int stride) noexcept {
+  inline void set_dither_info_plane(span2d::Span<pixel_dither_info> info, int stride) noexcept {
     plane.set_dither_info_plane(info, stride);
   }
 
@@ -292,8 +291,8 @@ struct KernelExecution {
 struct PlaneJob {
   process_plane_params params{};
   process_plane_context* context = nullptr;
-  std::span<pixel_dither_info> dither_info{};
-  std::span<std::int16_t> grain{};
+  span2d::Span<pixel_dither_info> dither_info{};
+  span2d::Span<std::int16_t> grain{};
 
   [[nodiscard]] KernelExecution kernel_execution() const noexcept {
     return {params, context};

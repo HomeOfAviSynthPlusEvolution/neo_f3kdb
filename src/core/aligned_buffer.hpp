@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
-#include <span>
+#include <dualsynth/span2d.hpp>
 #include <stdexcept>
 #include <utility>
 
@@ -75,19 +75,19 @@ public:
     return data_;
   }
 
-  [[nodiscard]] std::span<T> span() noexcept {
+  [[nodiscard]] span2d::Span<T> span() noexcept {
     return {data_, count_};
   }
 
-  [[nodiscard]] std::span<const T> span() const noexcept {
+  [[nodiscard]] span2d::ReadOnlySpan<T> span() const noexcept {
     return {data_, count_};
   }
 
-  [[nodiscard]] std::span<T> subspan(std::size_t offset, std::size_t count) noexcept {
+  [[nodiscard]] span2d::Span<T> subspan(std::size_t offset, std::size_t count) noexcept {
     return span().subspan(offset, count);
   }
 
-  [[nodiscard]] std::span<const T> subspan(std::size_t offset, std::size_t count) const noexcept {
+  [[nodiscard]] span2d::ReadOnlySpan<T> subspan(std::size_t offset, std::size_t count) const noexcept {
     return span().subspan(offset, count);
   }
 

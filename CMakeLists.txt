@@ -12,7 +12,7 @@ option(F3KDB_ENABLE_CLANG_TIDY "Enable clang-tidy static analysis during compila
 set(F3KDB_AVISYNTHPLUS_TAG "751ce2021cab1c8405d04825ac2f7e8ac93e8fa0" CACHE STRING "AviSynthPlus tag used when pkg-config cannot find AviSynth headers")
 set(F3KDB_VAPOURSYNTH_TAG "R72" CACHE STRING "VapourSynth tag used when pkg-config cannot find VapourSynth headers")
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(F3KDB_ENABLE_CLANG_TIDY)
@@ -52,7 +52,7 @@ endif()
 FetchContent_Declare(
   dualsynth2
   GIT_REPOSITORY https://github.com/HomeOfAviSynthPlusEvolution/dualsynth2.git
-  GIT_TAG 0.6
+  GIT_TAG 0.7
 )
 FetchContent_MakeAvailable(dualsynth2)
 
@@ -243,7 +243,7 @@ if(WIN32)
 endif()
 
 add_library(${LIBRARY_NAME} SHARED ${F3KDB_SOURCES})
-set_property(TARGET ${LIBRARY_NAME} PROPERTY CXX_STANDARD 23)
+set_property(TARGET ${LIBRARY_NAME} PROPERTY CXX_STANDARD 17)
 
 target_include_directories(${LIBRARY_NAME}
   PRIVATE

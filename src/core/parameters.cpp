@@ -227,19 +227,17 @@ ds::VideoOutputInfo make_output_info(
   const ds::VideoInputInfo& input,
   const DebandParameters& params
 ) {
-  return ds::VideoOutputInfo{
-    .width = input.width,
-    .height = input.height,
-    .num_frames = input.num_frames,
-    .format = ds::VideoFormat{
-      .color_family = input.format.color_family,
-      .sample_format = params.output_depth == 8 ? ds::SampleFormat::UInt8 : ds::SampleFormat::UInt16,
-      .plane_count = input.format.plane_count,
-      .subsampling_w = input.format.subsampling_w,
-      .subsampling_h = input.format.subsampling_h,
-    },
-    .fps = input.fps
-  };
+  ds::VideoOutputInfo output{};
+  output.width = input.width;
+  output.height = input.height;
+  output.num_frames = input.num_frames;
+  output.format.color_family = input.format.color_family;
+  output.format.sample_format = params.output_depth == 8 ? ds::SampleFormat::UInt8 : ds::SampleFormat::UInt16;
+  output.format.plane_count = input.format.plane_count;
+  output.format.subsampling_w = input.format.subsampling_w;
+  output.format.subsampling_h = input.format.subsampling_h;
+  output.fps = input.fps;
+  return output;
 }
 
 Backend select_backend(const DebandParameters&, int opt) {

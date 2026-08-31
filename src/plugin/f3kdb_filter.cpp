@@ -53,24 +53,24 @@ ds::Result<ds::VideoInitStateResult<F3KDBFilterCore::State>> F3KDBFilterCore::in
 
   std::unique_ptr<core::DebandProcessor> processor;
   try {
-    processor = std::make_unique<core::DebandProcessor>(
-      core::DebandProcessorConfig{
-        .params = parsed.params,
-        .input = input_vi,
-        .requested_backend = core::select_backend(parsed.params, parsed.opt)
-      }
-    );
+    core::DebandProcessorConfig config{
+      parsed.params,
+      input_vi,
+      core::select_backend(parsed.params, parsed.opt)
+    };
+    processor = std::make_unique<core::DebandProcessor>(config);
   } catch (const std::exception& e) {
     return ds::Result<ds::VideoInitStateResult<State>>::failure(
       ds::Error{ds::ErrorCode::InternalError, std::string("Neo-F3KDB: memory allocation failed: ") + e.what()}
     );
   }
 
+  ds::VideoInitStateResult<State> init_state{};
+  init_state.output = processor->output_info();
+  init_state.state = State(std::move(processor), parsed.params, parsed.mt);
+
   return ds::Result<ds::VideoInitStateResult<State>>::success(
-    ds::VideoInitStateResult<State>{
-      .output = processor->output_info(),
-      .state = State(std::move(processor), parsed.params, parsed.mt)
-    }
+    std::move(init_state)
   );
 }
 
@@ -99,41 +99,41 @@ bool F3KDBBridge::accepts_video_format(ds::VideoFormat format) {
 }
 
 ds::FilterDescriptor F3KDBBridge::descriptor() {
-  return ds::FilterDescriptor{
-    .name = "Deband",
-    .params = {
-      ds::ParamSpec{"clip", ds::ParamType::Clip, {}, true},
-      ds::ParamSpec{"range", ds::ParamType::Integer, 15},
-      ds::ParamSpec{"y", ds::ParamType::Integer, 64},
-      ds::ParamSpec{"cb", ds::ParamType::Integer, 64},
-      ds::ParamSpec{"cr", ds::ParamType::Integer, 64},
-      ds::ParamSpec{"grainy", ds::ParamType::Integer, 64},
-      ds::ParamSpec{"grainc", ds::ParamType::Integer, 64},
-      ds::ParamSpec{"sample_mode", ds::ParamType::Integer, 2},
-      ds::ParamSpec{"seed", ds::ParamType::Integer, 0},
-      ds::ParamSpec{"blur_first", ds::ParamType::Boolean, true},
-      ds::ParamSpec{"dynamic_grain", ds::ParamType::Boolean, false},
-      ds::ParamSpec{"opt", ds::ParamType::Integer, -1},
-      ds::ParamSpec{"mt", ds::ParamType::Boolean, true},
-      ds::ParamSpec{"dither_algo", ds::ParamType::Integer, 3},
-      ds::ParamSpec{"keep_tv_range", ds::ParamType::Boolean, false},
-      ds::ParamSpec{"output_depth", ds::ParamType::Integer, -1},
-      ds::ParamSpec{"random_algo_ref", ds::ParamType::Integer, 1},
-      ds::ParamSpec{"random_algo_grain", ds::ParamType::Integer, 1},
-      ds::ParamSpec{"random_param_ref", ds::ParamType::Float, 1.0},
-      ds::ParamSpec{"random_param_grain", ds::ParamType::Float, 1.0},
-      ds::ParamSpec{"preset", ds::ParamType::String, ""},
-      ds::ParamSpec{"y_1", ds::ParamType::Integer, -1},
-      ds::ParamSpec{"cb_1", ds::ParamType::Integer, -1},
-      ds::ParamSpec{"cr_1", ds::ParamType::Integer, -1},
-      ds::ParamSpec{"y_2", ds::ParamType::Integer, -1},
-      ds::ParamSpec{"cb_2", ds::ParamType::Integer, -1},
-      ds::ParamSpec{"cr_2", ds::ParamType::Integer, -1},
-      ds::ParamSpec{"scale", ds::ParamType::Boolean, false},
-      ds::ParamSpec{"angle_boost", ds::ParamType::Float, 1.5},
-      ds::ParamSpec{"max_angle", ds::ParamType::Float, 0.15}
-    }
+  ds::FilterDescriptor desc{};
+  desc.name = "Deband";
+  desc.params = {
+    ds::ParamSpec{"clip", ds::ParamType::Clip, {}, true},
+    ds::ParamSpec{"range", ds::ParamType::Integer, 15},
+    ds::ParamSpec{"y", ds::ParamType::Integer, 64},
+    ds::ParamSpec{"cb", ds::ParamType::Integer, 64},
+    ds::ParamSpec{"cr", ds::ParamType::Integer, 64},
+    ds::ParamSpec{"grainy", ds::ParamType::Integer, 64},
+    ds::ParamSpec{"grainc", ds::ParamType::Integer, 64},
+    ds::ParamSpec{"sample_mode", ds::ParamType::Integer, 2},
+    ds::ParamSpec{"seed", ds::ParamType::Integer, 0},
+    ds::ParamSpec{"blur_first", ds::ParamType::Boolean, true},
+    ds::ParamSpec{"dynamic_grain", ds::ParamType::Boolean, false},
+    ds::ParamSpec{"opt", ds::ParamType::Integer, -1},
+    ds::ParamSpec{"mt", ds::ParamType::Boolean, true},
+    ds::ParamSpec{"dither_algo", ds::ParamType::Integer, 3},
+    ds::ParamSpec{"keep_tv_range", ds::ParamType::Boolean, false},
+    ds::ParamSpec{"output_depth", ds::ParamType::Integer, -1},
+    ds::ParamSpec{"random_algo_ref", ds::ParamType::Integer, 1},
+    ds::ParamSpec{"random_algo_grain", ds::ParamType::Integer, 1},
+    ds::ParamSpec{"random_param_ref", ds::ParamType::Float, 1.0},
+    ds::ParamSpec{"random_param_grain", ds::ParamType::Float, 1.0},
+    ds::ParamSpec{"preset", ds::ParamType::String, ""},
+    ds::ParamSpec{"y_1", ds::ParamType::Integer, -1},
+    ds::ParamSpec{"cb_1", ds::ParamType::Integer, -1},
+    ds::ParamSpec{"cr_1", ds::ParamType::Integer, -1},
+    ds::ParamSpec{"y_2", ds::ParamType::Integer, -1},
+    ds::ParamSpec{"cb_2", ds::ParamType::Integer, -1},
+    ds::ParamSpec{"cr_2", ds::ParamType::Integer, -1},
+    ds::ParamSpec{"scale", ds::ParamType::Boolean, false},
+    ds::ParamSpec{"angle_boost", ds::ParamType::Float, 1.5},
+    ds::ParamSpec{"max_angle", ds::ParamType::Float, 0.15}
   };
+  return desc;
 }
 
 } // namespace neo_f3kdb

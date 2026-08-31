@@ -145,7 +145,8 @@ ReferenceSamples load_reference_samples(
   int row,
   int col
 ) {
-  ReferenceSamples samples{.src = ops.read(row, col)};
+  ReferenceSamples samples{};
+  samples.src = ops.read(row, col);
   load_reference_samples_only_ref<kSampleMode>(params, ops, row, col, samples.ref1, samples.ref2, samples.ref3, samples.ref4);
   return samples;
 }

@@ -8,7 +8,7 @@
 
 #include <array>
 #include <cstdint>
-#include <span>
+#include <dualsynth/span2d.hpp>
 #include <vector>
 
 namespace neo_f3kdb::core {
@@ -29,8 +29,8 @@ public:
   [[nodiscard]] int info_stride(int plane) const noexcept;
   [[nodiscard]] int grain_stride(int plane) const noexcept;
 
-  [[nodiscard]] std::span<pixel_dither_info> dither_info(int plane) noexcept;
-  [[nodiscard]] std::span<std::int16_t> grain_buffer(int plane) noexcept;
+  [[nodiscard]] span2d::Span<pixel_dither_info> dither_info(int plane) noexcept;
+  [[nodiscard]] span2d::Span<std::int16_t> grain_buffer(int plane) noexcept;
   [[nodiscard]] std::int16_t* grain_row_base(int plane, int frame_number, int frame_count) noexcept;
 
   [[nodiscard]] process_plane_context* context(int plane) noexcept;

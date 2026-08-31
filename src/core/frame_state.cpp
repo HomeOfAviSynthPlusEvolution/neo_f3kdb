@@ -204,7 +204,7 @@ int FrameState::grain_stride(int plane) const noexcept {
   return plane == 0 ? y_grain_stride_ : c_grain_stride_;
 }
 
-std::span<pixel_dither_info> FrameState::dither_info(int plane) noexcept {
+span2d::Span<pixel_dither_info> FrameState::dither_info(int plane) noexcept {
   switch (plane) {
   case 0:
     return y_info_.span();
@@ -217,7 +217,7 @@ std::span<pixel_dither_info> FrameState::dither_info(int plane) noexcept {
   }
 }
 
-std::span<std::int16_t> FrameState::grain_buffer(int plane) noexcept {
+span2d::Span<std::int16_t> FrameState::grain_buffer(int plane) noexcept {
   return plane == 0 ? grain_buffer_y_.span() : grain_buffer_c_.span();
 }
 
