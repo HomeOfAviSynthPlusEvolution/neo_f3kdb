@@ -95,6 +95,38 @@ HWY_INLINE VF process_mode6_vector(
     return hn::Add(src_f, hn::Mul(diff_avg_src, factor));
 }
 
+template <class DF, class VF>
+HWY_INLINE VF process_mode7_vector(
+    DF df,
+    VF src_f,
+    VF p1_f,
+    VF p2_f,
+    VF p3_f,
+    VF p4_f,
+    VF angle_org,
+    VF angle_ref_h1,
+    VF angle_ref_h2,
+    VF angle_ref_w1,
+    VF angle_ref_w2,
+    VF thresh_avg,
+    VF thresh_max,
+    VF thresh_mid,
+    float angle_boost,
+    float max_angle
+) {
+    const auto max_diff1 = hn::Max(hn::Abs(hn::Sub(angle_ref_h1, angle_org)), hn::Abs(hn::Sub(angle_ref_h2, angle_org)));
+    const auto max_diff2 = hn::Max(hn::Abs(hn::Sub(angle_ref_w1, angle_org)), hn::Abs(hn::Sub(angle_ref_w2, angle_org)));
+    const auto max_angle_diff = hn::Max(max_diff1, max_diff2);
+
+    const auto use_boost = hn::Le(max_angle_diff, hn::Set(df, max_angle));
+    const auto boost_v = hn::Set(df, angle_boost);
+    const auto t_avg = hn::IfThenElse(use_boost, hn::Mul(thresh_avg, boost_v), thresh_avg);
+    const auto t_max = hn::IfThenElse(use_boost, hn::Mul(thresh_max, boost_v), thresh_max);
+    const auto t_mid = hn::IfThenElse(use_boost, hn::Mul(thresh_mid, boost_v), thresh_mid);
+
+    return process_mode6_vector(df, src_f, p1_f, p2_f, p3_f, p4_f, t_avg, t_max, t_mid);
+}
+
 template <int kSampleMode, bool kBlurFirst, class D32, class V32>
 V32 process_reference_samples(
     D32 d32,

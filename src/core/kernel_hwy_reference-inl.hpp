@@ -232,3 +232,79 @@ HWY_INLINE void gather_uncached_reference_vectors(
     r3_v = hn::LoadU(dtag, ref3);
     r4_v = hn::LoadU(dtag, ref4);
 }
+
+template <class DF, class PixelIn>
+HWY_INLINE hn::Vec<DF> gather_gradient_angle_vector(
+    DF df,
+    const process_plane_params& params,
+    span2d::ReadOnlyRestrictPlane<PixelIn> src_plane,
+    const int* y_coords,
+    const int* x_coords,
+    std::size_t lanes,
+    float scaled_eps_gx,
+    int read_distance = 20
+) {
+    const int max_y = params.plane_height() - 1;
+    const int max_x = params.plane_width() - 1;
+    const int upshift = 16 - params.config.input_depth;
+
+    alignas(64) float p00_b[hn::MaxLanes(df)];
+    alignas(64) float p10_b[hn::MaxLanes(df)];
+    alignas(64) float p20_b[hn::MaxLanes(df)];
+    alignas(64) float p01_b[hn::MaxLanes(df)];
+    alignas(64) float p21_b[hn::MaxLanes(df)];
+    alignas(64) float p02_b[hn::MaxLanes(df)];
+    alignas(64) float p12_b[hn::MaxLanes(df)];
+    alignas(64) float p22_b[hn::MaxLanes(df)];
+
+    for (std::size_t i = 0; i < lanes; ++i) {
+        const int cy = y_coords[i];
+        const int cx = x_coords[i];
+
+        const int ym = std::clamp(cy - read_distance, 0, max_y);
+        const int y0 = std::clamp(cy, 0, max_y);
+        const int yp = std::clamp(cy + read_distance, 0, max_y);
+
+        const int xm = std::clamp(cx - read_distance, 0, max_x);
+        const int x0 = std::clamp(cx, 0, max_x);
+        const int xp = std::clamp(cx + read_distance, 0, max_x);
+
+        const auto* row_m = src_plane.row_ptr(ym);
+        const auto* row_0 = src_plane.row_ptr(y0);
+        const auto* row_p = src_plane.row_ptr(yp);
+
+        p00_b[i] = static_cast<float>(static_cast<int>(row_m[xm]) << upshift);
+        p10_b[i] = static_cast<float>(static_cast<int>(row_m[x0]) << upshift);
+        p20_b[i] = static_cast<float>(static_cast<int>(row_m[xp]) << upshift);
+
+        p01_b[i] = static_cast<float>(static_cast<int>(row_0[xm]) << upshift);
+        p21_b[i] = static_cast<float>(static_cast<int>(row_0[xp]) << upshift);
+
+        p02_b[i] = static_cast<float>(static_cast<int>(row_p[xm]) << upshift);
+        p12_b[i] = static_cast<float>(static_cast<int>(row_p[x0]) << upshift);
+        p22_b[i] = static_cast<float>(static_cast<int>(row_p[xp]) << upshift);
+    }
+
+    const auto p00 = hn::LoadU(df, p00_b);
+    const auto p10 = hn::LoadU(df, p10_b);
+    const auto p20 = hn::LoadU(df, p20_b);
+    const auto p01 = hn::LoadU(df, p01_b);
+    const auto p21 = hn::LoadU(df, p21_b);
+    const auto p02 = hn::LoadU(df, p02_b);
+    const auto p12 = hn::LoadU(df, p12_b);
+    const auto p22 = hn::LoadU(df, p22_b);
+
+    const auto two = hn::Set(df, 2.0f);
+    const auto inv_pi = hn::Set(df, 1.0f / 3.14159265358979323846f);
+    const auto half = hn::Set(df, 0.5f);
+
+    const auto gx = hn::Sub(hn::Add(hn::Add(p20, hn::Mul(two, p21)), p22), hn::Add(hn::Add(p00, hn::Mul(two, p01)), p02));
+    const auto gy = hn::Sub(hn::Add(hn::Add(p00, hn::Mul(two, p10)), p20), hn::Add(hn::Add(p02, hn::Mul(two, p12)), p22));
+
+    const auto is_zero = hn::Lt(hn::Abs(gx), hn::Set(df, scaled_eps_gx));
+    const auto safe_gx = hn::IfThenElse(is_zero, hn::Set(df, 1.0f), gx);
+    const auto atan_val = hn::Atan(df, hn::Div(gy, safe_gx));
+    const auto angle = hn::Add(hn::Mul(atan_val, inv_pi), half);
+
+    return hn::IfThenElse(is_zero, hn::Set(df, 1.0f), angle);
+}

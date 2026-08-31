@@ -120,53 +120,104 @@ HWY_INLINE void process_block(
             v_src_up = hn::LoadU(d32, src_up_buf);
         }
 
-        if constexpr (kSampleMode == 7) {
-            alignas(64) std::int32_t src_up_buf[hn::MaxLanes(d32)];
-            for (std::size_t lane = 0; lane < lanes; ++lane) {
-                src_up_buf[lane] = neo_f3kdb::core::sample_modes::process_pixel<kSampleMode, kBlurFirst>(
-                    params,
-                    src_plane,
-                    row,
-                    col + static_cast<int>(lane)
-                );
-            }
-            processed_v = hn::LoadU(d32, src_up_buf);
+        auto r1_v = hn::Zero(d32);
+        auto r2_v = hn::Zero(d32);
+        auto r3_v = hn::Zero(d32);
+        auto r4_v = hn::Zero(d32);
+
+        if constexpr (kUseCachedOffsets) {
+            gather_cached_reference_vectors(
+                d32,
+                src_row + col,
+                off1,
+                off2,
+                off3,
+                off4,
+                16 - config.input_depth,
+                lanes,
+                r1_v,
+                r2_v,
+                r3_v,
+                r4_v
+            );
         } else {
-            auto r1_v = hn::Zero(d32);
-            auto r2_v = hn::Zero(d32);
-            auto r3_v = hn::Zero(d32);
-            auto r4_v = hn::Zero(d32);
+            gather_uncached_reference_vectors<kSampleMode>(
+                d32,
+                params,
+                src_plane,
+                row,
+                col,
+                lanes,
+                r1_v,
+                r2_v,
+                r3_v,
+                r4_v
+            );
+        }
 
-            if constexpr (kUseCachedOffsets) {
-                gather_cached_reference_vectors(
-                    d32,
-                    src_row + col,
-                    off1,
-                    off2,
-                    off3,
-                    off4,
-                    16 - config.input_depth,
-                    lanes,
-                    r1_v,
-                    r2_v,
-                    r3_v,
-                    r4_v
-                );
-            } else {
-                gather_uncached_reference_vectors<kSampleMode>(
-                    d32,
-                    params,
-                    src_plane,
-                    row,
-                    col,
-                    lanes,
-                    r1_v,
-                    r2_v,
-                    r3_v,
-                    r4_v
-                );
+        if constexpr (kSampleMode == 7) {
+            const hn::Rebind<float, D32> df;
+            const auto src_f = hn::ConvertTo(df, v_src_up);
+            const auto r1_f = hn::ConvertTo(df, r1_v);
+            const auto r2_f = hn::ConvertTo(df, r2_v);
+            const auto r3_f = hn::ConvertTo(df, r3_v);
+            const auto r4_f = hn::ConvertTo(df, r4_v);
+            const auto thresh_avg = hn::Set(df, static_cast<float>(config.threshold));
+            const auto thresh_max = hn::Set(df, static_cast<float>(config.threshold1));
+            const auto thresh_mid = hn::Set(df, static_cast<float>(config.threshold2));
+            const float scaled_eps_gx = 0.01f * (static_cast<float>(1 << (16 - config.input_depth)) * 3.0f);
+
+            alignas(64) int y_org[hn::MaxLanes(d32)];
+            alignas(64) int x_org[hn::MaxLanes(d32)];
+            alignas(64) int y_h1[hn::MaxLanes(d32)];
+            alignas(64) int x_h1[hn::MaxLanes(d32)];
+            alignas(64) int y_h2[hn::MaxLanes(d32)];
+            alignas(64) int x_h2[hn::MaxLanes(d32)];
+            alignas(64) int y_w1[hn::MaxLanes(d32)];
+            alignas(64) int x_w1[hn::MaxLanes(d32)];
+            alignas(64) int y_w2[hn::MaxLanes(d32)];
+            alignas(64) int x_w2[hn::MaxLanes(d32)];
+
+            const auto* dinfo = params.dither_info_plane().row_ptr(row) + col;
+            const int height_subsamp = params.config.height_subsampling;
+            const int width_subsamp = params.config.width_subsampling;
+
+            for (std::size_t lane = 0; lane < lanes; ++lane) {
+                const int pixel_col = col + static_cast<int>(lane);
+                const auto& info = dinfo[lane];
+                const int ref_y = info.ref1 >> height_subsamp;
+                const int ref_x = info.ref1 >> width_subsamp;
+
+                y_org[lane] = row;
+                x_org[lane] = pixel_col;
+
+                y_h1[lane] = row + ref_y;
+                x_h1[lane] = pixel_col;
+
+                y_h2[lane] = row - ref_y;
+                x_h2[lane] = pixel_col;
+
+                y_w1[lane] = row;
+                x_w1[lane] = pixel_col + ref_x;
+
+                y_w2[lane] = row;
+                x_w2[lane] = pixel_col - ref_x;
             }
 
+            const auto angle_org = gather_gradient_angle_vector(df, params, src_plane, y_org, x_org, lanes, scaled_eps_gx);
+            const auto angle_h1  = gather_gradient_angle_vector(df, params, src_plane, y_h1, x_h1, lanes, scaled_eps_gx);
+            const auto angle_h2  = gather_gradient_angle_vector(df, params, src_plane, y_h2, x_h2, lanes, scaled_eps_gx);
+            const auto angle_w1  = gather_gradient_angle_vector(df, params, src_plane, y_w1, x_w1, lanes, scaled_eps_gx);
+            const auto angle_w2  = gather_gradient_angle_vector(df, params, src_plane, y_w2, x_w2, lanes, scaled_eps_gx);
+
+            const auto blended_f = process_mode7_vector(
+                df, src_f, r1_f, r2_f, r3_f, r4_f,
+                angle_org, angle_h1, angle_h2, angle_w1, angle_w2,
+                thresh_avg, thresh_max, thresh_mid,
+                config.angle_boost, config.max_angle
+            );
+            processed_v = hn::NearestInt(blended_f);
+        } else {
             processed_v = process_reference_samples<kSampleMode, kBlurFirst>(
                 d32,
                 v_src_up,
