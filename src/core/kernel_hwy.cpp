@@ -10,6 +10,7 @@
 
 #include "hwy/foreach_target.h"
 #include "hwy/highway.h"
+#include "hwy/contrib/math/math-inl.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -31,7 +32,7 @@ void process_plane_rows(
     span2d::ReadOnlyRestrictPlane<std::int16_t> grain_plane,
     const neo_f3kdb::core::PlaneOffsetCache* cache
 ) {
-    static_assert(!kUseCachedOffsets || (kSampleMode >= 1 && kSampleMode <= 5));
+    static_assert(!kUseCachedOffsets || (kSampleMode >= 1 && kSampleMode <= 6));
 
     const auto& config = params.config;
     const int height = params.plane_height();
@@ -179,7 +180,7 @@ void process_plane_templated_impl(const process_plane_params& params, process_pl
     auto dst_plane = params.dst_plane<PixelOut>();
     const auto grain_plane = params.grain_plane();
 
-    if constexpr (kSampleMode >= 1 && kSampleMode <= 5) {
+    if constexpr (kSampleMode >= 1 && kSampleMode <= 6) {
         const auto* cache = deband_hwy_detail::prepare_offset_cache<kSampleMode>(params, src_plane, context);
         if (cache) {
             process_plane_rows<kSampleMode, kBlurFirst, kDitherAlgo, true, kPureDeband>(

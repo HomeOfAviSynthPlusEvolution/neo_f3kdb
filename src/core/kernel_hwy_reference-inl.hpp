@@ -5,7 +5,7 @@ HWY_NOINLINE neo_f3kdb::core::PlaneOffsetCache* build_offset_cache(
     const process_plane_params& params,
     span2d::ReadOnlyRestrictPlane<PixelIn> src_plane
 ) {
-    static_assert(kSampleMode >= 1 && kSampleMode <= 5);
+    static_assert(kSampleMode >= 1 && kSampleMode <= 6);
 
     const int width = params.plane_width();
     const int height = params.plane_height();
@@ -52,7 +52,7 @@ HWY_NOINLINE neo_f3kdb::core::PlaneOffsetCache* build_offset_cache(
             } else if constexpr (kSampleMode == 3) {
                 y1 = row; x1 = std::clamp(col + ref_x1, 0, max_x);
                 y2 = row; x2 = std::clamp(col - ref_x1, 0, max_x);
-            } else if constexpr (kSampleMode == 4 || kSampleMode == 5) {
+            } else if constexpr (kSampleMode == 4 || kSampleMode == 5 || kSampleMode == 6) {
                 y1 = std::clamp(row + ref_y1, 0, max_y); x1 = col;
                 y2 = std::clamp(row - ref_y1, 0, max_y); x2 = col;
                 y3 = row; x3 = std::clamp(col + ref_x1, 0, max_x);
@@ -80,7 +80,7 @@ HWY_NOINLINE const neo_f3kdb::core::PlaneOffsetCache* prepare_offset_cache(
     span2d::ReadOnlyRestrictPlane<PixelIn> src_plane,
     process_plane_context* context
 ) {
-    static_assert(kSampleMode >= 1 && kSampleMode <= 5);
+    static_assert(kSampleMode >= 1 && kSampleMode <= 6);
 
     if (!context) {
         return nullptr;
@@ -169,7 +169,7 @@ HWY_INLINE void gather_uncached_reference_vectors(
     VTag& r4_v
 ) {
     using T = hn::TFromD<DTag>;
-    static_assert(kSampleMode >= 1 && kSampleMode <= 5);
+    static_assert(kSampleMode >= 1 && kSampleMode <= 7);
 
     const int upshift = 16 - params.config.input_depth;
     alignas(64) T ref1[hn::MaxLanes(dtag)];

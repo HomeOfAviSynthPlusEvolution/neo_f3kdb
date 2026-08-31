@@ -18,7 +18,7 @@ HWY_INLINE void process_block(
     DU32 du32,
     std::size_t lanes
 ) {
-    static_assert(!kUseCachedOffsets || (kSampleMode >= 1 && kSampleMode <= 5));
+    static_assert(!kUseCachedOffsets || (kSampleMode >= 1 && kSampleMode <= 6));
     static_assert(!kPureDeband || (
         kSampleMode >= 1 && kSampleMode <= 4 &&
         kDitherAlgo == DA_HIGH_NO_DITHERING &&
@@ -120,7 +120,7 @@ HWY_INLINE void process_block(
             v_src_up = hn::LoadU(d32, src_up_buf);
         }
 
-        if constexpr (kSampleMode == 6 || kSampleMode == 7) {
+        if constexpr (kSampleMode == 7) {
             alignas(64) std::int32_t src_up_buf[hn::MaxLanes(d32)];
             for (std::size_t lane = 0; lane < lanes; ++lane) {
                 src_up_buf[lane] = neo_f3kdb::core::sample_modes::process_pixel<kSampleMode, kBlurFirst>(

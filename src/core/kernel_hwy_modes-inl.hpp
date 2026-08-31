@@ -48,6 +48,53 @@ V16 process_reference_samples_u16(
     }
 }
 
+template <class DF, class VF>
+HWY_INLINE VF process_mode6_vector(
+    DF df,
+    VF src_f,
+    VF p1_f,
+    VF p2_f,
+    VF p3_f,
+    VF p4_f,
+    VF thresh_avg,
+    VF thresh_max,
+    VF thresh_mid
+) {
+    const auto quarter = hn::Set(df, 0.25f);
+    const auto three = hn::Set(df, 3.0f);
+    const auto eps = hn::Set(df, 1e-5f);
+    const auto zero = hn::Zero(df);
+    const auto one = hn::Set(df, 1.0f);
+
+    const auto avg_refs_f = hn::Mul(hn::Add(hn::Add(p1_f, p2_f), hn::Add(p3_f, p4_f)), quarter);
+    const auto diff_avg_src = hn::Sub(avg_refs_f, src_f);
+    const auto avg_dif_f = hn::Abs(diff_avg_src);
+
+    const auto d1 = hn::Abs(hn::Sub(p1_f, src_f));
+    const auto d2 = hn::Abs(hn::Sub(p2_f, src_f));
+    const auto d3 = hn::Abs(hn::Sub(p3_f, src_f));
+    const auto d4 = hn::Abs(hn::Sub(p4_f, src_f));
+    const auto max_dif = hn::Max(hn::Max(d1, d2), hn::Max(d3, d4));
+
+    const auto two_src = hn::Add(src_f, src_f);
+    const auto mid_dif_v = hn::Abs(hn::Sub(hn::Add(p1_f, p2_f), two_src));
+    const auto mid_dif_h = hn::Abs(hn::Sub(hn::Add(p3_f, p4_f), two_src));
+
+    const auto comp_avg = hn::Clamp(hn::Mul(three, hn::Sub(one, hn::Div(avg_dif_f, hn::Max(thresh_avg, eps)))), zero, one);
+    const auto comp_max = hn::Clamp(hn::Mul(three, hn::Sub(one, hn::Div(max_dif, hn::Max(thresh_max, eps)))), zero, one);
+    const auto comp_mid_v = hn::Clamp(hn::Mul(three, hn::Sub(one, hn::Div(mid_dif_v, hn::Max(thresh_mid, eps)))), zero, one);
+    const auto comp_mid_h = hn::Clamp(hn::Mul(three, hn::Sub(one, hn::Div(mid_dif_h, hn::Max(thresh_mid, eps)))), zero, one);
+
+    const auto product = hn::Mul(hn::Mul(comp_avg, comp_max), hn::Mul(comp_mid_v, comp_mid_h));
+
+    // Vector pow(product, 0.1f) via Exp(0.1f * Log(Max(product, 1e-12f)))
+    const auto log_val = hn::Log(df, hn::Max(product, hn::Set(df, 1e-12f)));
+    const auto exp_val = hn::Exp(df, hn::Mul(hn::Set(df, 0.1f), log_val));
+    const auto factor = hn::IfThenElse(hn::Gt(product, hn::Zero(df)), exp_val, hn::Zero(df));
+
+    return hn::Add(src_f, hn::Mul(diff_avg_src, factor));
+}
+
 template <int kSampleMode, bool kBlurFirst, class D32, class V32>
 V32 process_reference_samples(
     D32 d32,
@@ -93,8 +140,7 @@ V32 process_reference_samples(
         const auto new_v = hn::IfThenElse(use_src_v, src, avg_v);
         const auto new_h = hn::IfThenElse(use_src_h, src, avg_h);
         return hn::ShiftRight<1>(hn::Add(hn::Add(new_v, new_h), one));
-    } else {
-        static_assert(kSampleMode == 5);
+    } else if constexpr (kSampleMode == 5) {
         auto avg1 = hn::ShiftRight<1>(hn::Add(hn::Add(r1, r2), one));
         const auto avg2 = hn::ShiftRight<1>(hn::Add(hn::Add(r3, r4), one));
         avg1 = hn::IfThenElse(hn::Gt(avg1, hn::Zero(d32)), hn::Sub(avg1, one), avg1);
@@ -113,5 +159,21 @@ V32 process_reference_samples(
             )
         );
         return hn::IfThenElse(use_src, src, avg);
+    } else if constexpr (kSampleMode == 6) {
+        const hn::Rebind<float, D32> df;
+        const auto src_f = hn::ConvertTo(df, src);
+        const auto r1_f = hn::ConvertTo(df, r1);
+        const auto r2_f = hn::ConvertTo(df, r2);
+        const auto r3_f = hn::ConvertTo(df, r3);
+        const auto r4_f = hn::ConvertTo(df, r4);
+        const auto thresh_avg = hn::Set(df, static_cast<float>(threshold));
+        const auto thresh_max = hn::Set(df, static_cast<float>(threshold1));
+        const auto thresh_mid = hn::Set(df, static_cast<float>(threshold2));
+
+        const auto blended_f = process_mode6_vector(df, src_f, r1_f, r2_f, r3_f, r4_f, thresh_avg, thresh_max, thresh_mid);
+        return hn::NearestInt(blended_f);
+    } else {
+        static_assert(kSampleMode >= 1 && kSampleMode <= 7);
+        return src;
     }
 }
