@@ -150,7 +150,12 @@ void process_plane_rows(
                     col
                 );
             }
-            dst_row[static_cast<std::size_t>(col)] = static_cast<PixelOut>(pixel);
+            if constexpr (std::is_same_v<PixelOut, float>) {
+                const float chroma_offset = (config.plane_index > 0) ? 0.5f : 0.0f;
+                dst_row[static_cast<std::size_t>(col)] = static_cast<float>(pixel) * (1.0f / 65535.0f) - chroma_offset;
+            } else {
+                dst_row[static_cast<std::size_t>(col)] = static_cast<PixelOut>(pixel);
+            }
         }
 
         if constexpr (kDitherAlgo == DA_HIGH_FLOYD_STEINBERG_DITHERING) {
@@ -232,7 +237,8 @@ void process_plane_rows_fs_wavefront(
                         auto r1_v = hn::Zero(du16), r2_v = hn::Zero(du16), r3_v = hn::Zero(du16), r4_v = hn::Zero(du16);
                         deband_hwy_detail::gather_cached_reference_vectors(
                             du16, src_row + col, off1 + col, off2 + col, off3 + col, off4 + col,
-                            16 - config.input_depth, deband_lanes, r1_v, r2_v, r3_v, r4_v
+                            16 - config.input_depth, deband_lanes, r1_v, r2_v, r3_v, r4_v,
+                            config.plane_index > 0
                         );
                         auto processed_u16 = deband_hwy_detail::process_reference_samples_u16<kSampleMode, kBlurFirst>(
                             du16, v_src_u16, r1_v, r2_v, r3_v, r4_v,
@@ -284,7 +290,8 @@ void process_plane_rows_fs_wavefront(
                         for (std::size_t lane = 0; lane < deband_lanes; ++lane) {
                             src_up_buf[lane] = neo_f3kdb::core::sample_modes::upsample(
                                 src_row[col + static_cast<int>(lane)],
-                                config.input_depth
+                                config.input_depth,
+                                config.plane_index > 0
                             );
                         }
                         v_src_up = hn::LoadU(di32, src_up_buf);
@@ -299,7 +306,8 @@ void process_plane_rows_fs_wavefront(
                         const auto* off4 = cache->off4.data() + row_offset;
                         deband_hwy_detail::gather_cached_reference_vectors(
                             di32, src_row + col, off1 + col, off2 + col, off3 + col, off4 + col,
-                            16 - config.input_depth, deband_lanes, r1_v, r2_v, r3_v, r4_v
+                            16 - config.input_depth, deband_lanes, r1_v, r2_v, r3_v, r4_v,
+                            config.plane_index > 0
                         );
                     } else {
                         deband_hwy_detail::gather_uncached_reference_vectors<kSampleMode>(
@@ -490,7 +498,9 @@ void dispatch_sample_mode(const process_plane_params& params, process_plane_cont
 
 template <class PixelIn>
 void dispatch_pixel_out(const process_plane_params& params, process_plane_context* context) {
-    if (params.config.output_depth <= 8) {
+    if (params.config.output_depth == 32) {
+        dispatch_sample_mode<PixelIn, float>(params, context);
+    } else if (params.config.output_depth <= 8) {
         dispatch_sample_mode<PixelIn, std::uint8_t>(params, context);
     } else {
         dispatch_sample_mode<PixelIn, std::uint16_t>(params, context);
@@ -498,7 +508,9 @@ void dispatch_pixel_out(const process_plane_params& params, process_plane_contex
 }
 
 void ProcessPlaneHWY(const process_plane_params& params, process_plane_context* context) {
-    if (params.config.input_depth == 8) {
+    if (params.config.input_depth == 32) {
+        dispatch_pixel_out<float>(params, context);
+    } else if (params.config.input_depth == 8) {
         dispatch_pixel_out<std::uint8_t>(params, context);
     } else {
         dispatch_pixel_out<std::uint16_t>(params, context);

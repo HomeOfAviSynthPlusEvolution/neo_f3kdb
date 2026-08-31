@@ -11,8 +11,14 @@
 namespace neo_f3kdb::core::sample_modes {
 
 template <class PixelIn>
-inline int upsample(PixelIn pixel, int input_depth) {
-  return static_cast<int>(pixel) << (16 - input_depth);
+inline int upsample(PixelIn pixel, int input_depth, bool is_chroma = false) {
+  if constexpr (std::is_floating_point_v<PixelIn>) {
+    const float offset = is_chroma ? 0.5f : 0.0f;
+    return static_cast<int>(std::clamp(pixel + offset, 0.0f, 1.0f) * 65535.0f + 0.5f);
+  } else {
+    (void)is_chroma;
+    return static_cast<int>(pixel) << (16 - input_depth);
+  }
 }
 
 struct ReferenceSamples {
@@ -31,7 +37,7 @@ struct TypedSampleOps {
   span2d::ReadOnlyRestrictPlane<PixelIn> src_plane;
 
   [[nodiscard]] int read(int row, int col) const {
-    return upsample(src_plane(row, col), params.config.input_depth);
+    return upsample(src_plane(row, col), params.config.input_depth, params.config.plane_index > 0);
   }
 
   [[nodiscard]] int avg2(int pixel1, int pixel2) const {

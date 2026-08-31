@@ -65,7 +65,9 @@ PlaneJob DebandProcessor::make_plane_job(
   PlaneJob job{};
   auto& p = job.params;
 
-  const int input_depth = ds::bits_per_sample(input_.format.sample_format);
+  const int input_depth = input_.format.sample_format == ds::SampleFormat::Float32
+    ? 32
+    : ds::bits_per_sample(input_.format.sample_format);
   p.config.input_mode = input_depth == 8 ? LOW_BIT_DEPTH : HIGH_BIT_DEPTH_INTERLEAVED;
   p.config.input_depth = input_depth;
   p.config.output_mode = params_.output_depth <= 8 ? LOW_BIT_DEPTH : HIGH_BIT_DEPTH_INTERLEAVED;

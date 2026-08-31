@@ -7,14 +7,6 @@
 
 namespace neo_f3kdb {
 
-namespace {
-
-ds::Error invalid_argument(std::string message) {
-  return ds::Error{ds::ErrorCode::InvalidArgument, std::move(message)};
-}
-
-} // namespace
-
 F3KDBFilterCore::State::State(
   std::unique_ptr<core::DebandProcessor> input_processor,
   core::DebandParameters input_params,
@@ -95,7 +87,9 @@ ds::Result<ds::VideoProcessResult> F3KDBFilterCore::process(ds::VideoProcessCont
 
 bool F3KDBBridge::accepts_video_format(ds::VideoFormat format) {
   return (format.color_family == ds::ColorFamily::Yuv || format.color_family == ds::ColorFamily::Gray) &&
-         (format.sample_format == ds::SampleFormat::UInt8 || format.sample_format == ds::SampleFormat::UInt16);
+         (format.sample_format == ds::SampleFormat::UInt8 ||
+          format.sample_format == ds::SampleFormat::UInt16 ||
+          format.sample_format == ds::SampleFormat::Float32);
 }
 
 ds::FilterDescriptor F3KDBBridge::descriptor() {

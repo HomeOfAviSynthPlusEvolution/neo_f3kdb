@@ -55,7 +55,8 @@ HWY_INLINE void process_block(
                 r1_v,
                 r2_v,
                 r3_v,
-                r4_v
+                r4_v,
+                config.plane_index > 0
             );
         } else {
             gather_uncached_reference_vectors<kSampleMode>(
@@ -90,7 +91,7 @@ HWY_INLINE void process_block(
         } else {
             auto processed_i32 = hn::PromoteTo(d32, processed_u16);
             auto pixel = apply_dither_and_grain<kDitherAlgo>(config, d32, processed_i32, grain_row, row, col, lanes);
-            store_pixels_from_u32(du32, dst_row.data() + col, hn::BitCast(du32, pixel));
+            store_pixels_from_u32(du32, dst_row.data() + col, hn::BitCast(du32, pixel), config.plane_index > 0);
         }
     } else {
         if constexpr (std::is_same_v<PixelIn, unsigned char>) {
@@ -116,7 +117,8 @@ HWY_INLINE void process_block(
             for (std::size_t lane = 0; lane < lanes; ++lane) {
                 src_up_buf[lane] = neo_f3kdb::core::sample_modes::upsample(
                     src_row[col + static_cast<int>(lane)],
-                    config.input_depth
+                    config.input_depth,
+                    config.plane_index > 0
                 );
             }
             v_src_up = hn::LoadU(d32, src_up_buf);
@@ -140,7 +142,8 @@ HWY_INLINE void process_block(
                 r1_v,
                 r2_v,
                 r3_v,
-                r4_v
+                r4_v,
+                config.plane_index > 0
             );
         } else {
             gather_uncached_reference_vectors<kSampleMode>(
@@ -266,7 +269,7 @@ HWY_INLINE void process_block(
             }
         } else {
             auto pixel = apply_dither_and_grain<kDitherAlgo>(config, d32, processed_v, grain_row, row, col, lanes);
-            store_pixels_from_u32(du32, dst_row.data() + col, hn::BitCast(du32, pixel));
+            store_pixels_from_u32(du32, dst_row.data() + col, hn::BitCast(du32, pixel), config.plane_index > 0);
         }
     }
 }

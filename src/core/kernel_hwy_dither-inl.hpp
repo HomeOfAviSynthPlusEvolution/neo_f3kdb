@@ -11,9 +11,11 @@ int postprocess_scalar_pixel(
     pixel += static_cast<int>(grain_row[static_cast<std::size_t>(col)]);
 
     if constexpr (kDitherAlgo == DA_HIGH_NO_DITHERING) {
+        if (config.output_depth == 32) return std::clamp(pixel, config.pixel_min, config.pixel_max);
         return std::clamp(pixel, config.pixel_min, config.pixel_max) >> (16 - config.output_depth);
     } else if constexpr (kDitherAlgo == DA_HIGH_ORDERED_DITHERING) {
         pixel += neo_f3kdb::core::pixel_proc_detail::ordered::THRESHOLD_MAP[row & 15][col & 15] >> (config.output_depth - 8);
+        if (config.output_depth == 32) return std::clamp(pixel, config.pixel_min, config.pixel_max);
         return std::clamp(pixel, config.pixel_min, config.pixel_max) >> (16 - config.output_depth);
     } else {
         static_assert(kDitherAlgo == DA_16BIT_INTERLEAVED);
@@ -61,7 +63,9 @@ V32 apply_dither_and_grain(
 
     pixel = hn::Min(hn::Max(pixel, hn::Set(d32, config.pixel_min)), hn::Set(d32, config.pixel_max));
     if constexpr (kDitherAlgo != DA_16BIT_INTERLEAVED) {
-        pixel = hn::ShiftRightSame(pixel, 16 - config.output_depth);
+        if (config.output_depth < 32) {
+            pixel = hn::ShiftRightSame(pixel, 16 - config.output_depth);
+        }
     }
     return pixel;
 }
@@ -92,6 +96,8 @@ HWY_INLINE void process_stripe_fs_wavefront_hwy(
     const auto v_w_tr   = hn::Set(d, 3);
     const auto v_w_top  = hn::Set(d, 5);
     const auto v_w_tl   = hn::Set(d, 1);
+
+    const float chroma_offset = (config.plane_index > 0) ? 0.5f : 0.0f;
 
     alignas(64) std::uint16_t src_arr[hn::MaxLanes(d)];
     alignas(64) std::uint16_t dst_arr[hn::MaxLanes(d)];
@@ -136,7 +142,11 @@ HWY_INLINE void process_stripe_fs_wavefront_hwy(
             for (std::size_t k = 0; k < N; ++k) {
                 int xk = t - 2 * static_cast<int>(k);
                 if (xk >= 0 && xk < width) {
-                    stripe_dst_rows[k][xk] = static_cast<DstType>(dst_arr[k]);
+                    if constexpr (std::is_same_v<DstType, float>) {
+                        stripe_dst_rows[k][xk] = static_cast<float>(dst_arr[k]) * (1.0f / 65535.0f) - chroma_offset;
+                    } else {
+                        stripe_dst_rows[k][xk] = static_cast<DstType>(dst_arr[k]);
+                    }
                 } else {
                     err_arr[k] = 0;
                 }
@@ -188,7 +198,11 @@ HWY_INLINE void process_stripe_fs_wavefront_hwy(
             hn::StoreU(v_out, d, dst_arr);
 
             for (std::size_t k = 0; k < N; ++k) {
-                *ptr_dst[k]++ = static_cast<DstType>(dst_arr[k]);
+                if constexpr (std::is_same_v<DstType, float>) {
+                    *ptr_dst[k]++ = static_cast<float>(dst_arr[k]) * (1.0f / 65535.0f) - chroma_offset;
+                } else {
+                    *ptr_dst[k]++ = static_cast<DstType>(dst_arr[k]);
+                }
             }
 
             if (y0 + static_cast<int>(N) < height) {
@@ -230,7 +244,11 @@ HWY_INLINE void process_stripe_fs_wavefront_hwy(
             for (std::size_t k = 0; k < N; ++k) {
                 int xk = t - 2 * static_cast<int>(k);
                 if (xk >= 0 && xk < width) {
-                    stripe_dst_rows[k][xk] = static_cast<DstType>(dst_arr[k]);
+                    if constexpr (std::is_same_v<DstType, float>) {
+                        stripe_dst_rows[k][xk] = static_cast<float>(dst_arr[k]) * (1.0f / 65535.0f) - chroma_offset;
+                    } else {
+                        stripe_dst_rows[k][xk] = static_cast<DstType>(dst_arr[k]);
+                    }
                 } else {
                     err_arr[k] = 0;
                 }
@@ -282,7 +300,11 @@ HWY_INLINE void process_stripe_fs_wavefront_hwy(
             for (int k = 0; k < stripe_height; ++k) {
                 int xk = t - 2 * k;
                 if (xk >= 0 && xk < width) {
-                    stripe_dst_rows[k][xk] = static_cast<DstType>(dst_arr[k]);
+                    if constexpr (std::is_same_v<DstType, float>) {
+                        stripe_dst_rows[k][xk] = static_cast<float>(dst_arr[k]) * (1.0f / 65535.0f) - chroma_offset;
+                    } else {
+                        stripe_dst_rows[k][xk] = static_cast<DstType>(dst_arr[k]);
+                    }
                 } else {
                     err_arr[k] = 0;
                 }

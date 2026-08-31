@@ -157,9 +157,10 @@ void validate_parameters(const DebandParameters& p, const ds::VideoInputInfo& in
   invalid_param_if(input.height < 16, "input.height < 16");
   invalid_param_if(input.num_frames <= 0, "input.num_frames <= 0");
 
-  const int bits = ds::bits_per_sample(input.format.sample_format);
-  invalid_param_if(bits < 8 || bits > INTERNAL_BIT_DEPTH, "bits out of range");
-  invalid_param_if(input.format.sample_format == ds::SampleFormat::Float32, "float input");
+  const int bits = input.format.sample_format == ds::SampleFormat::Float32
+    ? 32
+    : ds::bits_per_sample(input.format.sample_format);
+  invalid_param_if(bits < 8 || (bits > INTERNAL_BIT_DEPTH && bits != 32), "bits out of range");
 
   const double threshold_upper_limit = scale ? 65535.0 : 511.0;
   const double grain_upper_limit = scale ? 65535.0 : 4096.0;
@@ -252,12 +253,23 @@ ds::VideoOutputInfo make_output_info(
   const ds::VideoInputInfo& input,
   const DebandParameters& params
 ) {
+  ds::SampleFormat out_fmt;
+  if (params.output_depth == 32) {
+    out_fmt = ds::SampleFormat::Float32;
+  } else if (params.output_depth == 8) {
+    out_fmt = ds::SampleFormat::UInt8;
+  } else if (params.output_depth > 8 && params.output_depth <= 16) {
+    out_fmt = ds::SampleFormat::UInt16;
+  } else {
+    out_fmt = input.format.sample_format;
+  }
+
   ds::VideoOutputInfo output{};
   output.width = input.width;
   output.height = input.height;
   output.num_frames = input.num_frames;
   output.format.color_family = input.format.color_family;
-  output.format.sample_format = params.output_depth == 8 ? ds::SampleFormat::UInt8 : ds::SampleFormat::UInt16;
+  output.format.sample_format = out_fmt;
   output.format.plane_count = input.format.plane_count;
   output.format.subsampling_w = input.format.subsampling_w;
   output.format.subsampling_h = input.format.subsampling_h;

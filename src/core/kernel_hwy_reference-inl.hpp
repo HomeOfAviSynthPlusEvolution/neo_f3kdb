@@ -132,7 +132,8 @@ HWY_INLINE void gather_cached_reference_vectors(
     VTag& r1_v,
     VTag& r2_v,
     VTag& r3_v,
-    VTag& r4_v
+    VTag& r4_v,
+    bool is_chroma = false
 ) {
     using T = hn::TFromD<DTag>;
     alignas(64) T ref1[hn::MaxLanes(dtag)];
@@ -143,10 +144,14 @@ HWY_INLINE void gather_cached_reference_vectors(
     const auto* current_bytes = reinterpret_cast<const unsigned char*>(current);
     for (std::size_t lane = 0; lane < lanes; ++lane) {
         const auto* lane_bytes = current_bytes + lane * sizeof(PixelIn);
-        ref1[lane] = static_cast<T>(static_cast<int>(*reinterpret_cast<const PixelIn*>(lane_bytes + off1[lane])) << upshift);
-        ref2[lane] = static_cast<T>(static_cast<int>(*reinterpret_cast<const PixelIn*>(lane_bytes + off2[lane])) << upshift);
-        ref3[lane] = static_cast<T>(static_cast<int>(*reinterpret_cast<const PixelIn*>(lane_bytes + off3[lane])) << upshift);
-        ref4[lane] = static_cast<T>(static_cast<int>(*reinterpret_cast<const PixelIn*>(lane_bytes + off4[lane])) << upshift);
+        const PixelIn p1 = *reinterpret_cast<const PixelIn*>(lane_bytes + off1[lane]);
+        const PixelIn p2 = *reinterpret_cast<const PixelIn*>(lane_bytes + off2[lane]);
+        const PixelIn p3 = *reinterpret_cast<const PixelIn*>(lane_bytes + off3[lane]);
+        const PixelIn p4 = *reinterpret_cast<const PixelIn*>(lane_bytes + off4[lane]);
+        ref1[lane] = static_cast<T>(neo_f3kdb::core::sample_modes::upsample(p1, upshift == 0 ? 32 : (16 - upshift), is_chroma));
+        ref2[lane] = static_cast<T>(neo_f3kdb::core::sample_modes::upsample(p2, upshift == 0 ? 32 : (16 - upshift), is_chroma));
+        ref3[lane] = static_cast<T>(neo_f3kdb::core::sample_modes::upsample(p3, upshift == 0 ? 32 : (16 - upshift), is_chroma));
+        ref4[lane] = static_cast<T>(neo_f3kdb::core::sample_modes::upsample(p4, upshift == 0 ? 32 : (16 - upshift), is_chroma));
     }
 
     r1_v = hn::LoadU(dtag, ref1);
@@ -171,7 +176,6 @@ HWY_INLINE void gather_uncached_reference_vectors(
     using T = hn::TFromD<DTag>;
     static_assert(kSampleMode >= 1 && kSampleMode <= 7);
 
-    const int upshift = 16 - params.config.input_depth;
     alignas(64) T ref1[hn::MaxLanes(dtag)];
     alignas(64) T ref2[hn::MaxLanes(dtag)];
     alignas(64) T ref3[hn::MaxLanes(dtag)];
@@ -192,21 +196,22 @@ HWY_INLINE void gather_uncached_reference_vectors(
             const int ref_x1 = info.ref1 >> width_subsamp;
             const int ref_x2 = info.ref2 >> width_subsamp;
 
+            const bool is_chroma = params.config.plane_index > 0;
             const int y1 = std::clamp(row + ref_y2, 0, max_y);
             const int x1 = std::clamp(pixel_col + ref_x1, 0, max_x);
-            ref1[lane] = static_cast<T>(static_cast<int>(src_plane(y1, x1)) << upshift);
+            ref1[lane] = static_cast<T>(neo_f3kdb::core::sample_modes::upsample(src_plane(y1, x1), params.config.input_depth, is_chroma));
 
             const int y2 = std::clamp(row - ref_y1, 0, max_y);
             const int x2 = std::clamp(pixel_col + ref_x2, 0, max_x);
-            ref2[lane] = static_cast<T>(static_cast<int>(src_plane(y2, x2)) << upshift);
+            ref2[lane] = static_cast<T>(neo_f3kdb::core::sample_modes::upsample(src_plane(y2, x2), params.config.input_depth, is_chroma));
 
             const int y3 = std::clamp(row - ref_y2, 0, max_y);
             const int x3 = std::clamp(pixel_col - ref_x1, 0, max_x);
-            ref3[lane] = static_cast<T>(static_cast<int>(src_plane(y3, x3)) << upshift);
+            ref3[lane] = static_cast<T>(neo_f3kdb::core::sample_modes::upsample(src_plane(y3, x3), params.config.input_depth, is_chroma));
 
             const int y4 = std::clamp(row + ref_y1, 0, max_y);
             const int x4 = std::clamp(pixel_col - ref_x2, 0, max_x);
-            ref4[lane] = static_cast<T>(static_cast<int>(src_plane(y4, x4)) << upshift);
+            ref4[lane] = static_cast<T>(neo_f3kdb::core::sample_modes::upsample(src_plane(y4, x4), params.config.input_depth, is_chroma));
         }
     } else {
         const neo_f3kdb::core::sample_modes::TypedSampleOps<PixelIn> ops{params, src_plane};
@@ -246,7 +251,6 @@ HWY_INLINE hn::Vec<DF> gather_gradient_angle_vector(
 ) {
     const int max_y = params.plane_height() - 1;
     const int max_x = params.plane_width() - 1;
-    const int upshift = 16 - params.config.input_depth;
 
     alignas(64) float p00_b[hn::MaxLanes(df)];
     alignas(64) float p10_b[hn::MaxLanes(df)];
@@ -273,16 +277,16 @@ HWY_INLINE hn::Vec<DF> gather_gradient_angle_vector(
         const auto* row_0 = src_plane.row_ptr(y0);
         const auto* row_p = src_plane.row_ptr(yp);
 
-        p00_b[i] = static_cast<float>(static_cast<int>(row_m[xm]) << upshift);
-        p10_b[i] = static_cast<float>(static_cast<int>(row_m[x0]) << upshift);
-        p20_b[i] = static_cast<float>(static_cast<int>(row_m[xp]) << upshift);
+        p00_b[i] = static_cast<float>(neo_f3kdb::core::sample_modes::upsample(row_m[xm], params.config.input_depth));
+        p10_b[i] = static_cast<float>(neo_f3kdb::core::sample_modes::upsample(row_m[x0], params.config.input_depth));
+        p20_b[i] = static_cast<float>(neo_f3kdb::core::sample_modes::upsample(row_m[xp], params.config.input_depth));
 
-        p01_b[i] = static_cast<float>(static_cast<int>(row_0[xm]) << upshift);
-        p21_b[i] = static_cast<float>(static_cast<int>(row_0[xp]) << upshift);
+        p01_b[i] = static_cast<float>(neo_f3kdb::core::sample_modes::upsample(row_0[xm], params.config.input_depth));
+        p21_b[i] = static_cast<float>(neo_f3kdb::core::sample_modes::upsample(row_0[xp], params.config.input_depth));
 
-        p02_b[i] = static_cast<float>(static_cast<int>(row_p[xm]) << upshift);
-        p12_b[i] = static_cast<float>(static_cast<int>(row_p[x0]) << upshift);
-        p22_b[i] = static_cast<float>(static_cast<int>(row_p[xp]) << upshift);
+        p02_b[i] = static_cast<float>(neo_f3kdb::core::sample_modes::upsample(row_p[xm], params.config.input_depth));
+        p12_b[i] = static_cast<float>(neo_f3kdb::core::sample_modes::upsample(row_p[x0], params.config.input_depth));
+        p22_b[i] = static_cast<float>(neo_f3kdb::core::sample_modes::upsample(row_p[xp], params.config.input_depth));
     }
 
     const auto p00 = hn::LoadU(df, p00_b);
