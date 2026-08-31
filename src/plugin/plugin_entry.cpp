@@ -28,7 +28,7 @@ const char* avs_signature() {
     if (!generated.has_value()) {
       return std::string{
         "c"
-        "[range]i[y]f[cb]f[cr]f[grainy]i[grainc]i[sample_mode]i[seed]i"
+        "[range]i[y]f[cb]f[cr]f[grainy]f[grainc]f[sample_mode]i[seed]i"
         "[blur_first]b[dynamic_grain]b[opt]i[mt]b[dither_algo]i[keep_tv_range]b"
         "[output_depth]i[random_algo_ref]i[random_algo_grain]i"
         "[random_param_ref]f[random_param_grain]f[preset]s"
@@ -48,8 +48,8 @@ const char* vs_signature() {
     "y:float:opt;"
     "cb:float:opt;"
     "cr:float:opt;"
-    "grainy:int:opt;"
-    "grainc:int:opt;"
+    "grainy:float:opt;"
+    "grainc:float:opt;"
     "sample_mode:int:opt;"
     "seed:int:opt;"
     "blur_first:int:opt;"

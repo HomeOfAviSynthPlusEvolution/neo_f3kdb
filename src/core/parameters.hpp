@@ -46,6 +46,8 @@ struct DebandParameters {
   double y_raw = 64.0;
   double cb_raw = 64.0;
   double cr_raw = 64.0;
+  double grain_y_raw = 64.0;
+  double grain_c_raw = 64.0;
   double y_1_raw = -1.0;
   double cb_1_raw = -1.0;
   double cr_1_raw = -1.0;
