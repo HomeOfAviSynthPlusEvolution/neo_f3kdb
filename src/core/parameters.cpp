@@ -59,9 +59,9 @@ ds::Result<ParsedParameters> parse_parameters(const ds::ParamValues* values) {
     if (values != nullptr) {
       auto& p = parsed.params;
       p.range = get_value(values->get_int("range", p.range), p.range);
-      p.y = get_value(values->get_int("y", p.y), p.y);
-      p.cb = get_value(values->get_int("cb", p.cb), p.cb);
-      p.cr = get_value(values->get_int("cr", p.cr), p.cr);
+      p.y_raw = get_value(values->get_double("y", p.y_raw), p.y_raw);
+      p.cb_raw = get_value(values->get_double("cb", p.cb_raw), p.cb_raw);
+      p.cr_raw = get_value(values->get_double("cr", p.cr_raw), p.cr_raw);
       p.grain_y = get_value(values->get_int("grainy", p.grain_y), p.grain_y);
       p.grain_c = get_value(values->get_int("grainc", p.grain_c), p.grain_c);
       p.sample_mode = get_value(values->get_int("sample_mode", p.sample_mode), p.sample_mode);
@@ -90,12 +90,12 @@ ds::Result<ParsedParameters> parse_parameters(const ds::ParamValues* values) {
         values->get_double("random_param_grain", p.random_param_grain),
         p.random_param_grain
       );
-      p.y_1 = get_value(values->get_int("y_1", p.y_1), p.y_1);
-      p.cb_1 = get_value(values->get_int("cb_1", p.cb_1), p.cb_1);
-      p.cr_1 = get_value(values->get_int("cr_1", p.cr_1), p.cr_1);
-      p.y_2 = get_value(values->get_int("y_2", p.y_2), p.y_2);
-      p.cb_2 = get_value(values->get_int("cb_2", p.cb_2), p.cb_2);
-      p.cr_2 = get_value(values->get_int("cr_2", p.cr_2), p.cr_2);
+      p.y_1_raw = get_value(values->get_double("y_1", p.y_1_raw), p.y_1_raw);
+      p.cb_1_raw = get_value(values->get_double("cb_1", p.cb_1_raw), p.cb_1_raw);
+      p.cr_1_raw = get_value(values->get_double("cr_1", p.cr_1_raw), p.cr_1_raw);
+      p.y_2_raw = get_value(values->get_double("y_2", p.y_2_raw), p.y_2_raw);
+      p.cb_2_raw = get_value(values->get_double("cb_2", p.cb_2_raw), p.cb_2_raw);
+      p.cr_2_raw = get_value(values->get_double("cr_2", p.cr_2_raw), p.cr_2_raw);
       p.angle_boost = get_value(values->get_double("angle_boost", p.angle_boost), p.angle_boost);
       p.max_angle = get_value(values->get_double("max_angle", p.max_angle), p.max_angle);
       p.dither_algo = static_cast<DITHER_ALGORITHM>(
@@ -120,26 +120,32 @@ void apply_preset(DebandParameters& p, std::string_view preset, bool scale) {
     std::string token;
     std::getline(stream, token, '/');
     if (token == "depth") {
-      p.y = p.cb = p.cr = p.grain_y = p.grain_c = p.y_1 = p.cb_1 = p.cr_1 = p.y_2 =
-        p.cb_2 = p.cr_2 = 0;
+      p.y_raw = p.cb_raw = p.cr_raw = p.grain_y = p.grain_c = p.y_1_raw = p.cb_1_raw = p.cr_1_raw = p.y_2_raw =
+        p.cb_2_raw = p.cr_2_raw = 0.0;
     } else if (token == "low") {
-      p.y = p.cb = p.cr = p.grain_y = p.grain_c = p.y_1 = p.cb_1 = p.cr_1 = p.y_2 =
-        p.cb_2 = p.cr_2 = scale ? 128 : 32;
+      p.y_raw = p.cb_raw = p.cr_raw = p.y_1_raw = p.cb_1_raw = p.cr_1_raw = p.y_2_raw =
+        p.cb_2_raw = p.cr_2_raw = scale ? 128.0 : 32.0;
+      p.grain_y = p.grain_c = scale ? 128 : 32;
     } else if (token == "medium") {
-      p.y = p.cb = p.cr = p.grain_y = p.grain_c = p.y_1 = p.cb_1 = p.cr_1 = p.y_2 =
-        p.cb_2 = p.cr_2 = scale ? 192 : 48;
+      p.y_raw = p.cb_raw = p.cr_raw = p.y_1_raw = p.cb_1_raw = p.cr_1_raw = p.y_2_raw =
+        p.cb_2_raw = p.cr_2_raw = scale ? 192.0 : 48.0;
+      p.grain_y = p.grain_c = scale ? 192 : 48;
     } else if (token == "high") {
-      p.y = p.cb = p.cr = p.grain_y = p.grain_c = p.y_1 = p.cb_1 = p.cr_1 = p.y_2 =
-        p.cb_2 = p.cr_2 = scale ? 256 : 64;
+      p.y_raw = p.cb_raw = p.cr_raw = p.y_1_raw = p.cb_1_raw = p.cr_1_raw = p.y_2_raw =
+        p.cb_2_raw = p.cr_2_raw = scale ? 256.0 : 64.0;
+      p.grain_y = p.grain_c = scale ? 256 : 64;
     } else if (token == "veryhigh") {
-      p.y = p.cb = p.cr = p.grain_y = p.grain_c = p.y_1 = p.cb_1 = p.cr_1 = p.y_2 =
-        p.cb_2 = p.cr_2 = scale ? 320 : 80;
+      p.y_raw = p.cb_raw = p.cr_raw = p.y_1_raw = p.cb_1_raw = p.cr_1_raw = p.y_2_raw =
+        p.cb_2_raw = p.cr_2_raw = scale ? 320.0 : 80.0;
+      p.grain_y = p.grain_c = scale ? 320 : 80;
     } else if (token == "nograin") {
       p.grain_y = p.grain_c = 0;
     } else if (token == "luma") {
-      p.cb = p.cr = p.grain_c = 0;
+      p.cb_raw = p.cr_raw = p.cb_1_raw = p.cr_1_raw = p.cb_2_raw = p.cr_2_raw = 0.0;
+      p.grain_c = 0;
     } else if (token == "chroma") {
-      p.y = p.grain_y = 0;
+      p.y_raw = p.y_1_raw = p.y_2_raw = 0.0;
+      p.grain_y = 0;
     }
   }
 }
@@ -157,15 +163,10 @@ void validate_parameters(const DebandParameters& p, const ds::VideoInputInfo& in
   invalid_param_if(bits < 8 || bits > INTERNAL_BIT_DEPTH, "bits out of range");
   invalid_param_if(input.format.sample_format == ds::SampleFormat::Float32, "float input");
 
-  const int y_threshold_upper_limit = scale ? 65535 : 511;
-  const int cb_threshold_upper_limit = scale ? 65535 : 511;
-  const int cr_threshold_upper_limit = scale ? 65535 : 511;
+  const double threshold_upper_limit = scale ? 65535.0 : 511.0;
   constexpr int dither_upper_limit = 4096;
 
   check_param("range", p.range, 0, 255);
-  check_param("Y", p.y, 0, y_threshold_upper_limit);
-  check_param("Cb", p.cb, 0, cb_threshold_upper_limit);
-  check_param("Cr", p.cr, 0, cr_threshold_upper_limit);
   check_param("grainY", p.grain_y, 0, dither_upper_limit);
   check_param("grainC", p.grain_c, 0, dither_upper_limit);
   check_param("sample_mode", p.sample_mode, 1, 7);
@@ -177,12 +178,24 @@ void validate_parameters(const DebandParameters& p, const ds::VideoInputInfo& in
     RANDOM_ALGORITHM_OLD,
     RANDOM_ALGORITHM_COUNT - 1
   );
-  check_param("Y_1", p.y_1, 0, y_threshold_upper_limit);
-  check_param("Cb_1", p.cb_1, 0, cb_threshold_upper_limit);
-  check_param("Cr_1", p.cr_1, 0, cr_threshold_upper_limit);
-  check_param("Y_2", p.y_2, 0, y_threshold_upper_limit);
-  check_param("Cb_2", p.cb_2, 0, cb_threshold_upper_limit);
-  check_param("Cr_2", p.cr_2, 0, cr_threshold_upper_limit);
+
+  auto validate_thresh = [&](const char* name, double val) {
+    if (val < 0.0 || val > threshold_upper_limit) {
+      char err[256];
+      std::snprintf(err, sizeof(err), "Invalid parameter %s, must be between 0.0 and %.1f", name, threshold_upper_limit);
+      throw std::invalid_argument(err);
+    }
+  };
+
+  validate_thresh("Y", p.y_raw);
+  validate_thresh("Cb", p.cb_raw);
+  validate_thresh("Cr", p.cr_raw);
+  if (p.y_1_raw >= 0.0) validate_thresh("Y_1", p.y_1_raw);
+  if (p.cb_1_raw >= 0.0) validate_thresh("Cb_1", p.cb_1_raw);
+  if (p.cr_1_raw >= 0.0) validate_thresh("Cr_1", p.cr_1_raw);
+  if (p.y_2_raw >= 0.0) validate_thresh("Y_2", p.y_2_raw);
+  if (p.cb_2_raw >= 0.0) validate_thresh("Cb_2", p.cb_2_raw);
+  if (p.cr_2_raw >= 0.0) validate_thresh("Cr_2", p.cr_2_raw);
 
   if (p.angle_boost < 0.0) {
     throw std::invalid_argument("invalid parameter angle_boost, must be positive value");
@@ -193,12 +206,12 @@ void validate_parameters(const DebandParameters& p, const ds::VideoInputInfo& in
 }
 
 void resolve_parameter_defaults(DebandParameters& p, int input_depth) {
-  p.y_1 = p.y_1 == -1 ? p.y : p.y_1;
-  p.cb_1 = p.cb_1 == -1 ? p.cb : p.cb_1;
-  p.cr_1 = p.cr_1 == -1 ? p.cr : p.cr_1;
-  p.y_2 = p.y_2 == -1 ? p.y : p.y_2;
-  p.cb_2 = p.cb_2 == -1 ? p.cb : p.cb_2;
-  p.cr_2 = p.cr_2 == -1 ? p.cr : p.cr_2;
+  p.y_1_raw = p.y_1_raw < 0.0 ? p.y_raw : p.y_1_raw;
+  p.cb_1_raw = p.cb_1_raw < 0.0 ? p.cb_raw : p.cb_1_raw;
+  p.cr_1_raw = p.cr_1_raw < 0.0 ? p.cr_raw : p.cr_1_raw;
+  p.y_2_raw = p.y_2_raw < 0.0 ? p.y_raw : p.y_2_raw;
+  p.cb_2_raw = p.cb_2_raw < 0.0 ? p.cb_raw : p.cb_2_raw;
+  p.cr_2_raw = p.cr_2_raw < 0.0 ? p.cr_raw : p.cr_2_raw;
 
   if (p.output_depth < 0) {
     p.output_depth = input_depth;
@@ -208,17 +221,30 @@ void resolve_parameter_defaults(DebandParameters& p, int input_depth) {
   }
 }
 
+static inline int normalize_single_threshold(double val, bool scale) {
+  if (val <= 0.0) {
+    return 0;
+  }
+  if (!scale && val <= 1.0) {
+    return static_cast<int>(val * 65535.0 + 0.5);
+  } else if (scale) {
+    return static_cast<int>(val + 0.5);
+  } else {
+    return static_cast<int>(val + 0.5) << 2;
+  }
+}
+
 void normalize_parameters(DebandParameters& p, int input_depth, bool scale) {
   (void)input_depth;
-  p.y = scale ? p.y : p.y << 2;
-  p.cb = scale ? p.cb : p.cb << 2;
-  p.cr = scale ? p.cr : p.cr << 2;
-  p.y_1 = scale ? p.y_1 : p.y_1 << 2;
-  p.cb_1 = scale ? p.cb_1 : p.cb_1 << 2;
-  p.cr_1 = scale ? p.cr_1 : p.cr_1 << 2;
-  p.y_2 = scale ? p.y_2 : p.y_2 << 2;
-  p.cb_2 = scale ? p.cb_2 : p.cb_2 << 2;
-  p.cr_2 = scale ? p.cr_2 : p.cr_2 << 2;
+  p.y = normalize_single_threshold(p.y_raw, scale);
+  p.cb = normalize_single_threshold(p.cb_raw, scale);
+  p.cr = normalize_single_threshold(p.cr_raw, scale);
+  p.y_1 = normalize_single_threshold(p.y_1_raw, scale);
+  p.cb_1 = normalize_single_threshold(p.cb_1_raw, scale);
+  p.cr_1 = normalize_single_threshold(p.cr_1_raw, scale);
+  p.y_2 = normalize_single_threshold(p.y_2_raw, scale);
+  p.cb_2 = normalize_single_threshold(p.cb_2_raw, scale);
+  p.cr_2 = normalize_single_threshold(p.cr_2_raw, scale);
   p.grain_y <<= 2;
   p.grain_c <<= 2;
 }

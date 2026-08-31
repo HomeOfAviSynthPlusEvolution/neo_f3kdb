@@ -42,6 +42,16 @@ struct DebandParameters {
   int cr_2 = -1;
   double angle_boost = 1.5;
   double max_angle = 0.15;
+
+  double y_raw = 64.0;
+  double cb_raw = 64.0;
+  double cr_raw = 64.0;
+  double y_1_raw = -1.0;
+  double cb_1_raw = -1.0;
+  double cr_1_raw = -1.0;
+  double y_2_raw = -1.0;
+  double cb_2_raw = -1.0;
+  double cr_2_raw = -1.0;
 };
 
 struct ParsedParameters {

@@ -28,11 +28,11 @@ const char* avs_signature() {
     if (!generated.has_value()) {
       return std::string{
         "c"
-        "[range]i[y]i[cb]i[cr]i[grainy]i[grainc]i[sample_mode]i[seed]i"
+        "[range]i[y]f[cb]f[cr]f[grainy]i[grainc]i[sample_mode]i[seed]i"
         "[blur_first]b[dynamic_grain]b[opt]i[mt]b[dither_algo]i[keep_tv_range]b"
         "[output_depth]i[random_algo_ref]i[random_algo_grain]i"
         "[random_param_ref]f[random_param_grain]f[preset]s"
-        "[y_1]i[cb_1]i[cr_1]i[y_2]i[cb_2]i[cr_2]i[scale]b"
+        "[y_1]f[cb_1]f[cr_1]f[y_2]f[cb_2]f[cr_2]f[scale]b"
         "[angle_boost]f[max_angle]f"
       };
     }
@@ -45,9 +45,9 @@ const char* vs_signature() {
   return
     "clip:vnode;"
     "range:int:opt;"
-    "y:int:opt;"
-    "cb:int:opt;"
-    "cr:int:opt;"
+    "y:float:opt;"
+    "cb:float:opt;"
+    "cr:float:opt;"
     "grainy:int:opt;"
     "grainc:int:opt;"
     "sample_mode:int:opt;"
@@ -64,12 +64,12 @@ const char* vs_signature() {
     "random_param_ref:float:opt;"
     "random_param_grain:float:opt;"
     "preset:data:opt;"
-    "y_1:int:opt;"
-    "cb_1:int:opt;"
-    "cr_1:int:opt;"
-    "y_2:int:opt;"
-    "cb_2:int:opt;"
-    "cr_2:int:opt;"
+    "y_1:float:opt;"
+    "cb_1:float:opt;"
+    "cr_1:float:opt;"
+    "y_2:float:opt;"
+    "cb_2:float:opt;"
+    "cr_2:float:opt;"
     "scale:int:opt;"
     "angle_boost:float:opt;"
     "max_angle:float:opt;";
