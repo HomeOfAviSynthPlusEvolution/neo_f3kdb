@@ -157,7 +157,23 @@ HWY_INLINE void process_block(
             );
         }
 
-        if constexpr (kSampleMode == 7) {
+        if constexpr (kSampleMode == 6) {
+            const hn::Rebind<float, D32> df;
+            const auto src_f = hn::ConvertTo(df, v_src_up);
+            const auto r1_f = hn::ConvertTo(df, r1_v);
+            const auto r2_f = hn::ConvertTo(df, r2_v);
+            const auto r3_f = hn::ConvertTo(df, r3_v);
+            const auto r4_f = hn::ConvertTo(df, r4_v);
+            const auto inv_thresh_avg3 = hn::Set(df, 3.0f / std::max(static_cast<float>(config.threshold), 1e-5f));
+            const auto inv_thresh_max3 = hn::Set(df, 3.0f / std::max(static_cast<float>(config.threshold1), 1e-5f));
+            const auto inv_thresh_mid3 = hn::Set(df, 3.0f / std::max(static_cast<float>(config.threshold2), 1e-5f));
+
+            const auto blended_f = process_mode6_vector(
+                df, src_f, r1_f, r2_f, r3_f, r4_f,
+                inv_thresh_avg3, inv_thresh_max3, inv_thresh_mid3
+            );
+            processed_v = hn::NearestInt(blended_f);
+        } else if constexpr (kSampleMode == 7) {
             const hn::Rebind<float, D32> df;
             const auto src_f = hn::ConvertTo(df, v_src_up);
             const auto r1_f = hn::ConvertTo(df, r1_v);

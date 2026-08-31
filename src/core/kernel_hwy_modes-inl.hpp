@@ -85,13 +85,12 @@ HWY_INLINE VF process_mode6_vector(
     VF p2_f,
     VF p3_f,
     VF p4_f,
-    VF thresh_avg,
-    VF thresh_max,
-    VF thresh_mid
+    VF inv_thresh_avg3,
+    VF inv_thresh_max3,
+    VF inv_thresh_mid3
 ) {
     const auto quarter = hn::Set(df, 0.25f);
     const auto three = hn::Set(df, 3.0f);
-    const auto eps = hn::Set(df, 1e-5f);
     const auto zero = hn::Zero(df);
     const auto one = hn::Set(df, 1.0f);
 
@@ -109,10 +108,10 @@ HWY_INLINE VF process_mode6_vector(
     const auto mid_dif_v = hn::Abs(hn::Sub(hn::Add(p1_f, p2_f), two_src));
     const auto mid_dif_h = hn::Abs(hn::Sub(hn::Add(p3_f, p4_f), two_src));
 
-    const auto comp_avg = hn::Clamp(hn::Mul(three, hn::Sub(one, hn::Div(avg_dif_f, hn::Max(thresh_avg, eps)))), zero, one);
-    const auto comp_max = hn::Clamp(hn::Mul(three, hn::Sub(one, hn::Div(max_dif, hn::Max(thresh_max, eps)))), zero, one);
-    const auto comp_mid_v = hn::Clamp(hn::Mul(three, hn::Sub(one, hn::Div(mid_dif_v, hn::Max(thresh_mid, eps)))), zero, one);
-    const auto comp_mid_h = hn::Clamp(hn::Mul(three, hn::Sub(one, hn::Div(mid_dif_h, hn::Max(thresh_mid, eps)))), zero, one);
+    const auto comp_avg = hn::Clamp(hn::Sub(three, hn::Mul(avg_dif_f, inv_thresh_avg3)), zero, one);
+    const auto comp_max = hn::Clamp(hn::Sub(three, hn::Mul(max_dif, inv_thresh_max3)), zero, one);
+    const auto comp_mid_v = hn::Clamp(hn::Sub(three, hn::Mul(mid_dif_v, inv_thresh_mid3)), zero, one);
+    const auto comp_mid_h = hn::Clamp(hn::Sub(three, hn::Mul(mid_dif_h, inv_thresh_mid3)), zero, one);
 
     const auto product = hn::Mul(hn::Mul(comp_avg, comp_max), hn::Mul(comp_mid_v, comp_mid_h));
 
@@ -153,7 +152,13 @@ HWY_INLINE VF process_mode7_vector(
     const auto t_max = hn::IfThenElse(use_boost, hn::Mul(thresh_max, boost_v), thresh_max);
     const auto t_mid = hn::IfThenElse(use_boost, hn::Mul(thresh_mid, boost_v), thresh_mid);
 
-    return process_mode6_vector(df, src_f, p1_f, p2_f, p3_f, p4_f, t_avg, t_max, t_mid);
+    const auto eps = hn::Set(df, 1e-5f);
+    const auto three = hn::Set(df, 3.0f);
+    const auto inv_t_avg3 = hn::Div(three, hn::Max(t_avg, eps));
+    const auto inv_t_max3 = hn::Div(three, hn::Max(t_max, eps));
+    const auto inv_t_mid3 = hn::Div(three, hn::Max(t_mid, eps));
+
+    return process_mode6_vector(df, src_f, p1_f, p2_f, p3_f, p4_f, inv_t_avg3, inv_t_max3, inv_t_mid3);
 }
 
 template <int kSampleMode, bool kBlurFirst, class D32, class V32>
@@ -227,11 +232,11 @@ V32 process_reference_samples(
         const auto r2_f = hn::ConvertTo(df, r2);
         const auto r3_f = hn::ConvertTo(df, r3);
         const auto r4_f = hn::ConvertTo(df, r4);
-        const auto thresh_avg = hn::Set(df, static_cast<float>(threshold));
-        const auto thresh_max = hn::Set(df, static_cast<float>(threshold1));
-        const auto thresh_mid = hn::Set(df, static_cast<float>(threshold2));
+        const auto inv_thresh_avg3 = hn::Set(df, 3.0f / std::max(static_cast<float>(threshold), 1e-5f));
+        const auto inv_thresh_max3 = hn::Set(df, 3.0f / std::max(static_cast<float>(threshold1), 1e-5f));
+        const auto inv_thresh_mid3 = hn::Set(df, 3.0f / std::max(static_cast<float>(threshold2), 1e-5f));
 
-        const auto blended_f = process_mode6_vector(df, src_f, r1_f, r2_f, r3_f, r4_f, thresh_avg, thresh_max, thresh_mid);
+        const auto blended_f = process_mode6_vector(df, src_f, r1_f, r2_f, r3_f, r4_f, inv_thresh_avg3, inv_thresh_max3, inv_thresh_mid3);
         return hn::NearestInt(blended_f);
     } else {
         static_assert(kSampleMode >= 1 && kSampleMode <= 7);
