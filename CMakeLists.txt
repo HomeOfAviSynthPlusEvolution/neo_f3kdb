@@ -52,7 +52,7 @@ endif()
 FetchContent_Declare(
   dualsynth2
   GIT_REPOSITORY https://github.com/HomeOfAviSynthPlusEvolution/dualsynth2.git
-  GIT_TAG 0.7
+  GIT_TAG 0.8
 )
 FetchContent_MakeAvailable(dualsynth2)
 
@@ -262,7 +262,7 @@ endif()
 # - x86: keep AVX3_ZEN4 (AVX-512), AVX2, SSE4, SSE2; exclude DL, SPR, AVX3, SSSE3
 # - ARM: keep NEON; exclude SVE/SVE2 and BF16
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|i.86")
-  target_compile_definitions(${LIBRARY_NAME} PRIVATE "HWY_DISABLED_TARGETS=(HWY_AVX3_SPR|HWY_AVX3_DL|HWY_AVX3|HWY_SSSE3)")
+  target_compile_definitions(${LIBRARY_NAME} PRIVATE "HWY_DISABLED_TARGETS=(HWY_AVX10_2|HWY_AVX3_SPR|HWY_AVX3_DL|HWY_AVX3|HWY_SSSE3)")
 else()
   target_compile_definitions(${LIBRARY_NAME} PRIVATE "HWY_DISABLED_TARGETS=(HWY_SVE|HWY_SVE_256|HWY_SVE2|HWY_SVE2_128|HWY_NEON_BF16)")
 endif()
