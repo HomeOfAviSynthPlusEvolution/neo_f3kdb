@@ -285,6 +285,26 @@ Must be between `0.0` to `1.0`.
 
 Default: `0.15`.
 
+## Host selection
+
+Both AviSynth and VapourSynth are enabled by default. To build for one host:
+
+```sh
+# VapourSynth only
+cmake -S . -B build/vs -DDS_ENABLE_AVISYNTH=OFF
+# AviSynth only
+cmake -S . -B build/avs -DDS_ENABLE_VAPOURSYNTH=OFF
+```
+
+Build the selected directory with `cmake --build build/vs --config Release`
+(or `build/avs`). Disabling both hosts is a configuration error.
+A disabled host's SDK is neither searched for nor downloaded, and its plugin
+entry points are omitted. The AviSynth frame-dump tool is built only when
+AviSynth is enabled. Baseline tests use the intersection of `F3KDB_TEST_HOSTS`
+(default: `vs;avs`) and the enabled hosts; no baseline tests are registered
+if that intersection is empty. These rules also apply when reconfiguring an
+existing build directory.
+
 ## Compilation
 
 ```cmd

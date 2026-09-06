@@ -81,12 +81,6 @@ def run_vs_case(case: dict, plugin_path: Path, backend: str) -> list[dict]:
     params = dict(case.get("params", {}))
     if backend == "purec":
         params["opt"] = 0
-    elif backend == "sse4":
-        params["opt"] = 1
-    elif backend == "avx2":
-        params["opt"] = 2
-    elif backend == "avx512":
-        params["opt"] = 3
     elif backend == "highway":
         params.pop("opt", None)
 
@@ -185,7 +179,8 @@ def _vs_source_clip(core: Any, vs: Any, source: dict) -> Any:
                 stride = f_out.get_stride(plane_index)
                 
                 dtype = np.uint16 if f_out.format.bytes_per_sample == 2 else np.uint8
-                arr = np.ctypeslib.as_array(ctypes.cast(p.value, ctypes.POINTER(ctypes.c_uint16 if dtype == np.uint16 else ctypes.c_uint8)), shape=(h, stride // f_out.format.bytes_per_sample))
+                ptr_val = ctypes.cast(p, ctypes.c_void_p).value
+                arr = np.ctypeslib.as_array(ctypes.cast(ptr_val, ctypes.POINTER(ctypes.c_uint16 if dtype == np.uint16 else ctypes.c_uint8)), shape=(h, stride // f_out.format.bytes_per_sample))
                 arr[:, :w] = val
                 
             return f_out
@@ -193,16 +188,21 @@ def _vs_source_clip(core: Any, vs: Any, source: dict) -> Any:
         return core.std.ModifyFrame(blank, blank, populate_gradient)
     if source["type"] == "bestsource":
         path = str(source["resolved_path"])
+        clip = None
         if hasattr(core, "bs"):
-            return core.bs.VideoSource(source=path)
-        if hasattr(core, "ffms2"):
-            return core.ffms2.Source(source=path)
-        if hasattr(core, "lsmas"):
-            return core.lsmas.LibavSMASHSource(source=path)
-        raise RuntimeError(
-            "bestsource is requested but not found, and no supported VapourSynth fallback source filter was found; "
-            "tried core.ffms2.Source and core.lsmas.LibavSMASHSource"
-        )
+            clip = core.bs.VideoSource(source=path)
+        elif hasattr(core, "ffms2"):
+            clip = core.ffms2.Source(source=path)
+        elif hasattr(core, "lsmas"):
+            clip = core.lsmas.LibavSMASHSource(source=path)
+        else:
+            raise RuntimeError(
+                "bestsource is requested but not found, and no supported VapourSynth fallback source filter was found; "
+                "tried core.ffms2.Source and core.lsmas.LibavSMASHSource"
+            )
+        if source.get("gray"):
+            clip = core.std.ShufflePlanes(clips=clip, planes=0, colorfamily=vs.GRAY)
+        return clip
     raise ValueError(f"unsupported source type: {source['type']}")
 
 def _vs_frame_planes(frame: Any, num_frames: int) -> tuple[list[PlaneBytes], dict]:
@@ -220,7 +220,8 @@ def _vs_frame_planes(frame: Any, num_frames: int) -> tuple[list[PlaneBytes], dic
         stride = frame.get_stride(plane_index)
         row_bytes = width * fmt.bytes_per_sample
         pointer = frame.get_read_ptr(plane_index)
-        data = ctypes.string_at(pointer.value, stride * height)
+        ptr_val = int(pointer) if hasattr(pointer, "__int__") else (pointer.value if hasattr(pointer, "value") else pointer)
+        data = ctypes.string_at(ptr_val, stride * height)
         planes.append(PlaneBytes(name, width, height, fmt.bytes_per_sample, stride, data))
         plane_metadata.append(
             {
@@ -298,6 +299,8 @@ def _render_avs_source_lines(source: dict) -> list[str]:
         pixel_type = source.get("avs_format", source["format"])
         if pixel_type == "YUV420P8":
             pixel_type = "YV12"
+        elif pixel_type == "GRAY8":
+            pixel_type = "Y8"
             
         expr_y = "sx sy +"
         
@@ -317,6 +320,12 @@ def _render_avs_source_lines(source: dict) -> list[str]:
             expr_u = "sx sy - 128 +"
             expr_v = "sy sx - 128 +"
             
+        if "GRAY" in source["format"] or pixel_type in ("Y8", "Y", "Y10", "Y12", "Y14", "Y16"):
+            return [
+                f'blank = BlankClip(width={source["width"]}, height={source["height"]}, '
+                f'length={source["length"]}, pixel_type="{pixel_type}", color_yuv=$808080)',
+                f'src = Expr(blank, "{expr_y}")'
+            ]
         return [
             f'blank = BlankClip(width={source["width"]}, height={source["height"]}, '
             f'length={source["length"]}, pixel_type="{pixel_type}", color_yuv=$808080)',
@@ -324,16 +333,21 @@ def _render_avs_source_lines(source: dict) -> list[str]:
         ]
     elif source["type"] == "bestsource":
         path = str(source["resolved_path"]).replace('\\', '/')
-        return [
+        lines = [
             'src = FunctionExists("BSVideoSource") '
             f'? BSVideoSource("{path}") '
             ': FunctionExists("FFVideoSource") '
             f'? FFVideoSource("{path}") '
             ': FunctionExists("LSMASHVideoSource") '
             f'? LSMASHVideoSource("{path}") '
+            ': FunctionExists("LWLibavVideoSource") '
+            f'? LWLibavVideoSource("{path}") '
             ': Assert(false, "no supported AviSynth source filter found; '
-            'tried BSVideoSource, FFVideoSource and LSMASHVideoSource")'
+            'tried BSVideoSource, FFVideoSource, LSMASHVideoSource and LWLibavVideoSource")'
         ]
+        if source.get("gray"):
+            lines.append("src = ConvertToY(src)")
+        return lines
     raise ValueError(f"unsupported source type: {source['type']}")
 
 def run_avs_case(case: dict, plugin_path: Path, avs_dump: Path, backend: str) -> list[dict]:
@@ -341,12 +355,6 @@ def run_avs_case(case: dict, plugin_path: Path, avs_dump: Path, backend: str) ->
     params = dict(case.get("params", {}))
     if backend == "purec":
         params["opt"] = 0
-    elif backend == "sse4":
-        params["opt"] = 1
-    elif backend == "avx2":
-        params["opt"] = 2
-    elif backend == "avx512":
-        params["opt"] = 3
     elif backend == "highway":
         params.pop("opt", None)
 
@@ -421,7 +429,7 @@ def _result_record(case: dict, host: str, frame_number: int, sha256: str, metada
 def write_golden(path: Path, results: list[dict]) -> None:
     payload = {"schema": GOLDEN_SCHEMA, "results": results}
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
 
 def verify_golden(path: Path, results: list[dict], hosts: list[str] | None = None) -> None:
     expected = json.loads(path.read_text(encoding="utf-8"))
@@ -459,7 +467,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--golden", required=True, type=Path)
     parser.add_argument("--tier", default="smoke")
     parser.add_argument("--hosts", nargs="+", default=["vs", "avs"], choices=["vs", "avs"])
-    parser.add_argument("--backend", default="purec", choices=["purec", "sse4", "avx2", "avx512", "highway"])
+    parser.add_argument("--backend", default="purec", choices=["purec", "highway"])
     args = parser.parse_args(argv)
 
     plugin_path = args.plugin.resolve()

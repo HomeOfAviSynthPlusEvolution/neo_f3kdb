@@ -1887,6 +1887,170 @@
       "sha256": "81f43c623cccde776dfd6c324865c37baf32a150760cb1c607621b78599d2948",
       "source": "mp4_yuv420p8_10f_bestsource",
       "tier": "smoke"
+    },
+    {
+      "backend": "purec",
+      "case": "f3kdb_real_mp4_gray8_mode2",
+      "frame": 1,
+      "host": "vs",
+      "metadata": {
+        "format": {
+          "bits_per_sample": 8,
+          "bytes_per_sample": 1,
+          "color_family": 1,
+          "id": 268959744,
+          "name": "Gray8",
+          "num_planes": 1,
+          "sample_type": 0,
+          "subsampling_h": 0,
+          "subsampling_w": 0
+        },
+        "frames": 10,
+        "height": 720,
+        "planes": [
+          {
+            "height": 720,
+            "name": "Y",
+            "row_bytes": 1280,
+            "stride": 1280
+          }
+        ],
+        "width": 1280
+      },
+      "params": {
+        "blur_first": true,
+        "cb": 0,
+        "cr": 0,
+        "dither_algo": 1,
+        "grainc": 0,
+        "grainy": 0,
+        "range": 15,
+        "sample_mode": 2,
+        "seed": 42,
+        "y": 64
+      },
+      "sha256": "b3383e7f64900f7be0d09559eeae63c952a7429cfaa1e1ba7e8753d5bf577d3d",
+      "source": "mp4_gray8_10f_bestsource",
+      "tier": "smoke"
+    },
+    {
+      "backend": "purec",
+      "case": "f3kdb_real_mp4_gray8_mode2",
+      "frame": 3,
+      "host": "vs",
+      "metadata": {
+        "format": {
+          "bits_per_sample": 8,
+          "bytes_per_sample": 1,
+          "color_family": 1,
+          "id": 268959744,
+          "name": "Gray8",
+          "num_planes": 1,
+          "sample_type": 0,
+          "subsampling_h": 0,
+          "subsampling_w": 0
+        },
+        "frames": 10,
+        "height": 720,
+        "planes": [
+          {
+            "height": 720,
+            "name": "Y",
+            "row_bytes": 1280,
+            "stride": 1280
+          }
+        ],
+        "width": 1280
+      },
+      "params": {
+        "blur_first": true,
+        "cb": 0,
+        "cr": 0,
+        "dither_algo": 1,
+        "grainc": 0,
+        "grainy": 0,
+        "range": 15,
+        "sample_mode": 2,
+        "seed": 42,
+        "y": 64
+      },
+      "sha256": "9e10dac7116b67fae629100d726a43803a20de3eb08f7a82e7056a3e48205374",
+      "source": "mp4_gray8_10f_bestsource",
+      "tier": "smoke"
+    },
+    {
+      "backend": "purec",
+      "case": "f3kdb_real_mp4_gray8_mode2",
+      "frame": 1,
+      "host": "avs",
+      "metadata": {
+        "bits_per_sample": 8,
+        "bytes_per_sample": 1,
+        "frames": 10,
+        "height": 720,
+        "pixel_type": -536870912,
+        "planes": [
+          {
+            "height": 720,
+            "name": "Y",
+            "row_bytes": 1280,
+            "stride": 1280
+          }
+        ],
+        "width": 1280
+      },
+      "params": {
+        "blur_first": true,
+        "cb": 0,
+        "cr": 0,
+        "dither_algo": 1,
+        "grainc": 0,
+        "grainy": 0,
+        "range": 15,
+        "sample_mode": 2,
+        "seed": 42,
+        "y": 64
+      },
+      "sha256": "b3383e7f64900f7be0d09559eeae63c952a7429cfaa1e1ba7e8753d5bf577d3d",
+      "source": "mp4_gray8_10f_bestsource",
+      "tier": "smoke"
+    },
+    {
+      "backend": "purec",
+      "case": "f3kdb_real_mp4_gray8_mode2",
+      "frame": 3,
+      "host": "avs",
+      "metadata": {
+        "bits_per_sample": 8,
+        "bytes_per_sample": 1,
+        "frames": 10,
+        "height": 720,
+        "pixel_type": -536870912,
+        "planes": [
+          {
+            "height": 720,
+            "name": "Y",
+            "row_bytes": 1280,
+            "stride": 1280
+          }
+        ],
+        "width": 1280
+      },
+      "params": {
+        "blur_first": true,
+        "cb": 0,
+        "cr": 0,
+        "dither_algo": 1,
+        "grainc": 0,
+        "grainy": 0,
+        "range": 15,
+        "sample_mode": 2,
+        "seed": 42,
+        "y": 64
+      },
+      "sha256": "9e10dac7116b67fae629100d726a43803a20de3eb08f7a82e7056a3e48205374",
+      "source": "mp4_gray8_10f_bestsource",
+      "tier": "smoke"
     }
   ],
   "schema": 2

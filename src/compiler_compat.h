@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 #ifndef _MSC_VER
 #include <cstring>
 #include <stdio.h>
