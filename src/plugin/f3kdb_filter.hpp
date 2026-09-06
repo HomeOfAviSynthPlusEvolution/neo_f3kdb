@@ -1,6 +1,8 @@
 #pragma once
 
+#if F3KDB_ENABLE_AVISYNTH
 #include <dualsynth/avisynth/video_bridge.hpp>
+#endif
 #include <dualsynth/format.hpp>
 #include <dualsynth/param.hpp>
 #include <dualsynth/video_bridge.hpp>
@@ -47,7 +49,9 @@ struct F3KDBBridge : ds::SingleInputVideoBridgeDefaults<F3KDBFilterCore> {
     "Neo-F3KDB: only integer YUV format is supported";
   static constexpr const char* avs_format_error =
     "Neo-F3KDB: only integer YUV format is supported";
+#if F3KDB_ENABLE_AVISYNTH
   static constexpr ds::avisynth::MtMode avs_mt_mode = ds::avisynth::MtMode::NiceFilter;
+#endif
 
   static bool accepts_video_format(ds::VideoFormat format);
   static ds::FilterDescriptor descriptor();

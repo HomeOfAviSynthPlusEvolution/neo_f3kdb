@@ -52,7 +52,7 @@ endif()
 FetchContent_Declare(
   dualsynth2
   GIT_REPOSITORY https://github.com/HomeOfAviSynthPlusEvolution/dualsynth2.git
-  GIT_TAG 0.8
+  GIT_TAG 0.9
 )
 FetchContent_MakeAvailable(dualsynth2)
 
@@ -104,32 +104,40 @@ endfunction()
 
 find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
-  pkg_check_modules(AVISYNTH QUIET avisynth)
-  pkg_check_modules(VAPOURSYNTH QUIET vapoursynth)
+  if(DS_ENABLE_AVISYNTH)
+    pkg_check_modules(AVISYNTH QUIET avisynth)
+  endif()
+  if(DS_ENABLE_VAPOURSYNTH)
+    pkg_check_modules(VAPOURSYNTH QUIET vapoursynth)
+  endif()
 endif()
 
-add_library(f3kdb_avisynth_headers INTERFACE)
-if(AVISYNTH_FOUND)
-  target_include_directories(f3kdb_avisynth_headers INTERFACE ${AVISYNTH_INCLUDE_DIRS})
-  target_compile_options(f3kdb_avisynth_headers INTERFACE ${AVISYNTH_CFLAGS_OTHER})
-  message(STATUS "Using AviSynth headers from pkg-config")
-else()
-  f3kdb_fetch_avisynth_headers(F3KDB_AVISYNTH_INCLUDE_DIRS)
-  target_include_directories(f3kdb_avisynth_headers INTERFACE ${F3KDB_AVISYNTH_INCLUDE_DIRS})
-  message(STATUS "Using AviSynth headers from FetchContent (${F3KDB_AVISYNTHPLUS_TAG})")
+if(DS_ENABLE_AVISYNTH)
+  add_library(f3kdb_avisynth_headers INTERFACE)
+  if(AVISYNTH_FOUND)
+    target_include_directories(f3kdb_avisynth_headers INTERFACE ${AVISYNTH_INCLUDE_DIRS})
+    target_compile_options(f3kdb_avisynth_headers INTERFACE ${AVISYNTH_CFLAGS_OTHER})
+    message(STATUS "Using AviSynth headers from pkg-config")
+  else()
+    f3kdb_fetch_avisynth_headers(F3KDB_AVISYNTH_INCLUDE_DIRS)
+    target_include_directories(f3kdb_avisynth_headers INTERFACE ${F3KDB_AVISYNTH_INCLUDE_DIRS})
+    message(STATUS "Using AviSynth headers from FetchContent (${F3KDB_AVISYNTHPLUS_TAG})")
+  endif()
 endif()
 
-add_library(f3kdb_vapoursynth_headers INTERFACE)
-if(VAPOURSYNTH_FOUND)
-  target_include_directories(f3kdb_vapoursynth_headers INTERFACE ${VAPOURSYNTH_INCLUDE_DIRS})
-  target_compile_options(f3kdb_vapoursynth_headers INTERFACE ${VAPOURSYNTH_CFLAGS_OTHER})
-  message(STATUS "Using VapourSynth headers from pkg-config")
-else()
-  f3kdb_fetch_vapoursynth_headers(F3KDB_VAPOURSYNTH_INCLUDE_DIRS)
-  target_include_directories(f3kdb_vapoursynth_headers INTERFACE ${F3KDB_VAPOURSYNTH_INCLUDE_DIRS})
-  message(STATUS "Using VapourSynth headers from FetchContent (${F3KDB_VAPOURSYNTH_TAG})")
+if(DS_ENABLE_VAPOURSYNTH)
+  add_library(f3kdb_vapoursynth_headers INTERFACE)
+  if(VAPOURSYNTH_FOUND)
+    target_include_directories(f3kdb_vapoursynth_headers INTERFACE ${VAPOURSYNTH_INCLUDE_DIRS})
+    target_compile_options(f3kdb_vapoursynth_headers INTERFACE ${VAPOURSYNTH_CFLAGS_OTHER})
+    message(STATUS "Using VapourSynth headers from pkg-config")
+  else()
+    f3kdb_fetch_vapoursynth_headers(F3KDB_VAPOURSYNTH_INCLUDE_DIRS)
+    target_include_directories(f3kdb_vapoursynth_headers INTERFACE ${F3KDB_VAPOURSYNTH_INCLUDE_DIRS})
+    message(STATUS "Using VapourSynth headers from FetchContent (${F3KDB_VAPOURSYNTH_TAG})")
+  endif()
+  f3kdb_add_vapoursynth_compat_headers(f3kdb_vapoursynth_headers)
 endif()
-f3kdb_add_vapoursynth_compat_headers(f3kdb_vapoursynth_headers)
 
 # 4. Version and Resource Generation
 string(REGEX MATCH "^([0-9.]+)" CORE_VERSION_STRING "${PROJECT_VERSION}")
@@ -270,7 +278,17 @@ endif()
 target_link_libraries(${LIBRARY_NAME} PRIVATE "$<$<OR:$<CXX_COMPILER_ID:Intel>,$<CXX_COMPILER_ID:IntelLLVM>>:libmmds>")
 
 # Link Google Highway, Custom Headers and DualSynth2
-target_link_libraries(${LIBRARY_NAME} PRIVATE hwy f3kdb_avisynth_headers f3kdb_vapoursynth_headers)
+target_link_libraries(${LIBRARY_NAME} PRIVATE hwy)
+target_compile_definitions(${LIBRARY_NAME} PRIVATE
+  F3KDB_ENABLE_AVISYNTH=$<BOOL:${DS_ENABLE_AVISYNTH}>
+  F3KDB_ENABLE_VAPOURSYNTH=$<BOOL:${DS_ENABLE_VAPOURSYNTH}>
+)
+if(DS_ENABLE_AVISYNTH)
+  target_link_libraries(${LIBRARY_NAME} PRIVATE f3kdb_avisynth_headers)
+endif()
+if(DS_ENABLE_VAPOURSYNTH)
+  target_link_libraries(${LIBRARY_NAME} PRIVATE f3kdb_vapoursynth_headers)
+endif()
 target_link_libraries(${LIBRARY_NAME} PRIVATE DualSynth::dualsynth)
 
 if(CMAKE_DL_LIBS)
@@ -285,34 +303,48 @@ endif()
 if(F3KDB_BUILD_TEST_TOOLS)
   find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
-  add_executable(f3kdb_avs_frame_dump
-    tests/tools/avs_frame_dump.cpp
-  )
-  set_property(TARGET f3kdb_avs_frame_dump PROPERTY CXX_STANDARD 17)
-  target_link_libraries(f3kdb_avs_frame_dump PRIVATE f3kdb_avisynth_headers)
-  if(NOT WIN32)
-    target_link_libraries(f3kdb_avs_frame_dump PRIVATE dl)
+  set(F3KDB_AVS_DUMP_ARGS)
+  if(DS_ENABLE_AVISYNTH)
+    add_executable(f3kdb_avs_frame_dump
+      tests/tools/avs_frame_dump.cpp
+    )
+    set_property(TARGET f3kdb_avs_frame_dump PROPERTY CXX_STANDARD 17)
+    target_link_libraries(f3kdb_avs_frame_dump PRIVATE f3kdb_avisynth_headers)
+    if(NOT WIN32)
+      target_link_libraries(f3kdb_avs_frame_dump PRIVATE dl)
+    endif()
+    list(APPEND F3KDB_AVS_DUMP_ARGS --avs-dump $<TARGET_FILE:f3kdb_avs_frame_dump>)
   endif()
 
   enable_testing()
 
   set(F3KDB_TEST_HOSTS "vs;avs" CACHE STRING "Hosts to test in baseline runner (e.g. vs;avs or vs)")
 
-  # Register the baseline verification tasks with CTest
-  foreach(backend IN ITEMS purec highway)
-    foreach(tier IN ITEMS smoke compat)
-      add_test(
-        NAME baseline_${backend}_${tier}
-        COMMAND
-          ${Python3_EXECUTABLE} -m tests.baseline.baseline_runner verify
-          --plugin $<TARGET_FILE:${LIBRARY_NAME}>
-          --avs-dump $<TARGET_FILE:f3kdb_avs_frame_dump>
-          --golden "${PROJECT_SOURCE_DIR}/tests/baseline/golden/${tier}.json"
-          --tier ${tier}
-          --backend ${backend}
-          --hosts ${F3KDB_TEST_HOSTS}
-        WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
-      )
+  set(F3KDB_ENABLED_TEST_HOSTS ${F3KDB_TEST_HOSTS})
+  if(NOT DS_ENABLE_AVISYNTH)
+    list(REMOVE_ITEM F3KDB_ENABLED_TEST_HOSTS avs)
+  endif()
+  if(NOT DS_ENABLE_VAPOURSYNTH)
+    list(REMOVE_ITEM F3KDB_ENABLED_TEST_HOSTS vs)
+  endif()
+
+  # Register only tests for enabled hosts, including when reusing a cache.
+  if(F3KDB_ENABLED_TEST_HOSTS)
+    foreach(backend IN ITEMS purec highway)
+      foreach(tier IN ITEMS smoke compat)
+        add_test(
+          NAME baseline_${backend}_${tier}
+          COMMAND
+            ${Python3_EXECUTABLE} -m tests.baseline.baseline_runner verify
+            --plugin $<TARGET_FILE:${LIBRARY_NAME}>
+            ${F3KDB_AVS_DUMP_ARGS}
+            --golden "${PROJECT_SOURCE_DIR}/tests/baseline/golden/${tier}.json"
+            --tier ${tier}
+            --backend ${backend}
+            --hosts ${F3KDB_ENABLED_TEST_HOSTS}
+          WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+        )
+      endforeach()
     endforeach()
-  endforeach()
+  endif()
 endif()

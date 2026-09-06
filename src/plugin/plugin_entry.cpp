@@ -1,8 +1,11 @@
+#if F3KDB_ENABLE_AVISYNTH
 #include <avisynth.h>
-#include <VapourSynth4.h>
-
 #include <dualsynth/avisynth/video_bridge.hpp>
+#endif
+#if F3KDB_ENABLE_VAPOURSYNTH
+#include <VapourSynth4.h>
 #include <dualsynth/vapoursynth/video_bridge.hpp>
+#endif
 #include <dualsynth/video_bridge.hpp>
 
 #include "plugin/f3kdb_filter.hpp"
@@ -17,12 +20,13 @@
 #define F3KDB_AVS_PLUGIN_EXPORT extern "C"
 #endif
 
-#if defined(_MSC_VER) && !defined(_M_ARM64) && !defined(__aarch64__)
+#if F3KDB_ENABLE_AVISYNTH && defined(_MSC_VER) && !defined(_M_ARM64) && !defined(__aarch64__)
 const AVS_Linkage* AVS_linkage = nullptr;
 #endif
 
 namespace {
 
+#if F3KDB_ENABLE_VAPOURSYNTH
 const char* vs_signature() {
   return
     "clip:vnode;"
@@ -67,8 +71,9 @@ void VS_CC create_vapoursynth_filter(
 ) {
   ds::vapoursynth::create_video_filter_bridge<Bridge>(in, out, core, vsapi);
 }
+#endif
 
-#if defined(_MSC_VER) && !defined(_M_ARM64) && !defined(__aarch64__)
+#if F3KDB_ENABLE_AVISYNTH && defined(_MSC_VER) && !defined(_M_ARM64) && !defined(__aarch64__)
 template <class Bridge>
 AVSValue __cdecl create_avisynth_filter(
   AVSValue args,
@@ -99,6 +104,7 @@ const char* register_avisynth_filters(IScriptEnvironment* env, bool register_mt_
 
 } // namespace
 
+#if F3KDB_ENABLE_VAPOURSYNTH
 VS_EXTERNAL_API(void) VapourSynthPluginInit2(VSPlugin* plugin, const VSPLUGINAPI* vspapi) {
   vspapi->configPlugin(
     neo_f3kdb::Plugin::Identifier,
@@ -119,8 +125,9 @@ VS_EXTERNAL_API(void) VapourSynthPluginInit2(VSPlugin* plugin, const VSPLUGINAPI
     plugin
   );
 }
+#endif
 
-#if defined(_MSC_VER) && !defined(_M_ARM64) && !defined(__aarch64__)
+#if F3KDB_ENABLE_AVISYNTH && defined(_MSC_VER) && !defined(_M_ARM64) && !defined(__aarch64__)
 F3KDB_AVS_PLUGIN_EXPORT const char* __stdcall AvisynthPluginInit2(IScriptEnvironment* env) {
   AVS_linkage = env->GetAVSLinkage();
   return register_avisynth_filters(env, false);
@@ -135,9 +142,11 @@ F3KDB_AVS_PLUGIN_EXPORT const char* __stdcall AvisynthPluginInit3(
 }
 #endif
 
+#if F3KDB_ENABLE_AVISYNTH
 F3KDB_AVS_PLUGIN_EXPORT const char* AVSC_CC avisynth_c_plugin_init2(
   AVS_ScriptEnvironment* env
 ) {
   ds::avisynth::c::register_video_filter<neo_f3kdb::F3KDBBridge>(env);
   return neo_f3kdb::Plugin::Description;
 }
+#endif
