@@ -58,8 +58,8 @@ static __inline float calculate_ratio_term(float diff, float thresh)
 #endif
 
 template <int pixel_proc_mode>
-static float calculate_gradient_angle(const process_plane_params& params, void* context_pixel_proc, const unsigned char* src_plane_base_ptr,
-    int current_x, int current_y, int read_distance = 20)
+static void calculate_gradient_vector(const process_plane_params& params, void* context_pixel_proc, const unsigned char* src_plane_base_ptr,
+    int current_x, int current_y, int read_distance, float& out_gx, float& out_gy)
 {
     auto get_pixel_value_at = [&](int x, int y) -> float {
         const unsigned char* pixel_address = src_plane_base_ptr +
@@ -79,27 +79,8 @@ static float calculate_gradient_angle(const process_plane_params& params, void* 
     const float p12 = get_pixel_value_at(current_x, current_y + read_distance);
     const float p22 = get_pixel_value_at(current_x + read_distance, current_y + read_distance);
 
-    // Sobel-like gradient calculation
-    const float gx = (p20 + 2.0f * p21 + p22) - (p00 + 2.0f * p01 + p02);
-    const float gy = (p00 + 2.0f * p10 + p20) - (p02 + 2.0f * p12 + p22);
-
-    const float scaled_epsilon_for_gx = 0.01f * (static_cast<float>(1 << (INTERNAL_BIT_DEPTH - params.input_depth)) * 3.0f);
-
-    if (std::abs(gx) < scaled_epsilon_for_gx)
-    {
-        // gx is close to zero, gradient is predominantly vertical or area is flat.
-        if (std::abs(gy) < scaled_epsilon_for_gx)
-        {
-            // Also flat in y direction
-            return 1.0f;
-        }
-
-        // gx is negligible, gy is not. This is a vertical gradient.
-        return 1.0f;
-    }
-
-    // gx is not close to zero, atan(gy/gx) is safe
-    return std::atan(gy / gx) / static_cast<float>(M_PI) + 0.5f;
+    out_gx = (p20 + 2.0f * p21 + p22) - (p00 + 2.0f * p01 + p02);
+    out_gy = (p00 + 2.0f * p10 + p20) - (p02 + 2.0f * p12 + p22);
 }
 
 template <int sample_mode, bool blur_first, int mode, int output_mode>
@@ -120,6 +101,14 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
     int pixel_step = params.input_mode == HIGH_BIT_DEPTH_INTERLEAVED ? 2 : 1;
 
     int process_width = params.plane_width_in_pixels;
+
+    float tan_thresh = 0.0f;
+    if constexpr (sample_mode == 7)
+    {
+        const float max_angle_rad = params.max_angle * static_cast<float>(M_PI);
+        constexpr float half_pi = 1.57079632679f;
+        tan_thresh = (max_angle_rad >= half_pi) ? 1e6f : std::tan(max_angle_rad);
+    }
 
     for (int i = 0; i < params.plane_height_in_pixels; i++)
     {
@@ -304,30 +293,51 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                 const float ref_1_w_f = static_cast<float>(read_pixel<mode>(params, context, src_px + ref_h_offset_bytes));
                 const float ref_2_w_f = static_cast<float>(read_pixel<mode>(params, context, src_px - ref_h_offset_bytes));
 
-                const float angle_org = calculate_gradient_angle<mode>(params, context, params.src_plane_ptr, j, i);
+                float gx_org;
+                float gy_org;
+                calculate_gradient_vector<mode>(params, context, params.src_plane_ptr, j, i, 20, gx_org, gy_org);
 
                 const int ref1h_y_offset = (info.ref1 >> params.height_subsampling);
                 const int ref1w_x_offset = (info.ref1 >> params.width_subsampling);
 
-                const float angle_ref1_h = calculate_gradient_angle<mode>(params, context, params.src_plane_ptr, j, i + ref1h_y_offset);
-                const float angle_ref2_h = calculate_gradient_angle<mode>(params, context, params.src_plane_ptr, j, i - ref1h_y_offset);
-                const float angle_ref1_w = calculate_gradient_angle<mode>(params, context, params.src_plane_ptr, j + ref1w_x_offset, i);
-                const float angle_ref2_w = calculate_gradient_angle<mode>(params, context, params.src_plane_ptr, j - ref1w_x_offset, i);
+                auto check_aligned = [&](float gx1, float gy1, float mag_sq1, float gx2, float gy2) {
+                    const float cross = std::abs(gx1 * gy2 - gy1 * gx2);
+                    const float dot = std::abs(gx1 * gx2 + gy1 * gy2);
 
-                float max_angle_diff = 0.0f;
-                max_angle_diff = std::max(max_angle_diff, std::abs(angle_ref1_h - angle_org));
-                max_angle_diff = std::max(max_angle_diff, std::abs(angle_ref2_h - angle_org));
-                max_angle_diff = std::max(max_angle_diff, std::abs(angle_ref1_w - angle_org));
-                max_angle_diff = std::max(max_angle_diff, std::abs(angle_ref2_w - angle_org));
+                    const float mag_sq2 = gx2 * gx2 + gy2 * gy2;
+
+                    constexpr float flat_epsilon_sq = 1.0f;
+
+                    const bool both_flat = (mag_sq1 < flat_epsilon_sq) && (mag_sq2 < flat_epsilon_sq);
+                    const bool both_active = (mag_sq1 >= flat_epsilon_sq) && (mag_sq2 >= flat_epsilon_sq);
+
+                    return both_flat || (both_active && (cross <= tan_thresh * dot));
+                    };
+
+                bool is_aligned = true;
+                float gx_ref;
+                float gy_ref;
+
+                const float mag_sq1 = gx_org * gx_org + gy_org * gy_org;
+                calculate_gradient_vector<mode>(params, context, params.src_plane_ptr, j, i + ref1h_y_offset, 20, gx_ref, gy_ref);
+                is_aligned &= check_aligned(gx_org, gy_org, mag_sq1, gx_ref, gy_ref);
+
+                calculate_gradient_vector<mode>(params, context, params.src_plane_ptr, j, i - ref1h_y_offset, 20, gx_ref, gy_ref);
+                is_aligned &= check_aligned(gx_org, gy_org, mag_sq1, gx_ref, gy_ref);
+
+                calculate_gradient_vector<mode>(params, context, params.src_plane_ptr, j + ref1w_x_offset, i, 20, gx_ref, gy_ref);
+                is_aligned &= check_aligned(gx_org, gy_org, mag_sq1, gx_ref, gy_ref);
+
+                calculate_gradient_vector<mode>(params, context, params.src_plane_ptr, j - ref1w_x_offset, i, 20, gx_ref, gy_ref);
+                is_aligned &= check_aligned(gx_org, gy_org, mag_sq1, gx_ref, gy_ref);
 
                 float current_thresh_avg_dif = static_cast<float>(params.threshold);
                 float current_thresh_max_dif = static_cast<float>(params.threshold1);
                 float current_thresh_mid_dif = static_cast<float>(params.threshold2);
 
                 const float angle_boost_factor = params.angle_boost;
-                const float max_angle_threshold = params.max_angle;
 
-                if (max_angle_diff <= max_angle_threshold) {
+                if (is_aligned) {
                     current_thresh_avg_dif *= angle_boost_factor;
                     current_thresh_max_dif *= angle_boost_factor;
                     current_thresh_mid_dif *= angle_boost_factor;
