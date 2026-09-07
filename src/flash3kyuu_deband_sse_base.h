@@ -247,12 +247,15 @@ static __forceinline float sse_scalar_get_pixel_value_f(
     return static_cast<float>(raw_pixel_val << (_mm_cvtsi128_si32(upsample_shift_simd)));
 }
 
-static __forceinline float sse_scalar_calc_gradient_angle(
+static __forceinline void sse_scalar_calc_gradient_vector(
     const unsigned char* src_plane_base_ptr,
-    int current_x, int current_y,
+    int current_x,
+    int current_y,
     int read_distance,
     const process_plane_params& params,
-    __m128i upsample_shift_simd)
+    __m128i upsample_shift_simd,
+    float& out_gx,
+    float& out_gy)
 {
     auto get_pixel_value_at_sse = [&](int x_coord, int y_coord) -> float {
         return sse_scalar_get_pixel_value_f(src_plane_base_ptr, x_coord, y_coord, params, upsample_shift_simd);
@@ -267,26 +270,15 @@ static __forceinline float sse_scalar_calc_gradient_angle(
     const float p12 = get_pixel_value_at_sse(current_x, current_y + read_distance);
     const float p22 = get_pixel_value_at_sse(current_x + read_distance, current_y + read_distance);
 
-    const float gx = (p20 + 2.0f * p21 + p22) - (p00 + 2.0f * p01 + p02);
-    const float gy = (p00 + 2.0f * p10 + p20) - (p02 + 2.0f * p12 + p22);
-
-    const float scaled_epsilon_for_gx = 0.01f * (static_cast<float>(1 << (16 - params.input_depth)) * 3.0f);
-
-    if (std::abs(gx) < scaled_epsilon_for_gx) {
-        if (std::abs(gy) < scaled_epsilon_for_gx) {
-            return 1.0f; // Flat area
-        }
-        return 1.0f; // Predominantly vertical gradient
-    }
-
-    float angle_rad = std::atan(gy / gx);
-    return angle_rad / static_cast<float>(M_PI) + 0.5f;
+    out_gx = (p20 + 2.0f * p21 + p22) - (p00 + 2.0f * p01 + p02);
+    out_gy = (p00 + 2.0f * p10 + p20) - (p02 + 2.0f * p12 + p22);
 }
 
 template<int sample_mode, bool blur_first>
 static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels, __m128i threshold_vector, __m128i threshold1_vector, __m128i threshold2_vector,
     __m128i change, const __m128i& ref_pixels_1, const __m128i& ref_pixels_2, const __m128i& ref_pixels_3, const __m128i& ref_pixels_4,
-    const pixel_dither_info* pdi_ptr, const process_plane_params& params, __m128i upsample_to_16_shift_bits, int row, int column)
+    const pixel_dither_info* pdi_ptr, const process_plane_params& params, __m128i upsample_to_16_shift_bits, int row, int column,
+    float tan_thresh)
 {
     __m128i use_orig_pixel_blend_mask_12, use_orig_pixel_blend_mask_34;
     __m128i avg_12, avg_34;
@@ -426,11 +418,10 @@ static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels,
 
         if (sample_mode == 7) {
             const float angle_boost_factor_val = params.angle_boost;
-            const float max_angle_threshold_val = params.max_angle;
             const int grad_read_distance = 20;
 
             alignas(16)
-                float current_pixel_max_angle_diff_buffer[4];
+                float use_boost_buffer[4];
 
             for (int four_pix_group = 0; four_pix_group < 2; ++four_pix_group)
             {
@@ -439,41 +430,60 @@ static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels,
                     const int pixel_idx_in_block = four_pix_group * 4 + k_in_group;
                     const int current_x = column + pixel_idx_in_block;
 
-                    const float angle_org = sse_scalar_calc_gradient_angle(params.src_plane_ptr, current_x, row, grad_read_distance, params,
-                        upsample_to_16_shift_bits);
+                    float gx_org;
+                    float gy_org;
+                    sse_scalar_calc_gradient_vector(params.src_plane_ptr, current_x, row, grad_read_distance, params,
+                        upsample_to_16_shift_bits, gx_org, gy_org);
 
                     const int ref1_val = static_cast<int>(pdi_ptr[pixel_idx_in_block].ref1);
 
                     const int ref1h_y_offset = ref1_val >> params.height_subsampling;
                     const int ref1w_x_offset = ref1_val >> params.width_subsampling;
 
-                    const float angle_ref1_h = sse_scalar_calc_gradient_angle(params.src_plane_ptr, current_x, row + ref1h_y_offset,
-                        grad_read_distance, params, upsample_to_16_shift_bits);
-                    const float angle_ref2_h = sse_scalar_calc_gradient_angle(params.src_plane_ptr, current_x, row - ref1h_y_offset,
-                        grad_read_distance, params, upsample_to_16_shift_bits);
-                    const float angle_ref1_w = sse_scalar_calc_gradient_angle(params.src_plane_ptr, current_x + ref1w_x_offset, row,
-                        grad_read_distance, params, upsample_to_16_shift_bits);
-                    const float angle_ref2_w = sse_scalar_calc_gradient_angle(params.src_plane_ptr, current_x - ref1w_x_offset, row,
-                        grad_read_distance, params, upsample_to_16_shift_bits);
+                    auto check_aligned = [&](float gx1, float gy1, float mag_sq1, float gx2, float gy2) {
+                        const float cross = std::abs(gx1 * gy2 - gy1 * gx2);
+                        const float dot = std::abs(gx1 * gx2 + gy1 * gy2);
 
-                    float max_diff = 0.0f;
-                    max_diff = std::max(max_diff, std::abs(angle_ref1_h - angle_org));
-                    max_diff = std::max(max_diff, std::abs(angle_ref2_h - angle_org));
-                    max_diff = std::max(max_diff, std::abs(angle_ref1_w - angle_org));
-                    max_diff = std::max(max_diff, std::abs(angle_ref2_w - angle_org));
-                    current_pixel_max_angle_diff_buffer[k_in_group] = max_diff;
+                        const float mag_sq2 = gx2 * gx2 + gy2 * gy2;
+
+                        constexpr float flat_epsilon_sq = 1.0f;
+
+                        const bool both_flat = (mag_sq1 < flat_epsilon_sq) && (mag_sq2 < flat_epsilon_sq);
+                        const bool both_active = (mag_sq1 >= flat_epsilon_sq) && (mag_sq2 >= flat_epsilon_sq);
+
+                        return both_flat || (both_active && (cross <= tan_thresh * dot));
+                        };
+
+                    bool is_aligned = true;
+                    float gx_ref;
+                    float gy_ref;
+
+                    const float mag_sq1 = gx_org * gx_org + gy_org * gy_org;
+                    sse_scalar_calc_gradient_vector(params.src_plane_ptr, current_x, row + ref1h_y_offset, grad_read_distance, params,
+                        upsample_to_16_shift_bits, gx_ref, gy_ref);
+                    is_aligned &= check_aligned(gx_org, gy_org, mag_sq1, gx_ref, gy_ref);
+
+                    sse_scalar_calc_gradient_vector(params.src_plane_ptr, current_x, row - ref1h_y_offset, grad_read_distance, params,
+                        upsample_to_16_shift_bits, gx_ref, gy_ref);
+                    is_aligned &= check_aligned(gx_org, gy_org, mag_sq1, gx_ref, gy_ref);
+
+                    sse_scalar_calc_gradient_vector(params.src_plane_ptr, current_x + ref1w_x_offset, row, grad_read_distance, params,
+                        upsample_to_16_shift_bits, gx_ref, gy_ref);
+                    is_aligned &= check_aligned(gx_org, gy_org, mag_sq1, gx_ref, gy_ref);
+
+                    sse_scalar_calc_gradient_vector(params.src_plane_ptr, current_x - ref1w_x_offset, row, grad_read_distance, params,
+                        upsample_to_16_shift_bits, gx_ref, gy_ref);
+                    is_aligned &= check_aligned(gx_org, gy_org, mag_sq1, gx_ref, gy_ref);
+
+                    use_boost_buffer[k_in_group] = is_aligned ? 1.0f : 0.0f;
                 }
 
-                Vec4f max_angle_diff_ps = Vec4f().load(current_pixel_max_angle_diff_buffer);
-                Vec4fb use_boost_ps = (max_angle_diff_ps <= max_angle_threshold_val);
-                Vec4f boost_factor_ps = _mm_set1_ps(angle_boost_factor_val);
+                Vec4fb use_boost_ps = Vec4f().load(use_boost_buffer) > Vec4f(0.5f);
+                Vec4f boost_factor_ps(angle_boost_factor_val);
 
-                Vec4f current_thresh_avg_ps = select(use_boost_ps, static_cast<Vec4f>(orig_thresh_avg_ps) * boost_factor_ps,
-                    static_cast<Vec4f>(orig_thresh_avg_ps));
-                Vec4f current_thresh_max_ps = select(use_boost_ps, static_cast<Vec4f>(orig_thresh_max_ps) * boost_factor_ps,
-                    static_cast<Vec4f>(orig_thresh_max_ps));
-                Vec4f current_thresh_mid_ps = select(use_boost_ps, static_cast<Vec4f>(orig_thresh_mid_ps) * boost_factor_ps,
-                    static_cast<Vec4f>(orig_thresh_mid_ps));
+                Vec4f current_thresh_avg_ps = select(use_boost_ps, Vec4f(orig_thresh_avg_ps) * boost_factor_ps, Vec4f(orig_thresh_avg_ps));
+                Vec4f current_thresh_max_ps = select(use_boost_ps, Vec4f(orig_thresh_max_ps) * boost_factor_ps, Vec4f(orig_thresh_max_ps));
+                Vec4f current_thresh_mid_ps = select(use_boost_ps, Vec4f(orig_thresh_mid_ps) * boost_factor_ps, Vec4f(orig_thresh_mid_ps));
 
                 if (four_pix_group == 0) {
                     final_thresh_avg_dif_f_vec_lo = current_thresh_avg_ps;
@@ -597,7 +607,8 @@ static __m128i __forceinline process_pixels(
     void* dither_context,
     const pixel_dither_info* pdi_ptr,
     const process_plane_params& params,
-    __m128i upsample_to_16_shift_bits)
+    __m128i upsample_to_16_shift_bits,
+    float tan_thresh)
 {
     __m128i ret = process_pixels_mode12_high_part<sample_mode, blur_first>
         (src_pixels_0,
@@ -612,7 +623,8 @@ static __m128i __forceinline process_pixels(
          pdi_ptr, params,
          upsample_to_16_shift_bits,
          row,
-         column);
+         column,
+         tan_thresh);
 
     switch (dither_algo)
     {
@@ -901,6 +913,14 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
 
     int current_input_mode = params.input_mode;
 
+    float tan_thresh = 0.0f;
+    if constexpr (sample_mode == 7)
+    {
+        const float max_angle_rad = params.max_angle * static_cast<float>(M_PI);
+        constexpr float half_pi = 1.57079632679f;
+        tan_thresh = (max_angle_rad >= half_pi) ? 1e6f : std::tan(max_angle_rad);
+    }
+
     for (int row = 0; row < params.plane_height_in_pixels; row++)
     {
         const unsigned char* src_px_row_base = params.src_plane_ptr + static_cast<intptr_t>(params.src_pitch) * row;
@@ -1001,7 +1021,8 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
                                      context_buffer,
                                      pdi_for_process_pixels,
                                      params,
-                                     upsample_to_16_shift_bits);
+                                     upsample_to_16_shift_bits,
+                                     tan_thresh);
 
             store_pixels<output_mode>(dst_pixels_data, downshift_bits, current_dst_px, params.dst_pitch, params.plane_height_in_pixels);
 

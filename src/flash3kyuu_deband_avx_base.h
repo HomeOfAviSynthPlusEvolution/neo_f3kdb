@@ -208,8 +208,8 @@ namespace DEBAND_NAMESPACE {
     }
 
     template <typename V, typename V_float>
-    static __forceinline V_float calculate_gradient_angle_avx2_avx512(const process_plane_params& params, const V& y_coords, const V& x_coords,
-        int read_distance, int upsample_shift)
+    static __forceinline void calculate_gradient_vector_avx2_avx512(const process_plane_params& params, const V& y_coords, const V& x_coords,
+        int read_distance, int upsample_shift, V_float& out_gx, V_float& out_gy)
     {
         V rd(read_distance);
         auto p00 = gather_pixel_values_avx2_avx512<V, V_float>(params, y_coords - rd, x_coords - rd, upsample_shift);
@@ -221,23 +221,15 @@ namespace DEBAND_NAMESPACE {
         auto p12 = gather_pixel_values_avx2_avx512<V, V_float>(params, y_coords + rd, x_coords, upsample_shift);
         auto p22 = gather_pixel_values_avx2_avx512<V, V_float>(params, y_coords + rd, x_coords + rd, upsample_shift);
 
-        auto gx = (p20 + 2.0f * p21 + p22) - (p00 + 2.0f * p01 + p02);
-        auto gy = (p00 + 2.0f * p10 + p20) - (p02 + 2.0f * p12 + p22);
-
-        const float scaled_epsilon_for_gx = 0.01f * (static_cast<float>(1 << (16 - params.input_depth)) * 3.0f);
-
-        V_fbool gx_is_small = abs(gx) < scaled_epsilon_for_gx;
-
-        auto angle = atan(gy / select(gx_is_small, V_float(1.0f), gx));
-        angle = select(gx_is_small, 1.0f, angle / static_cast<float>(M_PI) + 0.5f);
-        return angle;
+        out_gx = (p20 + 2.0f * p21 + p22) - (p00 + 2.0f * p01 + p02);
+        out_gy = (p00 + 2.0f * p10 + p20) - (p02 + 2.0f * p12 + p22);
     }
 
     template<typename V, typename V_signed, int sample_mode, bool blur_first, int dither_algo>
     static auto __forceinline process_pixels_avx2_avx512(V src_pixels, V_signed change, const V& ref_pixels_1, const V& ref_pixels_2,
-        const V& ref_pixels_3, const V& ref_pixels_4, const V& clamp_high_add, const V& clamp_high_sub, const V& clamp_low, bool need_clamping,
-        int row, int column, void* dither_context, const pixel_dither_info* pdi_ptr, const process_plane_params& params,
-        int upsample_to_16_shift_bits)
+        const V& ref_pixels_3, const V& ref_pixels_4, const V& clamp_high_add, const V& clamp_high_sub, const V& clamp_low,
+        bool need_clamping, int row, int column, void* dither_context, const pixel_dither_info* pdi_ptr, const process_plane_params& params,
+        int upsample_to_16_shift_bits, const V_float& v_tan_thresh)
     {
         const int threshold = params.threshold;
         const int threshold1 = params.threshold1;
@@ -311,7 +303,6 @@ namespace DEBAND_NAMESPACE {
             if constexpr (sample_mode == 7) {
                 constexpr int grad_read_distance = 20;
                 const float angle_boost_factor = params.angle_boost;
-                const float max_angle_threshold = params.max_angle;
 
 #if INSTRSET >= 10 // AVX512VL
                 auto base_x_coords_lo = V_int(column) + V_int(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
@@ -320,16 +311,17 @@ namespace DEBAND_NAMESPACE {
                 auto base_x_coords_lo = V_int(column) + V_int(0, 1, 2, 3, 4, 5, 6, 7);
                 auto base_x_coords_hi = V_int(column + V_int().size()) + V_int(0, 1, 2, 3, 4, 5, 6, 7);
 #endif
-
                 V_int base_y_coords(row);
-                auto angle_org_lo = calculate_gradient_angle_avx2_avx512<V_int, V_float>(params, base_y_coords, base_x_coords_lo,
-                    grad_read_distance, upsample_to_16_shift_bits);
-                auto angle_org_hi = calculate_gradient_angle_avx2_avx512<V_int, V_float>(params, base_y_coords, base_x_coords_hi,
-                    grad_read_distance, upsample_to_16_shift_bits);
+
+                V_float gx_org_lo, gy_org_lo;
+                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords, base_x_coords_lo, grad_read_distance,
+                    upsample_to_16_shift_bits, gx_org_lo, gy_org_lo);
+                V_float gx_org_hi, gy_org_hi;
+                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords, base_x_coords_hi, grad_read_distance,
+                    upsample_to_16_shift_bits, gx_org_hi, gy_org_hi);
 
                 alignas(simd_align)
                     int32_t ref1_buffer[V_ushort().size()];
-
                 for (int k = 0; k < V_ushort().size(); ++k)
                     ref1_buffer[k] = pdi_ptr[k].ref1;
 
@@ -338,38 +330,60 @@ namespace DEBAND_NAMESPACE {
 
                 auto y_offsets_h_lo = ref1_offsets_lo >> params.height_subsampling;
                 auto y_offsets_h_hi = ref1_offsets_hi >> params.height_subsampling;
-
                 auto x_offsets_w_lo = ref1_offsets_lo >> params.width_subsampling;
                 auto x_offsets_w_hi = ref1_offsets_hi >> params.width_subsampling;
 
-                auto angle_ref1_h_lo = calculate_gradient_angle_avx2_avx512<V_int, V_float>(params, base_y_coords + y_offsets_h_lo,
-                    base_x_coords_lo, grad_read_distance, upsample_to_16_shift_bits);
-                auto angle_ref1_h_hi = calculate_gradient_angle_avx2_avx512<V_int, V_float>(params, base_y_coords + y_offsets_h_hi,
-                    base_x_coords_hi, grad_read_distance, upsample_to_16_shift_bits);
+                auto check_aligned = [&](const V_float& gx1, const V_float& gy1, const V_float mag_sq1, const V_float& gx2,
+                    const V_float& gy2) {
+                    const auto cross = abs(gx1 * gy2 - gy1 * gx2);
+                    const auto dot = abs(gx1 * gx2 + gy1 * gy2);
+                    
+                    const auto mag_sq2 = gx2 * gx2 + gy2 * gy2;
 
-                auto angle_ref2_h_lo = calculate_gradient_angle_avx2_avx512<V_int, V_float>(params, base_y_coords - y_offsets_h_lo,
-                    base_x_coords_lo, grad_read_distance, upsample_to_16_shift_bits);
-                auto angle_ref2_h_hi = calculate_gradient_angle_avx2_avx512<V_int, V_float>(params, base_y_coords - y_offsets_h_hi,
-                    base_x_coords_hi, grad_read_distance, upsample_to_16_shift_bits);
+                    constexpr float flat_epsilon_sq = 1.0f;
 
-                auto angle_ref1_w_lo = calculate_gradient_angle_avx2_avx512<V_int, V_float>(params, base_y_coords,
-                    base_x_coords_lo + x_offsets_w_lo, grad_read_distance, upsample_to_16_shift_bits);
-                auto angle_ref1_w_hi = calculate_gradient_angle_avx2_avx512<V_int, V_float>(params, base_y_coords,
-                    base_x_coords_hi + x_offsets_w_hi, grad_read_distance, upsample_to_16_shift_bits);
+                    const auto both_flat = (mag_sq1 < flat_epsilon_sq) & (mag_sq2 < flat_epsilon_sq);
+                    const auto both_active = (mag_sq1 >= flat_epsilon_sq) & (mag_sq2 >= flat_epsilon_sq);
 
-                auto angle_ref2_w_lo = calculate_gradient_angle_avx2_avx512<V_int, V_float>(params, base_y_coords,
-                    base_x_coords_lo - x_offsets_w_lo, grad_read_distance, upsample_to_16_shift_bits);
-                auto angle_ref2_w_hi = calculate_gradient_angle_avx2_avx512<V_int, V_float>(params, base_y_coords,
-                    base_x_coords_hi - x_offsets_w_hi, grad_read_distance, upsample_to_16_shift_bits);
+                    return both_flat | (both_active & (cross <= v_tan_thresh * dot));
+                    };
 
-                auto max_angle_diff_lo = max(abs(angle_ref1_h_lo - angle_org_lo), abs(angle_ref2_h_lo - angle_org_lo));
-                auto max_angle_diff_hi = max(abs(angle_ref1_h_hi - angle_org_hi), abs(angle_ref2_h_hi - angle_org_hi));
+                V_float gx_ref;
+                V_float gy_ref;
 
-                max_angle_diff_lo = max(max_angle_diff_lo, max(abs(angle_ref1_w_lo - angle_org_lo), abs(angle_ref2_w_lo - angle_org_lo)));
-                max_angle_diff_hi = max(max_angle_diff_hi, max(abs(angle_ref1_w_hi - angle_org_hi), abs(angle_ref2_w_hi - angle_org_hi)));
+                auto mag_sq1 = gx_org_lo * gx_org_lo + gy_org_lo * gy_org_lo;
+                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords + y_offsets_h_lo, base_x_coords_lo,
+                    grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
+                auto use_boost_lo = check_aligned(gx_org_lo, gy_org_lo, mag_sq1, gx_ref, gy_ref);
 
-                decltype(max_angle_diff_lo > max_angle_diff_lo) use_boost_lo = max_angle_diff_lo <= max_angle_threshold;
-                decltype(max_angle_diff_hi > max_angle_diff_hi) use_boost_hi = max_angle_diff_hi <= max_angle_threshold;
+                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords - y_offsets_h_lo, base_x_coords_lo,
+                    grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
+                use_boost_lo &= check_aligned(gx_org_lo, gy_org_lo, mag_sq1, gx_ref, gy_ref);
+
+                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords, base_x_coords_lo + x_offsets_w_lo,
+                    grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
+                use_boost_lo &= check_aligned(gx_org_lo, gy_org_lo, mag_sq1,  gx_ref, gy_ref);
+
+                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords, base_x_coords_lo - x_offsets_w_lo,
+                    grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
+                use_boost_lo &= check_aligned(gx_org_lo, gy_org_lo, mag_sq1, gx_ref, gy_ref);
+
+                mag_sq1 = gx_org_hi * gx_org_hi + gy_org_hi * gy_org_hi;
+                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords + y_offsets_h_hi, base_x_coords_hi,
+                    grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
+                auto use_boost_hi = check_aligned(gx_org_hi, gy_org_hi, mag_sq1, gx_ref, gy_ref);
+
+                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords - y_offsets_h_hi, base_x_coords_hi,
+                    grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
+                use_boost_hi &= check_aligned(gx_org_hi, gy_org_hi, mag_sq1, gx_ref, gy_ref);
+
+                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords, base_x_coords_hi + x_offsets_w_hi,
+                    grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
+                use_boost_hi &= check_aligned(gx_org_hi, gy_org_hi, mag_sq1, gx_ref, gy_ref);
+
+                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords, base_x_coords_hi - x_offsets_w_hi,
+                    grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
+                use_boost_hi &= check_aligned(gx_org_hi, gy_org_hi, mag_sq1, gx_ref, gy_ref);
 
                 current_thresh_avg_dif_lo = select(use_boost_lo, current_thresh_avg_dif_lo * angle_boost_factor, current_thresh_avg_dif_lo);
                 current_thresh_avg_dif_hi = select(use_boost_hi, current_thresh_avg_dif_hi * angle_boost_factor, current_thresh_avg_dif_hi);
@@ -588,6 +602,15 @@ namespace DEBAND_NAMESPACE {
 
         const int current_input_mode = params.input_mode;
 
+        float tan_thresh = 0.0f;
+        if constexpr (sample_mode == 7)
+        {
+            const float max_angle_rad = params.max_angle * static_cast<float>(M_PI);
+            constexpr float half_pi = 1.57079632679f;
+            tan_thresh = (max_angle_rad >= half_pi) ? 1e6f : std::tan(max_angle_rad);
+        }
+        const V_float v_tan_thresh(tan_thresh);
+
         for (int row = 0; row < params.plane_height_in_pixels; ++row) {
             const unsigned char* src_px_row_base = params.src_plane_ptr + static_cast<intptr_t>(params.src_pitch) * row;
             unsigned char* dst_px_row_base = params.dst_plane_ptr + static_cast<intptr_t>(params.dst_pitch) * row;
@@ -643,7 +666,7 @@ namespace DEBAND_NAMESPACE {
 
                 auto dst_pixels_data = process_pixels_avx2_avx512<V_ushort, V_short, sample_mode, blur_first, dither_algo>(src_pixels_data,
                     change, ref_pixels_1, ref_pixels_2, ref_pixels_3, ref_pixels_4, clamp_high_add, clamp_high_sub, clamp_low,
-                    need_clamping, row, col, context_buffer, info_ptr_row_base + col, params, upsample_to_16_shift_bits);
+                    need_clamping, row, col, context_buffer, info_ptr_row_base + col, params, upsample_to_16_shift_bits, v_tan_thresh);
 
                 if (output_mode == LOW_BIT_DEPTH) {
                     auto p = dst_pixels_data >> downshift_bits;
