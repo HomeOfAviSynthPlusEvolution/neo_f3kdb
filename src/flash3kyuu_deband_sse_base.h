@@ -220,9 +220,9 @@ static __forceinline __m128 saturate_ps(__m128 val_ps)
     return _mm_min_ps(_mm_max_ps(val_ps, _mm_setzero_ps()), _mm_set1_ps(1.0f));
 };
 
-static __forceinline __m128 calculate_ratio_term_ps(__m128 diff_ps, __m128 thresh_ps)
+static __forceinline __m128 calculate_ratio_term_ps(__m128 diff_ps, __m128 inv_thresh_ps)
 {
-    __m128 ratio = _mm_div_ps(diff_ps, _mm_max_ps(thresh_ps, _mm_set1_ps(1e-5f)));
+    __m128 ratio = _mm_mul_ps(diff_ps, inv_thresh_ps);
 
     return _mm_sub_ps(_mm_set1_ps(1.0f), ratio);
 };
@@ -274,9 +274,19 @@ static __forceinline void sse_scalar_calc_gradient_vector(
     out_gy = (p00 + 2.0f * p10 + p20) - (p02 + 2.0f * p12 + p22);
 }
 
+struct v_thresh_params_sse
+{
+    __m128 v_inv_thresh_base_avg;
+    __m128 v_inv_thresh_base_max;
+    __m128 v_inv_thresh_base_mid;
+    __m128 v_inv_thresh_boosted_avg;
+    __m128 v_inv_thresh_boosted_max;
+    __m128 v_inv_thresh_boosted_mid;
+};
+
 template<int sample_mode, bool blur_first>
 static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels, __m128i threshold_vector, __m128i threshold1_vector, __m128i threshold2_vector,
-    __m128i change, const __m128i& ref_pixels_1, const __m128i& ref_pixels_2, const __m128i& ref_pixels_3, const __m128i& ref_pixels_4,
+    const v_thresh_params_sse& thresh_params, __m128i change, const __m128i& ref_pixels_1, const __m128i& ref_pixels_2, const __m128i& ref_pixels_3, const __m128i& ref_pixels_4,
     const pixel_dither_info* pdi_ptr, const process_plane_params& params, __m128i upsample_to_16_shift_bits, int row, int column,
     float tan_thresh)
 {
@@ -405,19 +415,14 @@ static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels,
     }
     else if (sample_mode == 6 || sample_mode == 7)
     {
-        __m128 final_thresh_avg_dif_f_vec_lo;
-        __m128 final_thresh_avg_dif_f_vec_hi;
-        __m128 final_thresh_max_dif_f_vec_lo;
-        __m128 final_thresh_max_dif_f_vec_hi;
-        __m128 final_thresh_mid_dif_f_vec_lo;
-        __m128 final_thresh_mid_dif_f_vec_hi;
-
-        const __m128 orig_thresh_avg_ps = _mm_set1_ps(static_cast<float>(_mm_extract_epi16(threshold_vector, 0)));
-        const __m128 orig_thresh_max_ps = _mm_set1_ps(static_cast<float>(_mm_extract_epi16(threshold1_vector, 0)));
-        const __m128 orig_thresh_mid_ps = _mm_set1_ps(static_cast<float>(_mm_extract_epi16(threshold2_vector, 0)));
+        __m128 final_inv_thresh_avg_dif_f_vec_lo;
+        __m128 final_inv_thresh_avg_dif_f_vec_hi;
+        __m128 final_inv_thresh_max_dif_f_vec_lo;
+        __m128 final_inv_thresh_max_dif_f_vec_hi;
+        __m128 final_inv_thresh_mid_dif_f_vec_lo;
+        __m128 final_inv_thresh_mid_dif_f_vec_hi;
 
         if (sample_mode == 7) {
-            const float angle_boost_factor_val = params.angle_boost;
             const int grad_read_distance = 20;
 
             alignas(16)
@@ -479,28 +484,27 @@ static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels,
                 }
 
                 Vec4fb use_boost_ps = Vec4f().load(use_boost_buffer) > Vec4f(0.5f);
-                Vec4f boost_factor_ps(angle_boost_factor_val);
 
-                Vec4f current_thresh_avg_ps = select(use_boost_ps, Vec4f(orig_thresh_avg_ps) * boost_factor_ps, Vec4f(orig_thresh_avg_ps));
-                Vec4f current_thresh_max_ps = select(use_boost_ps, Vec4f(orig_thresh_max_ps) * boost_factor_ps, Vec4f(orig_thresh_max_ps));
-                Vec4f current_thresh_mid_ps = select(use_boost_ps, Vec4f(orig_thresh_mid_ps) * boost_factor_ps, Vec4f(orig_thresh_mid_ps));
+                Vec4f current_inv_thresh_avg_ps = select(use_boost_ps, Vec4f(thresh_params.v_inv_thresh_boosted_avg), Vec4f(thresh_params.v_inv_thresh_base_avg));
+                Vec4f current_inv_thresh_max_ps = select(use_boost_ps, Vec4f(thresh_params.v_inv_thresh_boosted_max), Vec4f(thresh_params.v_inv_thresh_base_max));
+                Vec4f current_inv_thresh_mid_ps = select(use_boost_ps, Vec4f(thresh_params.v_inv_thresh_boosted_mid), Vec4f(thresh_params.v_inv_thresh_base_mid));
 
                 if (four_pix_group == 0) {
-                    final_thresh_avg_dif_f_vec_lo = current_thresh_avg_ps;
-                    final_thresh_max_dif_f_vec_lo = current_thresh_max_ps;
-                    final_thresh_mid_dif_f_vec_lo = current_thresh_mid_ps;
+                    final_inv_thresh_avg_dif_f_vec_lo = current_inv_thresh_avg_ps;
+                    final_inv_thresh_max_dif_f_vec_lo = current_inv_thresh_max_ps;
+                    final_inv_thresh_mid_dif_f_vec_lo = current_inv_thresh_mid_ps;
                 }
                 else {
-                    final_thresh_avg_dif_f_vec_hi = current_thresh_avg_ps;
-                    final_thresh_max_dif_f_vec_hi = current_thresh_max_ps;
-                    final_thresh_mid_dif_f_vec_hi = current_thresh_mid_ps;
+                    final_inv_thresh_avg_dif_f_vec_hi = current_inv_thresh_avg_ps;
+                    final_inv_thresh_max_dif_f_vec_hi = current_inv_thresh_max_ps;
+                    final_inv_thresh_mid_dif_f_vec_hi = current_inv_thresh_mid_ps;
                 }
             }
         }
         else {
-            final_thresh_avg_dif_f_vec_lo = final_thresh_avg_dif_f_vec_hi = orig_thresh_avg_ps;
-            final_thresh_max_dif_f_vec_lo = final_thresh_max_dif_f_vec_hi = orig_thresh_max_ps;
-            final_thresh_mid_dif_f_vec_lo = final_thresh_mid_dif_f_vec_hi = orig_thresh_mid_ps;
+            final_inv_thresh_avg_dif_f_vec_lo = final_inv_thresh_avg_dif_f_vec_hi = thresh_params.v_inv_thresh_base_avg;
+            final_inv_thresh_max_dif_f_vec_lo = final_inv_thresh_max_dif_f_vec_hi = thresh_params.v_inv_thresh_base_max;
+            final_inv_thresh_mid_dif_f_vec_lo = final_inv_thresh_mid_dif_f_vec_hi = thresh_params.v_inv_thresh_base_mid;
         }
 
         const __m128 f_const_3_0 = _mm_set1_ps(3.0f);
@@ -527,9 +531,9 @@ static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels,
 
         for (int part = 0; part < 2; ++part)
         {
-            __m128 current_thresh_avg_ps = (part == 0) ? final_thresh_avg_dif_f_vec_lo : final_thresh_avg_dif_f_vec_hi;
-            __m128 current_thresh_max_ps = (part == 0) ? final_thresh_max_dif_f_vec_lo : final_thresh_max_dif_f_vec_hi;
-            __m128 current_thresh_mid_ps = (part == 0) ? final_thresh_mid_dif_f_vec_lo : final_thresh_mid_dif_f_vec_hi;
+            __m128 current_inv_thresh_avg_ps = (part == 0) ? final_inv_thresh_avg_dif_f_vec_lo : final_inv_thresh_avg_dif_f_vec_hi;
+            __m128 current_inv_thresh_max_ps = (part == 0) ? final_inv_thresh_max_dif_f_vec_lo : final_inv_thresh_max_dif_f_vec_hi;
+            __m128 current_inv_thresh_mid_ps = (part == 0) ? final_inv_thresh_mid_dif_f_vec_lo : final_inv_thresh_mid_dif_f_vec_hi;
 
             __m128 src_f = (part == 0) ? src_f_lo : src_f_hi;
             __m128 p1_f = (part == 0) ? ref1_f_lo : ref1_f_hi;
@@ -554,10 +558,10 @@ static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels,
 
             __m128 mid_dif_h_f = abs_ps(_mm_sub_ps(_mm_add_ps(p2_f, p4_f), two_src));
 
-            __m128 comp_avg = saturate_ps(_mm_mul_ps(f_const_3_0, calculate_ratio_term_ps(avg_dif_f, current_thresh_avg_ps)));
-            __m128 comp_max = saturate_ps(_mm_mul_ps(f_const_3_0, calculate_ratio_term_ps(maxDif, current_thresh_max_ps)));
-            __m128 comp_mid_v = saturate_ps(_mm_mul_ps(f_const_3_0, calculate_ratio_term_ps(mid_dif_v_f, current_thresh_mid_ps)));
-            __m128 comp_mid_h = saturate_ps(_mm_mul_ps(f_const_3_0, calculate_ratio_term_ps(mid_dif_h_f, current_thresh_mid_ps)));
+            __m128 comp_avg = saturate_ps(_mm_mul_ps(f_const_3_0, calculate_ratio_term_ps(avg_dif_f, current_inv_thresh_avg_ps)));
+            __m128 comp_max = saturate_ps(_mm_mul_ps(f_const_3_0, calculate_ratio_term_ps(maxDif, current_inv_thresh_max_ps)));
+            __m128 comp_mid_v = saturate_ps(_mm_mul_ps(f_const_3_0, calculate_ratio_term_ps(mid_dif_v_f, current_inv_thresh_mid_ps)));
+            __m128 comp_mid_h = saturate_ps(_mm_mul_ps(f_const_3_0, calculate_ratio_term_ps(mid_dif_h_f, current_inv_thresh_mid_ps)));
 
             __m128 product_comps = _mm_mul_ps(_mm_mul_ps(comp_avg, comp_max), _mm_mul_ps(comp_mid_v, comp_mid_h));
 
@@ -593,6 +597,7 @@ static __m128i __forceinline process_pixels(
     __m128i threshold_vector,
     __m128i threshold1_vector,
     __m128i threshold2_vector,
+    const v_thresh_params_sse& thresh_params,
     const __m128i& change_1,
     const __m128i& ref_pixels_1_0,
     const __m128i& ref_pixels_2_0,
@@ -615,6 +620,7 @@ static __m128i __forceinline process_pixels(
          threshold_vector,
          threshold1_vector,
          threshold2_vector,
+         thresh_params,
          change_1,
          ref_pixels_1_0,
          ref_pixels_2_0,
@@ -913,6 +919,42 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
 
     int current_input_mode = params.input_mode;
 
+    float inv_thresh_base_avg = 0.0f;
+    float inv_thresh_base_max = 0.0f;
+    float inv_thresh_base_mid = 0.0f;
+
+    float inv_thresh_boosted_avg = 0.0f;
+    float inv_thresh_boosted_max = 0.0f;
+    float inv_thresh_boosted_mid = 0.0f;
+
+    float angle_boost_factor = 1.0f;
+    if constexpr (sample_mode == 7) {
+        angle_boost_factor = params.angle_boost;
+    }
+
+    if constexpr (sample_mode >= 6) {
+        const float base_thresh_avg = static_cast<float>(params.threshold);
+        const float base_thresh_max = static_cast<float>(params.threshold1);
+        const float base_thresh_mid = static_cast<float>(params.threshold2);
+
+        const float boosted_thresh_avg = base_thresh_avg * angle_boost_factor;
+        const float boosted_thresh_max = base_thresh_max * angle_boost_factor;
+        const float boosted_thresh_mid = base_thresh_mid * angle_boost_factor;
+
+        inv_thresh_base_avg = 1.0f / std::max(base_thresh_avg, 1e-5f);
+        inv_thresh_base_max = 1.0f / std::max(base_thresh_max, 1e-5f);
+        inv_thresh_base_mid = 1.0f / std::max(base_thresh_mid, 1e-5f);
+
+        inv_thresh_boosted_avg = 1.0f / std::max(boosted_thresh_avg, 1e-5f);
+        inv_thresh_boosted_max = 1.0f / std::max(boosted_thresh_max, 1e-5f);
+        inv_thresh_boosted_mid = 1.0f / std::max(boosted_thresh_mid, 1e-5f);
+    }
+
+    v_thresh_params_sse thresh_params = {
+        _mm_set1_ps(inv_thresh_base_avg), _mm_set1_ps(inv_thresh_base_max), _mm_set1_ps(inv_thresh_base_mid),
+        _mm_set1_ps(inv_thresh_boosted_avg), _mm_set1_ps(inv_thresh_boosted_max), _mm_set1_ps(inv_thresh_boosted_mid)
+    };
+
     float tan_thresh = 0.0f;
     if constexpr (sample_mode == 7)
     {
@@ -1007,6 +1049,7 @@ static void __cdecl _process_plane_sse_impl(const process_plane_params& params, 
                                      threshold_vector,
                                      threshold1_vector,
                                      threshold2_vector,
+                                     thresh_params,
                                      change_1,
                                      ref_pixels_1_0,
                                      ref_pixels_2_0,
