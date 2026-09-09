@@ -225,11 +225,24 @@ namespace DEBAND_NAMESPACE {
         out_gy = (p00 + 2.0f * p10 + p20) - (p02 + 2.0f * p12 + p22);
     }
 
+    struct v_thresh_params
+    {
+        const V_float v_tan_thresh;
+
+        const V_float v_inv_thresh_base_avg;
+        const V_float v_inv_thresh_base_max;
+        const V_float v_inv_thresh_base_mid;
+
+        const V_float v_inv_thresh_boosted_avg;
+        const V_float v_inv_thresh_boosted_max;
+        const V_float v_inv_thresh_boosted_mid;
+    };
+
     template<typename V, typename V_signed, int sample_mode, bool blur_first, int dither_algo>
     static auto __forceinline process_pixels_avx2_avx512(V src_pixels, V_signed change, const V& ref_pixels_1, const V& ref_pixels_2,
         const V& ref_pixels_3, const V& ref_pixels_4, const V& clamp_high_add, const V& clamp_high_sub, const V& clamp_low,
         bool need_clamping, int row, int column, void* dither_context, const pixel_dither_info* pdi_ptr, const process_plane_params& params,
-        int upsample_to_16_shift_bits, const V_float& v_tan_thresh)
+        int upsample_to_16_shift_bits, const v_thresh_params& thresh_params)
     {
         const int threshold = params.threshold;
         const int threshold1 = params.threshold1;
@@ -291,18 +304,18 @@ namespace DEBAND_NAMESPACE {
             auto p4_f_lo = to_float(extend(ref_pixels_4.get_low()));
             auto p4_f_hi = to_float(extend(ref_pixels_4.get_high()));
 
-            V_float current_thresh_avg_dif_lo(threshold);
-            V_float current_thresh_avg_dif_hi(threshold);
+            V_float inv_thresh_avg_lo = thresh_params.v_inv_thresh_base_avg;
+            V_float inv_thresh_avg_hi = thresh_params.v_inv_thresh_base_avg;
 
-            V_float current_thresh_max_dif_lo(threshold1);
-            V_float current_thresh_max_dif_hi(threshold1);
+            V_float inv_thresh_max_lo = thresh_params.v_inv_thresh_base_max;
+            V_float inv_thresh_max_hi = thresh_params.v_inv_thresh_base_max;
 
-            V_float current_thresh_mid_dif_lo(threshold2);
-            V_float current_thresh_mid_dif_hi(threshold2);
+            V_float inv_thresh_mid_lo = thresh_params.v_inv_thresh_base_mid;
+            V_float inv_thresh_mid_hi = thresh_params.v_inv_thresh_base_mid;
 
             if constexpr (sample_mode == 7) {
                 constexpr int grad_read_distance = 20;
-                const float angle_boost_factor = params.angle_boost;
+                const V_float v_tan_thresh = thresh_params.v_tan_thresh;
 
 #if INSTRSET >= 10 // AVX512VL
                 auto base_x_coords_lo = V_int(column) + V_int(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
@@ -313,10 +326,13 @@ namespace DEBAND_NAMESPACE {
 #endif
                 V_int base_y_coords(row);
 
-                V_float gx_org_lo, gy_org_lo;
+                V_float gx_org_lo;
+                V_float gy_org_lo;
                 calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords, base_x_coords_lo, grad_read_distance,
                     upsample_to_16_shift_bits, gx_org_lo, gy_org_lo);
-                V_float gx_org_hi, gy_org_hi;
+
+                V_float gx_org_hi;
+                V_float gy_org_hi;
                 calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords, base_x_coords_hi, grad_read_distance,
                     upsample_to_16_shift_bits, gx_org_hi, gy_org_hi);
 
@@ -385,14 +401,14 @@ namespace DEBAND_NAMESPACE {
                     grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
                 use_boost_hi &= check_aligned(gx_org_hi, gy_org_hi, mag_sq1, gx_ref, gy_ref);
 
-                current_thresh_avg_dif_lo = select(use_boost_lo, current_thresh_avg_dif_lo * angle_boost_factor, current_thresh_avg_dif_lo);
-                current_thresh_avg_dif_hi = select(use_boost_hi, current_thresh_avg_dif_hi * angle_boost_factor, current_thresh_avg_dif_hi);
+                inv_thresh_avg_lo = select(use_boost_lo, thresh_params.v_inv_thresh_boosted_avg, thresh_params.v_inv_thresh_base_avg);
+                inv_thresh_avg_hi = select(use_boost_hi, thresh_params.v_inv_thresh_boosted_avg, thresh_params.v_inv_thresh_base_avg);
 
-                current_thresh_max_dif_lo = select(use_boost_lo, current_thresh_max_dif_lo * angle_boost_factor, current_thresh_max_dif_lo);
-                current_thresh_max_dif_hi = select(use_boost_hi, current_thresh_max_dif_hi * angle_boost_factor, current_thresh_max_dif_hi);
+                inv_thresh_max_lo = select(use_boost_lo, thresh_params.v_inv_thresh_boosted_max, thresh_params.v_inv_thresh_base_max);
+                inv_thresh_max_hi = select(use_boost_hi, thresh_params.v_inv_thresh_boosted_max, thresh_params.v_inv_thresh_base_max);
 
-                current_thresh_mid_dif_lo = select(use_boost_lo, current_thresh_mid_dif_lo * angle_boost_factor, current_thresh_mid_dif_lo);
-                current_thresh_mid_dif_hi = select(use_boost_hi, current_thresh_mid_dif_hi * angle_boost_factor, current_thresh_mid_dif_hi);
+                inv_thresh_mid_lo = select(use_boost_lo, thresh_params.v_inv_thresh_boosted_mid, thresh_params.v_inv_thresh_base_mid);
+                inv_thresh_mid_hi = select(use_boost_hi, thresh_params.v_inv_thresh_boosted_mid, thresh_params.v_inv_thresh_base_mid);
             }
 
             auto avg_refs_f_lo = (p1_f_lo + p2_f_lo + p3_f_lo + p4_f_lo) * 0.25f;
@@ -428,17 +444,17 @@ namespace DEBAND_NAMESPACE {
             auto mid_dif_h_f_lo = abs((p3_f_lo + p4_f_lo) - two_src_lo);
             auto mid_dif_h_f_hi = abs((p3_f_hi + p4_f_hi) - two_src_hi);
 
-            auto comp_avg_lo = saturate<V_float>(3.0f * (1.0f - avg_dif_f_lo / max(current_thresh_avg_dif_lo, 1e-5f)));
-            auto comp_avg_hi = saturate<V_float>(3.0f * (1.0f - avg_dif_f_hi / max(current_thresh_avg_dif_hi, 1e-5f)));
+            auto comp_avg_lo = saturate<V_float>(3.0f * (1.0f - avg_dif_f_lo * inv_thresh_avg_lo));
+            auto comp_avg_hi = saturate<V_float>(3.0f * (1.0f - avg_dif_f_hi * inv_thresh_avg_hi));
 
-            auto comp_max_lo = saturate<V_float>(3.0f * (1.0f - maxDif_lo / max(current_thresh_max_dif_lo, 1e-5f)));
-            auto comp_max_hi = saturate<V_float>(3.0f * (1.0f - maxDif_hi / max(current_thresh_max_dif_hi, 1e-5f)));
+            auto comp_max_lo = saturate<V_float>(3.0f * (1.0f - maxDif_lo * inv_thresh_max_lo));
+            auto comp_max_hi = saturate<V_float>(3.0f * (1.0f - maxDif_hi * inv_thresh_max_hi));
 
-            auto comp_mid_v_lo = saturate<V_float>(3.0f * (1.0f - mid_dif_v_f_lo / max(current_thresh_mid_dif_lo, 1e-5f)));
-            auto comp_mid_v_hi = saturate<V_float>(3.0f * (1.0f - mid_dif_v_f_hi / max(current_thresh_mid_dif_hi, 1e-5f)));
+            auto comp_mid_v_lo = saturate<V_float>(3.0f * (1.0f - mid_dif_v_f_lo * inv_thresh_mid_lo));
+            auto comp_mid_v_hi = saturate<V_float>(3.0f * (1.0f - mid_dif_v_f_hi * inv_thresh_mid_hi));
 
-            auto comp_mid_h_lo = saturate<V_float>(3.0f * (1.0f - mid_dif_h_f_lo / max(current_thresh_mid_dif_lo, 1e-5f)));
-            auto comp_mid_h_hi = saturate<V_float>(3.0f * (1.0f - mid_dif_h_f_hi / max(current_thresh_mid_dif_hi, 1e-5f)));
+            auto comp_mid_h_lo = saturate<V_float>(3.0f * (1.0f - mid_dif_h_f_lo * inv_thresh_mid_lo));
+            auto comp_mid_h_hi = saturate<V_float>(3.0f * (1.0f - mid_dif_h_f_hi * inv_thresh_mid_hi));
 
             auto product_comps_lo = comp_avg_lo * comp_max_lo * comp_mid_v_lo * comp_mid_h_lo;
             auto product_comps_hi = comp_avg_hi * comp_max_hi * comp_mid_v_hi * comp_mid_h_hi;
@@ -603,13 +619,50 @@ namespace DEBAND_NAMESPACE {
         const int current_input_mode = params.input_mode;
 
         float tan_thresh = 0.0f;
-        if constexpr (sample_mode == 7)
-        {
+        float angle_boost_factor = 1.0f;
+        if constexpr (sample_mode == 7) {
             const float max_angle_rad = params.max_angle * static_cast<float>(M_PI);
             constexpr float half_pi = 1.57079632679f;
             tan_thresh = (max_angle_rad >= half_pi) ? 1e6f : std::tan(max_angle_rad);
+
+            angle_boost_factor = params.angle_boost;
+        }        
+
+        float inv_thresh_base_avg = 0.0f;
+        float inv_thresh_base_max = 0.0f;
+        float inv_thresh_base_mid = 0.0f;
+
+        float inv_thresh_boosted_avg = 0.0f;
+        float inv_thresh_boosted_max = 0.0f;
+        float inv_thresh_boosted_mid = 0.0f;
+
+        if constexpr (sample_mode >= 6) {
+            const float base_thresh_avg = static_cast<float>(params.threshold);
+            const float base_thresh_max = static_cast<float>(params.threshold1);
+            const float base_thresh_mid = static_cast<float>(params.threshold2);
+
+            const float boosted_thresh_avg = base_thresh_avg * angle_boost_factor;
+            const float boosted_thresh_max = base_thresh_max * angle_boost_factor;
+            const float boosted_thresh_mid = base_thresh_mid * angle_boost_factor;
+
+            inv_thresh_base_avg = 1.0f / std::max(base_thresh_avg, 1e-5f);
+            inv_thresh_base_max = 1.0f / std::max(base_thresh_max, 1e-5f);
+            inv_thresh_base_mid = 1.0f / std::max(base_thresh_mid, 1e-5f);
+
+            inv_thresh_boosted_avg = 1.0f / std::max(boosted_thresh_avg, 1e-5f);
+            inv_thresh_boosted_max = 1.0f / std::max(boosted_thresh_max, 1e-5f);
+            inv_thresh_boosted_mid = 1.0f / std::max(boosted_thresh_mid, 1e-5f);
         }
-        const V_float v_tan_thresh(tan_thresh);
+
+        v_thresh_params thresh_params{
+            .v_tan_thresh = V_float(tan_thresh),
+            .v_inv_thresh_base_avg = V_float(inv_thresh_base_avg),
+            .v_inv_thresh_base_max = V_float(inv_thresh_base_max),
+            .v_inv_thresh_base_mid = V_float(inv_thresh_base_mid),
+            .v_inv_thresh_boosted_avg = V_float(inv_thresh_boosted_avg),
+            .v_inv_thresh_boosted_max = V_float(inv_thresh_boosted_max),
+            .v_inv_thresh_boosted_mid = V_float(inv_thresh_boosted_mid),
+        };
 
         for (int row = 0; row < params.plane_height_in_pixels; ++row) {
             const unsigned char* src_px_row_base = params.src_plane_ptr + static_cast<intptr_t>(params.src_pitch) * row;
@@ -666,7 +719,7 @@ namespace DEBAND_NAMESPACE {
 
                 auto dst_pixels_data = process_pixels_avx2_avx512<V_ushort, V_short, sample_mode, blur_first, dither_algo>(src_pixels_data,
                     change, ref_pixels_1, ref_pixels_2, ref_pixels_3, ref_pixels_4, clamp_high_add, clamp_high_sub, clamp_low,
-                    need_clamping, row, col, context_buffer, info_ptr_row_base + col, params, upsample_to_16_shift_bits, v_tan_thresh);
+                    need_clamping, row, col, context_buffer, info_ptr_row_base + col, params, upsample_to_16_shift_bits, thresh_params);
 
                 if (output_mode == LOW_BIT_DEPTH) {
                     auto p = dst_pixels_data >> downshift_bits;
