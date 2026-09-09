@@ -30,17 +30,22 @@ struct Vec4f
         v = _mm_loadu_ps((const float*)p);
         return *this;
     }
-
-    Vec4fb operator <= (Vec4f const& b) const
-    {
-        return _mm_cmple_ps(v, b.v);
-    }
-
-    Vec4f operator * (Vec4f const& b) const
-    {
-        return _mm_mul_ps(v, b.v);
-    }
 };
+
+static inline Vec4fb operator <= (Vec4f const a, Vec4f const b)
+{
+    return _mm_cmple_ps(a.v, b.v);
+}
+
+static inline Vec4fb operator > (Vec4f const a, Vec4f const b)
+{
+    return _mm_cmpgt_ps(a.v, b.v);
+}
+
+static inline Vec4f operator * (Vec4f const a, Vec4f const b)
+{
+    return _mm_mul_ps(a.v, b.v);
+}
 
 static inline Vec4f select(Vec4fb const& mask, Vec4f const& a, Vec4f const& b)
 {
