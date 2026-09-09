@@ -20,18 +20,6 @@ namespace DEBAND_NAMESPACE {
 
 #if INSTRSET >= 10 // AVX512VL
     using V_int = Vec16i;
-    using V_float =
-        std::conditional_t<std::is_same_v<V_int, Vec4i>, Vec4f, std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec8f, Vec16f>>;
-    using V_fbool =
-        std::conditional_t<std::is_same_v<V_int, Vec4i>, Vec4fb, std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec8fb, Vec16fb>>;
-    using V_ushort =
-        std::conditional_t<std::is_same_v<V_int, Vec4i>, Vec8us, std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec16us, Vec32us>>;
-    using V_short =
-        std::conditional_t<std::is_same_v<V_int, Vec4i>, Vec8s, std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec16s, Vec32s>>;
-    using V_sbool =
-        std::conditional_t<std::is_same_v<V_int, Vec4i>, Vec8sb, std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec16sb, Vec32sb>>;
-    using V_uchar =
-        std::conditional_t<std::is_same_v<V_int, Vec4i>, Vec16uc, std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec32uc, Vec64uc>>;
     inline __m512i get_zero_int() noexcept
     {
         return zero_si512();
@@ -40,18 +28,6 @@ namespace DEBAND_NAMESPACE {
     static constexpr int simd_align = 64;
 #elif INSTRSET >= 8 // AVX2
     using V_int = Vec8i;
-    using V_float =
-        std::conditional_t<std::is_same_v<V_int, Vec4i>, Vec4f, std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec8f, Vec16f>>;
-    using V_fbool =
-        std::conditional_t<std::is_same_v<V_int, Vec4i>, Vec4fb, std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec8fb, Vec16fb>>;
-    using V_ushort =
-        std::conditional_t<std::is_same_v<V_int, Vec4i>, Vec8us, std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec16us, Vec32us>>;
-    using V_short =
-        std::conditional_t<std::is_same_v<V_int, Vec4i>, Vec8s, std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec16s, Vec32s>>;
-    using V_sbool =
-        std::conditional_t<std::is_same_v<V_int, Vec4i>, Vec8sb, std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec16sb, Vec32sb>>;
-    using V_uchar =
-        std::conditional_t<std::is_same_v<V_int, Vec4i>, Vec16uc, std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec32uc, Vec64uc>>;
     inline __m256i get_zero_int() noexcept
     {
         return zero_si256();
@@ -59,6 +35,13 @@ namespace DEBAND_NAMESPACE {
 
     static constexpr int simd_align = 32;
 #endif
+
+    using V_float = std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec8f, Vec16f>;
+    using V_fbool = std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec8fb, Vec16fb>;
+    using V_ushort = std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec16us, Vec32us>;
+    using V_short = std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec16s, Vec32s>;
+    using V_sbool = std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec16sb, Vec32sb>;
+    using V_uchar = std::conditional_t<std::is_same_v<V_int, Vec8i>, Vec32uc, Vec64uc>;
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -166,78 +149,70 @@ namespace DEBAND_NAMESPACE {
         return V_bool(a < threshold);
     }
 
-    template <typename V, typename V_float>
-    static __forceinline V_float gather_pixel_values_avx2_avx512(const process_plane_params& params, V const y_coords, V const x_coords,
+    template <typename V, PIXEL_MODE input_mode>
+    static __forceinline V gather_pixel_values_avx2_avx512(const process_plane_params& params, V const y_coords, V const x_coords,
         int upsample_shift)
     {
         auto clamped_y = max(V(0), min(y_coords, params.plane_height_in_pixels - 1));
         auto clamped_x = max(V(0), min(x_coords, params.plane_width_in_pixels - 1));
 
         V pitch(params.src_pitch);
-        V pixel_bytes_v((params.input_mode == HIGH_BIT_DEPTH_INTERLEAVED) ? 2 : 1);
-
+        V pixel_bytes_v((input_mode == HIGH_BIT_DEPTH_INTERLEAVED) ? 2 : 1);
         auto byte_offsets = clamped_y * pitch + clamped_x * pixel_bytes_v;
 
         const unsigned char* base_ptr = params.src_plane_ptr;
 
-        alignas(simd_align)
-            int32_t offsets[V_int().size()];
-        byte_offsets.store(offsets);
+        if constexpr (std::is_same_v<V, Vec8i>) {
+            V offsets = byte_offsets;
+            V gathered = _mm256_i32gather_epi32(reinterpret_cast<const int*>(base_ptr), offsets, 1);
 
-        auto shorts_i32 = [&]() {
-            if (params.input_mode == LOW_BIT_DEPTH) {
-                alignas(8)
-                    uint8_t pixels_buf[V_int().size()];
-
-                for (int i = 0; i < V_int().size(); ++i) {
-                    const unsigned char* pixel_address = base_ptr + offsets[i];
-                    pixels_buf[i] = *pixel_address;
-                }
-
-                if constexpr (std::is_same_v<V, Vec4i>)
-                    return V().load_4uc(pixels_buf);
-                else if constexpr (std::is_same_v<V, Vec8i>)
-                    return V().load_8uc(pixels_buf);
-                else
-                    return V().load_16uc(pixels_buf);
+            if constexpr (input_mode == LOW_BIT_DEPTH) {
+                V pixels_v(gathered & V(0x000000FF));
+                pixels_v <<= upsample_shift;
+                return pixels_v;
             }
             else {
-                alignas(16)
-                    uint16_t pixels_buf[V_int().size()];
-
-                for (int i = 0; i < V_int().size(); ++i) {
-                    const unsigned char* pixel_address = base_ptr + offsets[i];
-                    pixels_buf[i] = *reinterpret_cast<const uint16_t*>(pixel_address);
-                }
-
-                if constexpr (std::is_same_v<V, Vec4i>)
-                    return V().load_4us(pixels_buf);
-                else if constexpr (std::is_same_v<V, Vec8i>)
-                    return V().load_8us(pixels_buf);
-                else
-                    return V().load_16us(pixels_buf);
+                V pixels_v(gathered & V(0x0000FFFF));
+                pixels_v <<= upsample_shift;
+                return pixels_v;
             }
-            }();
+        }
+        else {
+            V offsets = byte_offsets;
+            V gathered = _mm512_i32gather_epi32(offsets, base_ptr, 1);
 
-        return to_float(shorts_i32 << upsample_shift);
+            if constexpr (input_mode == LOW_BIT_DEPTH) {
+                V pixels_v(gathered & V(0x000000FF));
+                pixels_v <<= upsample_shift;
+                return pixels_v;
+            }
+            else {
+                V pixels_v(gathered & V(0x0000FFFF));
+                pixels_v <<= upsample_shift;
+                return pixels_v;
+            }
+        }
     }
 
-    template <typename V, typename V_float>
+    template <typename V, PIXEL_MODE input_mode>
     static __forceinline void calculate_gradient_vector_avx2_avx512(const process_plane_params& params, const V& y_coords, const V& x_coords,
         int read_distance, int upsample_shift, V_float& out_gx, V_float& out_gy)
     {
         V rd(read_distance);
-        auto p00 = gather_pixel_values_avx2_avx512<V, V_float>(params, y_coords - rd, x_coords - rd, upsample_shift);
-        auto p10 = gather_pixel_values_avx2_avx512<V, V_float>(params, y_coords - rd, x_coords, upsample_shift);
-        auto p20 = gather_pixel_values_avx2_avx512<V, V_float>(params, y_coords - rd, x_coords + rd, upsample_shift);
-        auto p01 = gather_pixel_values_avx2_avx512<V, V_float>(params, y_coords, x_coords - rd, upsample_shift);
-        auto p21 = gather_pixel_values_avx2_avx512<V, V_float>(params, y_coords, x_coords + rd, upsample_shift);
-        auto p02 = gather_pixel_values_avx2_avx512<V, V_float>(params, y_coords + rd, x_coords - rd, upsample_shift);
-        auto p12 = gather_pixel_values_avx2_avx512<V, V_float>(params, y_coords + rd, x_coords, upsample_shift);
-        auto p22 = gather_pixel_values_avx2_avx512<V, V_float>(params, y_coords + rd, x_coords + rd, upsample_shift);
+        auto p00 = gather_pixel_values_avx2_avx512<V, input_mode>(params, y_coords - rd, x_coords - rd, upsample_shift);
+        auto p10 = gather_pixel_values_avx2_avx512<V, input_mode>(params, y_coords - rd, x_coords, upsample_shift);
+        auto p20 = gather_pixel_values_avx2_avx512<V, input_mode>(params, y_coords - rd, x_coords + rd, upsample_shift);
+        auto p01 = gather_pixel_values_avx2_avx512<V, input_mode>(params, y_coords, x_coords - rd, upsample_shift);
+        auto p21 = gather_pixel_values_avx2_avx512<V, input_mode>(params, y_coords, x_coords + rd, upsample_shift);
+        auto p02 = gather_pixel_values_avx2_avx512<V, input_mode>(params, y_coords + rd, x_coords - rd, upsample_shift);
+        auto p12 = gather_pixel_values_avx2_avx512<V, input_mode>(params, y_coords + rd, x_coords, upsample_shift);
+        auto p22 = gather_pixel_values_avx2_avx512<V, input_mode>(params, y_coords + rd, x_coords + rd, upsample_shift);
 
-        out_gx = (p20 + 2.0f * p21 + p22) - (p00 + 2.0f * p01 + p02);
-        out_gy = (p00 + 2.0f * p10 + p20) - (p02 + 2.0f * p12 + p22);
+        auto gx = (p20 + (p21 << 1) + p22) - (p00 + (p01 << 1) + p02);
+        auto gy = (p00 + (p10 << 1) + p20) - (p02 + (p12 << 1) + p22);
+
+        out_gx = to_float(gx);
+        out_gy = to_float(gy);
     }
 
     struct v_thresh_params
@@ -253,7 +228,7 @@ namespace DEBAND_NAMESPACE {
         const V_float v_inv_thresh_boosted_mid;
     };
 
-    template<typename V, typename V_signed, int sample_mode, bool blur_first, int dither_algo>
+    template<typename V, typename V_signed, int sample_mode, bool blur_first, int dither_algo, PIXEL_MODE input_mode>
     static auto __forceinline process_pixels_avx2_avx512(V src_pixels, V_signed change, const V& ref_pixels_1, const V& ref_pixels_2,
         const V& ref_pixels_3, const V& ref_pixels_4, const V& clamp_high_add, const V& clamp_high_sub, const V& clamp_low,
         bool need_clamping, int row, int column, void* dither_context, const pixel_dither_info* pdi_ptr, const process_plane_params& params,
@@ -343,12 +318,12 @@ namespace DEBAND_NAMESPACE {
 
                 V_float gx_org_lo;
                 V_float gy_org_lo;
-                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords, base_x_coords_lo, grad_read_distance,
+                calculate_gradient_vector_avx2_avx512<V_int, input_mode>(params, base_y_coords, base_x_coords_lo, grad_read_distance,
                     upsample_to_16_shift_bits, gx_org_lo, gy_org_lo);
 
                 V_float gx_org_hi;
                 V_float gy_org_hi;
-                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords, base_x_coords_hi, grad_read_distance,
+                calculate_gradient_vector_avx2_avx512<V_int, input_mode>(params, base_y_coords, base_x_coords_hi, grad_read_distance,
                     upsample_to_16_shift_bits, gx_org_hi, gy_org_hi);
 
                 alignas(simd_align)
@@ -383,36 +358,36 @@ namespace DEBAND_NAMESPACE {
                 V_float gy_ref;
 
                 auto mag_sq1 = gx_org_lo * gx_org_lo + gy_org_lo * gy_org_lo;
-                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords + y_offsets_h_lo, base_x_coords_lo,
+                calculate_gradient_vector_avx2_avx512<V_int, input_mode>(params, base_y_coords + y_offsets_h_lo, base_x_coords_lo,
                     grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
                 auto use_boost_lo = check_aligned(gx_org_lo, gy_org_lo, mag_sq1, gx_ref, gy_ref);
 
-                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords - y_offsets_h_lo, base_x_coords_lo,
+                calculate_gradient_vector_avx2_avx512<V_int, input_mode>(params, base_y_coords - y_offsets_h_lo, base_x_coords_lo,
                     grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
                 use_boost_lo &= check_aligned(gx_org_lo, gy_org_lo, mag_sq1, gx_ref, gy_ref);
 
-                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords, base_x_coords_lo + x_offsets_w_lo,
+                calculate_gradient_vector_avx2_avx512<V_int, input_mode>(params, base_y_coords, base_x_coords_lo + x_offsets_w_lo,
                     grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
                 use_boost_lo &= check_aligned(gx_org_lo, gy_org_lo, mag_sq1,  gx_ref, gy_ref);
 
-                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords, base_x_coords_lo - x_offsets_w_lo,
+                calculate_gradient_vector_avx2_avx512<V_int, input_mode>(params, base_y_coords, base_x_coords_lo - x_offsets_w_lo,
                     grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
                 use_boost_lo &= check_aligned(gx_org_lo, gy_org_lo, mag_sq1, gx_ref, gy_ref);
 
                 mag_sq1 = gx_org_hi * gx_org_hi + gy_org_hi * gy_org_hi;
-                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords + y_offsets_h_hi, base_x_coords_hi,
+                calculate_gradient_vector_avx2_avx512<V_int, input_mode>(params, base_y_coords + y_offsets_h_hi, base_x_coords_hi,
                     grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
                 auto use_boost_hi = check_aligned(gx_org_hi, gy_org_hi, mag_sq1, gx_ref, gy_ref);
 
-                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords - y_offsets_h_hi, base_x_coords_hi,
+                calculate_gradient_vector_avx2_avx512<V_int, input_mode>(params, base_y_coords - y_offsets_h_hi, base_x_coords_hi,
                     grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
                 use_boost_hi &= check_aligned(gx_org_hi, gy_org_hi, mag_sq1, gx_ref, gy_ref);
 
-                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords, base_x_coords_hi + x_offsets_w_hi,
+                calculate_gradient_vector_avx2_avx512<V_int, input_mode>(params, base_y_coords, base_x_coords_hi + x_offsets_w_hi,
                     grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
                 use_boost_hi &= check_aligned(gx_org_hi, gy_org_hi, mag_sq1, gx_ref, gy_ref);
 
-                calculate_gradient_vector_avx2_avx512<V_int, V_float>(params, base_y_coords, base_x_coords_hi - x_offsets_w_hi,
+                calculate_gradient_vector_avx2_avx512<V_int, input_mode>(params, base_y_coords, base_x_coords_hi - x_offsets_w_hi,
                     grad_read_distance, upsample_to_16_shift_bits, gx_ref, gy_ref);
                 use_boost_hi &= check_aligned(gx_org_hi, gy_org_hi, mag_sq1, gx_ref, gy_ref);
 
@@ -519,15 +494,48 @@ namespace DEBAND_NAMESPACE {
         return dst_pixels;
     }
 
-    template<PIXEL_MODE input_mode>
-    static unsigned short __forceinline read_pixel_avx2_avx512(const unsigned char* base, int offset)
-    {
-        const unsigned char* ptr = base + offset;
+    template<PIXEL_MODE input_mode, typename V = V_int>
+    inline auto gather_us_vec(const unsigned char* base, V offsets1, V offsets2) {
+        if constexpr (std::is_same_v<V, Vec8i>) {
+            V g1 = _mm256_i32gather_epi32(reinterpret_cast<const int*>(base), offsets1, 1);
+            V g2 = _mm256_i32gather_epi32(reinterpret_cast<const int*>(base), offsets2, 1);
+            if constexpr (input_mode == LOW_BIT_DEPTH) {
+                g1 = g1 & V(0x000000FF);
+                g2 = g2 & V(0x000000FF);
+            }
+            else {
+                g1 = g1 & V(0x0000FFFF);
+                g2 = g2 & V(0x0000FFFF);
+            }
 
-        if constexpr (input_mode == LOW_BIT_DEPTH)
-            return *ptr;
-        else
-            return *reinterpret_cast<const unsigned short*>(ptr);
+            return compress_saturated_s2u(g1, g2);
+        }
+        else {
+            V g1 = _mm512_i32gather_epi32(offsets1, base, 1);
+            V g2 = _mm512_i32gather_epi32(offsets2, base, 1);
+
+            if constexpr (input_mode == LOW_BIT_DEPTH)
+            {
+                g1 = g1 & V(0x000000FF);
+                g2 = g2 & V(0x000000FF);
+            }
+            else
+            {
+                g1 = g1 & V(0x0000FFFF);
+                g2 = g2 & V(0x0000FFFF);
+            }
+
+            auto a0 = g1.get_low();
+            auto a1 = g1.get_high();
+
+            auto b0 = g2.get_low();
+            auto b1 = g2.get_high();
+
+            auto pack_a = compress_saturated_s2u(a0, a1);
+            auto pack_b = compress_saturated_s2u(b0, b1);
+
+            return Vec32us(pack_a, pack_b);
+        }
     }
 
     template<typename V, int sample_mode, int dither_algo, PIXEL_MODE input_mode>
@@ -535,15 +543,6 @@ namespace DEBAND_NAMESPACE {
         const process_plane_params& params, int shift, const unsigned char* src_px_start, const char* info_data_start,
         V& ref_pixels_1, V& ref_pixels_2, V& ref_pixels_3, V& ref_pixels_4)
     {
-        alignas(simd_align)
-            unsigned short tmp_1[V_ushort().size()];
-        alignas(simd_align)
-            unsigned short tmp_2[V_ushort().size()];
-        alignas(simd_align)
-            unsigned short tmp_3[V_ushort().size()];
-        alignas(simd_align)
-            unsigned short tmp_4[V_ushort().size()];
-
         const int i_fix_step = (input_mode == HIGH_BIT_DEPTH_INTERLEAVED ? 2 : 1);
 
         const int* offsets_v1 = reinterpret_cast<const int*>(info_data_start);
@@ -551,27 +550,28 @@ namespace DEBAND_NAMESPACE {
         const int* offsets_v2 = offsets_h1 + V_int().size();
         const int* offsets_h2 = offsets_v2 + V_int().size();
 
-        int i_fix = 0;
-        for (int i = 0; i < V_int().size(); ++i) {
-            tmp_1[i] = read_pixel_avx2_avx512<input_mode>(src_px_start, i_fix + offsets_v1[i]);
-            tmp_2[i] = read_pixel_avx2_avx512<input_mode>(src_px_start, i_fix - offsets_v1[i]);
-            tmp_3[i] = read_pixel_avx2_avx512<input_mode>(src_px_start, i_fix + offsets_h1[i]);
-            tmp_4[i] = read_pixel_avx2_avx512<input_mode>(src_px_start, i_fix - offsets_h1[i]);
-            i_fix += i_fix_step;
-        }
+#if INSTRSET >= 10 // AVX512VL
+        V_int i_fix_vec1 = V_int(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15) * i_fix_step;
+        V_int i_fix_vec2 = i_fix_vec1 + V_int(16 * i_fix_step);
+#elif INSTRSET >= 8 // AVX2
+        V_int i_fix_vec1 = V_int(0, 1, 2, 3, 4, 5, 6, 7) * i_fix_step;
+        V_int i_fix_vec2 = i_fix_vec1 + V_int(8 * i_fix_step);
+#endif
 
-        for (int i = 0; i < V_int().size(); ++i) {
-            tmp_1[i + V_int().size()] = read_pixel_avx2_avx512<input_mode>(src_px_start, i_fix + offsets_v2[i]);
-            tmp_2[i + V_int().size()] = read_pixel_avx2_avx512<input_mode>(src_px_start, i_fix - offsets_v2[i]);
-            tmp_3[i + V_int().size()] = read_pixel_avx2_avx512<input_mode>(src_px_start, i_fix + offsets_h2[i]);
-            tmp_4[i + V_int().size()] = read_pixel_avx2_avx512<input_mode>(src_px_start, i_fix - offsets_h2[i]);
-            i_fix += i_fix_step;
-        }
+        auto v_plus_1 = i_fix_vec1 + V_int().load(offsets_v1);
+        auto v_minus_1 = i_fix_vec1 - V_int().load(offsets_v1);
+        auto h_plus_1 = i_fix_vec1 + V_int().load(offsets_h1);
+        auto h_minus_1 = i_fix_vec1 - V_int().load(offsets_h1);
 
-        ref_pixels_1 = V().load(tmp_1) << shift;
-        ref_pixels_2 = V().load(tmp_2) << shift;
-        ref_pixels_3 = V().load(tmp_3) << shift;
-        ref_pixels_4 = V().load(tmp_4) << shift;
+        auto v_plus_2 = i_fix_vec2 + V_int().load(offsets_v2);
+        auto v_minus_2 = i_fix_vec2 - V_int().load(offsets_v2);
+        auto h_plus_2 = i_fix_vec2 + V_int().load(offsets_h2);
+        auto h_minus_2 = i_fix_vec2 - V_int().load(offsets_h2);
+
+        ref_pixels_1 = gather_us_vec<input_mode>(src_px_start, v_plus_1, v_plus_2) << shift;
+        ref_pixels_2 = gather_us_vec<input_mode>(src_px_start, v_minus_1, v_minus_2) << shift;
+        ref_pixels_3 = gather_us_vec<input_mode>(src_px_start, h_plus_1, h_plus_2) << shift;
+        ref_pixels_4 = gather_us_vec<input_mode>(src_px_start, h_minus_1, h_minus_2) << shift;
     }
 
     std::mutex cache_mutex_avx2_avx512;
@@ -669,14 +669,14 @@ namespace DEBAND_NAMESPACE {
             inv_thresh_boosted_mid = 1.0f / std::max(boosted_thresh_mid, 1e-5f);
         }
 
-        v_thresh_params thresh_params{
-            .v_tan_thresh = V_float(tan_thresh),
-            .v_inv_thresh_base_avg = V_float(inv_thresh_base_avg),
-            .v_inv_thresh_base_max = V_float(inv_thresh_base_max),
-            .v_inv_thresh_base_mid = V_float(inv_thresh_base_mid),
-            .v_inv_thresh_boosted_avg = V_float(inv_thresh_boosted_avg),
-            .v_inv_thresh_boosted_max = V_float(inv_thresh_boosted_max),
-            .v_inv_thresh_boosted_mid = V_float(inv_thresh_boosted_mid),
+        v_thresh_params thresh_params = {
+            V_float(tan_thresh),
+            V_float(inv_thresh_base_avg),
+            V_float(inv_thresh_base_max),
+            V_float(inv_thresh_base_mid),
+            V_float(inv_thresh_boosted_avg),
+            V_float(inv_thresh_boosted_max),
+            V_float(inv_thresh_boosted_mid),
         };
 
         for (int row = 0; row < params.plane_height_in_pixels; ++row) {
@@ -732,9 +732,17 @@ namespace DEBAND_NAMESPACE {
 
                 auto change = V_short().load(current_grain_ptr);
 
-                auto dst_pixels_data = process_pixels_avx2_avx512<V_ushort, V_short, sample_mode, blur_first, dither_algo>(src_pixels_data,
-                    change, ref_pixels_1, ref_pixels_2, ref_pixels_3, ref_pixels_4, clamp_high_add, clamp_high_sub, clamp_low,
-                    need_clamping, row, col, context_buffer, info_ptr_row_base + col, params, upsample_to_16_shift_bits, thresh_params);
+                V_ushort dst_pixels_data;
+                if (current_input_mode == LOW_BIT_DEPTH) {
+                    dst_pixels_data = process_pixels_avx2_avx512<V_ushort, V_short, sample_mode, blur_first, dither_algo, LOW_BIT_DEPTH>(
+                        src_pixels_data, change, ref_pixels_1, ref_pixels_2, ref_pixels_3, ref_pixels_4, clamp_high_add, clamp_high_sub, clamp_low,
+                        need_clamping, row, col, context_buffer, info_ptr_row_base + col, params, upsample_to_16_shift_bits, thresh_params);
+                }
+                else {
+                    dst_pixels_data = process_pixels_avx2_avx512<V_ushort, V_short, sample_mode, blur_first, dither_algo, HIGH_BIT_DEPTH_INTERLEAVED>(
+                        src_pixels_data, change, ref_pixels_1, ref_pixels_2, ref_pixels_3, ref_pixels_4, clamp_high_add, clamp_high_sub, clamp_low,
+                        need_clamping, row, col, context_buffer, info_ptr_row_base + col, params, upsample_to_16_shift_bits, thresh_params);
+                }
 
                 if (output_mode == LOW_BIT_DEPTH) {
                     auto p = dst_pixels_data >> downshift_bits;
