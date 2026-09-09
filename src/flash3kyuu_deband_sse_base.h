@@ -205,9 +205,19 @@ static __forceinline __m128i convert_float_x2_to_u16(const __m128 val_f_lo, cons
     return _mm_packus_epi32(val_i_lo_32, val_i_hi_32);
 }
 
-static __forceinline __m128 _mm_pow_ps_scalar_approx(__m128 base, float exponent)
+static __forceinline __m128 fast_pow01_sse(__m128 x)
 {
-    return pow(Vec4f(base), exponent);
+    __m128 is_zero = _mm_cmpeq_ps(x, _mm_setzero_ps());
+    __m128 one = _mm_set1_ps(1.0f);
+    x = _mm_or_ps(_mm_andnot_ps(is_zero, x), _mm_and_ps(is_zero, one));
+
+    __m128i xi = _mm_castps_si128(x);
+    __m128 xi_f = _mm_cvtepi32_ps(xi);
+    __m128 out_f = _mm_add_ps(_mm_mul_ps(xi_f, _mm_set1_ps(0.1f)), _mm_set1_ps(958817894.0f));
+    __m128i out_i = _mm_cvttps_epi32(out_f);
+    __m128 result = _mm_castsi128_ps(out_i);
+
+    return _mm_andnot_ps(is_zero, result);
 }
 
 static __forceinline __m128 abs_ps(__m128 x)
@@ -565,7 +575,7 @@ static __m128i __forceinline process_pixels_mode12_high_part(__m128i src_pixels,
 
             __m128 product_comps = _mm_mul_ps(_mm_mul_ps(comp_avg, comp_max), _mm_mul_ps(comp_mid_v, comp_mid_h));
 
-            __m128 factor = _mm_pow_ps_scalar_approx(product_comps, 0.1f);
+            __m128 factor = fast_pow01_sse(product_comps);
 
             __m128 blended_f = _mm_add_ps(src_f, _mm_mul_ps(diff_avg_src, factor));
 

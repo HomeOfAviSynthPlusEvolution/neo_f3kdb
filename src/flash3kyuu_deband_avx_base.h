@@ -106,6 +106,21 @@ namespace DEBAND_NAMESPACE {
         return max(0.0f, min(1.0f, v));
     }
 
+    template <typename V_float, typename V_int>
+    static __forceinline V_float fast_pow01(V_float x)
+    {
+        auto is_zero = (x == 0.0f);
+        x = select(is_zero, 1.0f, x);
+
+        V_int xi = reinterpret_i(x);
+        V_float xi_f = to_float(xi);
+        V_float out_f = xi_f * 0.1f + 958817894.0f;
+        V_int out_i = truncatei(out_f);
+        V_float result = reinterpret_f(out_i);
+
+        return select(is_zero, 0.0f, result);
+    }
+
     template <typename V, int sample_mode>
     static __forceinline void process_plane_info_block_avx2_avx512_px(pixel_dither_info*& info_ptr, const V& src_pitch_vector,
         const int width_subsample, const int height_subsample, const int pixel_step_shift_bits, char*& info_data_stream)
@@ -353,7 +368,7 @@ namespace DEBAND_NAMESPACE {
                     const V_float& gy2) {
                     const auto cross = abs(gx1 * gy2 - gy1 * gx2);
                     const auto dot = abs(gx1 * gx2 + gy1 * gy2);
-                    
+
                     const auto mag_sq2 = gx2 * gx2 + gy2 * gy2;
 
                     constexpr float flat_epsilon_sq = 1.0f;
@@ -459,8 +474,8 @@ namespace DEBAND_NAMESPACE {
             auto product_comps_lo = comp_avg_lo * comp_max_lo * comp_mid_v_lo * comp_mid_h_lo;
             auto product_comps_hi = comp_avg_hi * comp_max_hi * comp_mid_v_hi * comp_mid_h_hi;
 
-            auto factor_lo = pow(product_comps_lo, 0.1f);
-            auto factor_hi = pow(product_comps_hi, 0.1f);
+            auto factor_lo = fast_pow01<V_float, V_int>(product_comps_lo);
+            auto factor_hi = fast_pow01<V_float, V_int>(product_comps_hi);
 
             V_float blended_f_lo = src_f_lo + diff_avg_src_lo * factor_lo;
             V_float blended_f_hi = src_f_hi + diff_avg_src_hi * factor_hi;
@@ -603,7 +618,7 @@ namespace DEBAND_NAMESPACE {
         }
         else {
             cache = static_cast<info_cache_avx2_avx512*>(malloc(sizeof(info_cache_avx2_avx512)));
-            if (cache) {                
+            if (cache) {
                 size_t cache_size = blocks_per_row * params.plane_height_in_pixels * info_cache_block_size;
                 info_data_stream = static_cast<char*>(_aligned_malloc(cache_size, simd_align));
                 if (info_data_stream) {
@@ -626,7 +641,7 @@ namespace DEBAND_NAMESPACE {
             tan_thresh = (max_angle_rad >= half_pi) ? 1e6f : std::tan(max_angle_rad);
 
             angle_boost_factor = params.angle_boost;
-        }        
+        }
 
         float inv_thresh_base_avg = 0.0f;
         float inv_thresh_base_max = 0.0f;
