@@ -53,6 +53,24 @@ static __inline float calculate_ratio_term(float diff, float thresh)
     return 1.0f - std::abs(diff) / thresh;
 };
 
+static __inline float fast_pow01_scalar(float x)
+{
+    if (x == 0.0f)
+        return 0.0f;
+
+    int32_t xi;
+    std::memcpy(&xi, &x, sizeof(float));
+
+    float xi_f = static_cast<float>(xi);
+    float out_f = xi_f * 0.1f + 958817894.0f;
+    int32_t out_i = static_cast<int32_t>(out_f);
+
+    float result;
+    std::memcpy(&result, &out_i, sizeof(float));
+
+    return result;
+}
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -272,10 +290,10 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                 const float mid_dif_h_f = std::abs(ref_1_w_f + ref_2_w_f - 2.0f * org_pix_f);
 
                 // Calculate the blending factor
-                const float factor = std::pow(saturate(3.0f * calculate_ratio_term(avg_dif_f, thresh_avg_dif_param_f)) *
+                const float factor = fast_pow01_scalar(saturate(3.0f * calculate_ratio_term(avg_dif_f, thresh_avg_dif_param_f)) *
                     saturate(3.0f * calculate_ratio_term(max_dif_f, thresh_max_dif_param_f)) *
                     saturate(3.0f * calculate_ratio_term(mid_dif_v_f, thresh_mid_dif_param_f)) *
-                    saturate(3.0f * calculate_ratio_term(mid_dif_h_f, thresh_mid_dif_param_f)), 0.1f);
+                    saturate(3.0f * calculate_ratio_term(mid_dif_h_f, thresh_mid_dif_param_f)));
 
                 new_pixel = static_cast<int>((org_pix_f + (avg_refs_f - org_pix_f) * factor) + 0.5f);
             }
@@ -352,12 +370,11 @@ static __forceinline void __cdecl process_plane_plainc_mode12_high(const process
                 const float mid_dif_v_f = std::abs(ref_1_h_f + ref_2_h_f - 2.0f * org_pix_f);
                 const float mid_dif_h_f = std::abs(ref_1_w_f + ref_2_w_f - 2.0f * org_pix_f);
 
-                const float factor = std::pow(
+                const float factor = fast_pow01_scalar(
                     saturate(3.0f * calculate_ratio_term(avg_dif_f, current_thresh_avg_dif)) *
                     saturate(3.0f * calculate_ratio_term(max_dif_f, current_thresh_max_dif)) *
                     saturate(3.0f * calculate_ratio_term(mid_dif_v_f, current_thresh_mid_dif)) *
-                    saturate(3.0f * calculate_ratio_term(mid_dif_h_f, current_thresh_mid_dif)),
-                    0.1f);
+                    saturate(3.0f * calculate_ratio_term(mid_dif_h_f, current_thresh_mid_dif)));
 
                 new_pixel = static_cast<int>((org_pix_f + (avg_refs_f - org_pix_f) * factor) + 0.5f);
             }
