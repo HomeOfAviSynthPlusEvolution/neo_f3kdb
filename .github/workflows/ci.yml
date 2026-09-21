@@ -48,16 +48,16 @@ jobs:
           python -m pip install vapoursynth
 
           # Download and unpack AviSynth+
-          Invoke-WebRequest -Uri "https://github.com/AviSynth/AviSynthPlus/releases/download/v3.7.5/AviSynthPlus_3.7.5_20250420-filesonly.7z" -OutFile "avisynth.7z"
+          Invoke-WebRequest -Uri "https://github.com/AviSynth/AviSynthPlus/releases/download/v3.7.5/AviSynthPlus_3.7.5_20250420-filesonly.7z" -OutFile "avisynth.7z" -MaximumRetryCount 5 -RetryIntervalSec 3
           7z x avisynth.7z -oavs
           Get-ChildItem -Path avs -Filter "AviSynth.dll" -Recurse | Where-Object { $_.DirectoryName -match "x64|system64|x86_64" } | Select-Object -First 1 | ForEach-Object { Copy-Item $_.FullName -Destination "C:\Windows\System32\avisynth.dll" -Force }
 
           # Download BestSource (supports VS & AVS)
-          Invoke-WebRequest -Uri "https://github.com/vapoursynth/bestsource/releases/download/R21/BestSource-R21-win64-msvc.zip" -OutFile "bestsource.zip"
+          Invoke-WebRequest -Uri "https://github.com/vapoursynth/bestsource/releases/download/R21/BestSource-R21-win64-msvc.zip" -OutFile "bestsource.zip" -MaximumRetryCount 5 -RetryIntervalSec 3
           7z x bestsource.zip -obs
 
           # Download FFMS2 (supports VS & AVS)
-          Invoke-WebRequest -Uri "https://github.com/FFMS/ffms2/releases/download/5.0/ffms2-5.0-msvc.7z" -OutFile "ffms2.7z"
+          Invoke-WebRequest -Uri "https://github.com/FFMS/ffms2/releases/download/5.0/ffms2-5.0-msvc.7z" -OutFile "ffms2.7z" -MaximumRetryCount 5 -RetryIntervalSec 3
           7z x ffms2.7z -offms2
 
           # Configure AviSynth+ plugin autoloading and registry
