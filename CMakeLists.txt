@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(neo_f3kdb VERSION 10.0.0 LANGUAGES CXX)
+project(neo_f3kdb VERSION 11.0.0 LANGUAGES CXX)
 
 set(LIBRARY_NAME "neo-f3kdb")
 add_library(${LIBRARY_NAME} SHARED)
