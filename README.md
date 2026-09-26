@@ -98,7 +98,7 @@ o
 
 7. (Floating-point) An extension of sample_mode=6 that adds a gradient angle check for more intelligent detail preservation.
 
-    Direct implementation of https://forum.doom9.org/showthread.php?p=1652256#post1652256.
+    Based on https://forum.doom9.org/showthread.php?p=1652256#post1652256. This uses an angular alignment check instead atan in the original description.
 
     `blur_first` doesn't have effect for this sample mode.
 
