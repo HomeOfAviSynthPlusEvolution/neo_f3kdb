@@ -9,99 +9,111 @@
 
 struct DSFormat
 {
-  bool IsFamilyYUV {true}, IsFamilyRGB {false}, IsFamilyYCC {false};
-  bool IsInteger {true}, IsFloat {false};
-  int SSW {0}, SSH {0};
-  int BitsPerSample {8}, BytesPerSample {1};
-  int Planes {3};
-  DSFormat() {}
-  DSFormat(const VSFormat* format)
-  {
-    Planes = format->numPlanes;
-    IsFamilyYUV = format->colorFamily == cmYUV || format->colorFamily == cmGray;
-    IsFamilyRGB = format->colorFamily == cmRGB;
-    IsFamilyYCC = format->colorFamily == cmYCoCg;
-    SSW = format->subSamplingW;
-    SSH = format->subSamplingH;
-    BitsPerSample = format->bitsPerSample;
-    BytesPerSample = format->bytesPerSample;
-    IsInteger = format->sampleType == stInteger;
-    IsFloat = format->sampleType == stFloat;
-  }
+	bool IsFamilyYUV{ true };
+	bool IsFamilyRGB{ false };
+	bool IsFamilyGray{ false };
+	bool IsInteger{ true };
+	bool IsFloat{ false };
+	int SSW{ 0 };
+	int SSH{ 0 };
+	int BitsPerSample{ 8 };
+	int BytesPerSample{ 1 };
+	int Planes{ 3 };
 
-  const VSFormat* ToVSFormat(const VSCore* vscore, const VSAPI* vsapi) const
-  {
-    VSColorFamily family = cmYUV;
-    if (IsFamilyYUV)
-      family = Planes == 1 ? cmGray : cmYUV;
-    else if (IsFamilyRGB)
-      family = cmRGB;
-    else if (IsFamilyYCC)
-      family = cmYCoCg;
-    return vsapi->registerFormat(family, IsInteger ? stInteger : stFloat, BitsPerSample, SSW, SSH, const_cast<VSCore*>(vscore));
-  }
+	DSFormat() = default;
 
-  DSFormat(int format)
-  {
-    const int componentBitSizes[8] = {8,16,32,0,0,10,12,14};
-    if (format == VideoInfo::CS_I420)
-      format = VideoInfo::CS_YV12;
+	DSFormat(const VSVideoFormat& format)
+	{
+		Planes = format.numPlanes;
+		IsFamilyYUV = (format.colorFamily == cfYUV);
+		IsFamilyRGB = (format.colorFamily == cfRGB);
+		IsFamilyGray = (format.colorFamily == cfGray);
+		SSW = format.subSamplingW;
+		SSH = format.subSamplingH;
+		BitsPerSample = format.bitsPerSample;
+		BytesPerSample = format.bytesPerSample;
+		IsInteger = (format.sampleType == stInteger);
+		IsFloat = (format.sampleType == stFloat);
+	}
 
-    auto PYUV = VideoInfo::CS_PLANAR | VideoInfo::CS_YUV;
-    IsFamilyYUV = (format & PYUV) == PYUV;
-    auto PRGB = VideoInfo::CS_PLANAR | VideoInfo::CS_BGR;
-    IsFamilyRGB = (format & PRGB) == PRGB;
-    IsFamilyYCC = false;
-    BitsPerSample = componentBitSizes[(format >> VideoInfo::CS_Shift_Sample_Bits) & 7];
-    BytesPerSample = BitsPerSample == 8 ? 1 : BitsPerSample == 32 ? 4 : 2;
-    IsInteger = BitsPerSample < 32;
-    IsFloat = BitsPerSample == 32;
-    if (IsFamilyYUV && (format & VideoInfo::CS_GENERIC_Y) == VideoInfo::CS_GENERIC_Y)
-      Planes = 1;
-    else if (IsFamilyYUV && (format & VideoInfo::CS_YUVA) == VideoInfo::CS_YUVA)
-      Planes = 4;
-    else if (IsFamilyRGB && (format & VideoInfo::CS_RGBA_TYPE) == VideoInfo::CS_RGBA_TYPE)
-      Planes = 4;
+	bool ToVSFormat(VSVideoFormat* outFormat, VSCore* core, const VSAPI* vsapi) const
+	{
+		if (!outFormat || !vsapi || Planes > 3)
+			return false;
 
-    if (IsFamilyYUV && Planes > 1) {
-      SSW = ((format >> VideoInfo::CS_Shift_Sub_Width) + 1) & 3;
-      SSH = ((format >> VideoInfo::CS_Shift_Sub_Height) + 1) & 3;
-    }
-  }
+		int colorFamily = cfUndefined;
+		if (IsFamilyYUV)
+			colorFamily = cfYUV;
+		else if (IsFamilyRGB)
+			colorFamily = cfRGB;
+		else if (IsFamilyGray)
+			colorFamily = cfGray;
 
-  int ToAVSFormat() const
-  {
-    int pixel_format = VideoInfo::CS_PLANAR | (Planes == 3 ? VideoInfo::CS_YUV : VideoInfo::CS_YUVA) | VideoInfo::CS_VPlaneFirst;
-    if (IsFamilyYUV) {
-      pixel_format = VideoInfo::CS_PLANAR | (Planes == 3 ? VideoInfo::CS_YUV : VideoInfo::CS_YUVA) | VideoInfo::CS_VPlaneFirst;
+		int sampleType = IsFloat ? stFloat : stInteger;
+		// VapourSynth requires subSamplingW and subSamplingH to be 0 for RGB and Gray formats
+		int ssw = (colorFamily == cfYUV) ? SSW : 0;
+		int ssh = (colorFamily == cfYUV) ? SSH : 0;
 
-      switch(SSW) {
-        case 0: pixel_format |= VideoInfo::CS_Sub_Width_1; break;
-        case 1: pixel_format |= VideoInfo::CS_Sub_Width_2; break;
-        case 2: pixel_format |= VideoInfo::CS_Sub_Width_4; break;
-      }
+		return vsapi->queryVideoFormat(outFormat, colorFamily, sampleType, BitsPerSample, ssw, ssh, core) != 0;
+	}
 
-      switch(SSH) {
-        case 0: pixel_format |= VideoInfo::CS_Sub_Height_1; break;
-        case 1: pixel_format |= VideoInfo::CS_Sub_Height_2; break;
-        case 2: pixel_format |= VideoInfo::CS_Sub_Height_4; break;
-      }
+	DSFormat(const VideoInfo& vi)
+	{
+		if (!vi.IsPlanar())
+			throw "DualSynth only supports planar formats.";
 
-      if (Planes == 1)
-        pixel_format = VideoInfo::CS_GENERIC_Y;
-    }
-    else if (IsFamilyRGB || IsFamilyYCC)
-      pixel_format = VideoInfo::CS_PLANAR | VideoInfo::CS_BGR | (Planes == 3 ? VideoInfo::CS_RGB_TYPE : VideoInfo::CS_RGBA_TYPE);
+		IsFamilyGray = vi.IsY();
+		IsFamilyYUV = (vi.IsYUV() || vi.IsYUVA()) && !IsFamilyGray;
+		IsFamilyRGB = vi.IsRGB() || vi.IsPlanarRGBA();
 
-    switch(BitsPerSample) {
-      case 8: pixel_format |= VideoInfo::CS_Sample_Bits_8; break;
-      case 10: pixel_format |= VideoInfo::CS_Sample_Bits_10; break;
-      case 12: pixel_format |= VideoInfo::CS_Sample_Bits_12; break;
-      case 14: pixel_format |= VideoInfo::CS_Sample_Bits_14; break;
-      case 16: pixel_format |= VideoInfo::CS_Sample_Bits_16; break;
-      case 32: pixel_format |= VideoInfo::CS_Sample_Bits_32; break;
-    }
+		IsFloat = (vi.ComponentSize() == 4);
+		IsInteger = !IsFloat;
+		Planes = vi.NumComponents();
+		BitsPerSample = vi.BitsPerComponent();
+		BytesPerSample = vi.ComponentSize();
 
-    return pixel_format;
-  }
+		if (IsFamilyYUV && Planes > 1) {
+			SSW = vi.GetPlaneWidthSubsampling(PLANAR_U);
+			SSH = vi.GetPlaneHeightSubsampling(PLANAR_U);
+		}
+	}
+
+	int ToAVSFormat() const
+	{
+		int pixel_format = 0;
+		if (IsFamilyGray) {
+			pixel_format = VideoInfo::CS_GENERIC_Y;
+		}
+		else if (IsFamilyYUV) {
+			if (Planes == 1) {
+				pixel_format = VideoInfo::CS_GENERIC_Y;
+			}
+			else {
+				pixel_format = VideoInfo::CS_PLANAR | (Planes == 4 ? VideoInfo::CS_YUVA : VideoInfo::CS_YUV) | VideoInfo::CS_VPlaneFirst;
+				switch (SSW) {
+				case 0: pixel_format |= VideoInfo::CS_Sub_Width_1; break;
+				case 1: pixel_format |= VideoInfo::CS_Sub_Width_2; break;
+				case 2: pixel_format |= VideoInfo::CS_Sub_Width_4; break;
+				}
+				switch (SSH) {
+				case 0: pixel_format |= VideoInfo::CS_Sub_Height_1; break;
+				case 1: pixel_format |= VideoInfo::CS_Sub_Height_2; break;
+				case 2: pixel_format |= VideoInfo::CS_Sub_Height_4; break;
+				}
+			}
+		}
+		else if (IsFamilyRGB) {
+			pixel_format = VideoInfo::CS_PLANAR | VideoInfo::CS_BGR | (Planes == 4 ? VideoInfo::CS_RGBA_TYPE : VideoInfo::CS_RGB_TYPE);
+		}
+
+		switch (BitsPerSample) {
+		case 8: pixel_format |= VideoInfo::CS_Sample_Bits_8; break;
+		case 10: pixel_format |= VideoInfo::CS_Sample_Bits_10; break;
+		case 12: pixel_format |= VideoInfo::CS_Sample_Bits_12; break;
+		case 14: pixel_format |= VideoInfo::CS_Sample_Bits_14; break;
+		case 16: pixel_format |= VideoInfo::CS_Sample_Bits_16; break;
+		case 32: pixel_format |= VideoInfo::CS_Sample_Bits_32; break;
+		}
+		return pixel_format;
+	}
 };

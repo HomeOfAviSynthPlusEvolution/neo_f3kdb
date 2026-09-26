@@ -39,9 +39,10 @@ struct F3KDB final : Filter {
 
   const char* VSName() const override { return "Deband"; }
   const char* AVSName() const override { return "neo_f3kdb"; }
-  const MtMode AVSMode() const override { return MT_NICE_FILTER; }
-  const VSFilterMode VSMode() const override { return fmParallel; }
-  const std::vector<Param> Params() const override {
+  MtMode AVSMode() const override { return MT_NICE_FILTER; }
+  VSFilterMode VSMode() const override { return fmParallel; }
+  VSRequestPattern GetVSRequestPattern() const override { return rpStrictSpatial; }
+  std::vector<Param> Params() const override {
     return std::vector<Param> {
       Param {"clip", Clip, false, true, true, false},
       Param {"range", Integer},
@@ -252,9 +253,9 @@ struct F3KDB final : Filter {
     }
   }
 
-  DSFrame GetFrame(int n, std::unordered_map<int, DSFrame> in_frames) override
+  DSFrame GetFrame(int n, const std::unordered_map<int, DSFrame>& in_frames) override
   {
-    auto src = in_frames[n];
+    auto src = in_frames.at(n);
     auto dst = src.Create(out_vi);
     auto core = [&](int p) {
       auto src_stride = src.StrideBytes[p];
